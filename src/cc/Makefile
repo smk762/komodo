@@ -22,12 +22,12 @@ $(TARGET): $(SOURCES)
 	$(info Building cclib to src/)
 ifeq ($(OS),Darwin)
 	$(CC_DARWIN) $(CFLAGS_DARWIN) $(DEBUGFLAGS) -o $(TARGET_DARWIN) $(SOURCES)
-else ifeq ($(OS),Linux)
-	$(CC) $(CFLAGS) $(DEBUGFLAGS) -o $(TARGET) $(SOURCES)
+else ifeq ($(HOST),x86_64-w64-mingw32)
+	$(CC_WIN) $(CFLAGS_WIN) $(DEBUGFLAGS) -o $(TARGET_WIN) $(SOURCES)
 #else ifeq ($(WIN_HOST),True) - todo: pass ENV var from build.sh if WIN host
 else
-	$(info WINDOWS)
-	$(CC_WIN) $(CFLAGS_WIN) $(DEBUGFLAGS) -o $(TARGET_WIN) $(SOURCES)
+	$(info LINUX)
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) -o $(TARGET) $(SOURCES)
 endif
 
 clean:
