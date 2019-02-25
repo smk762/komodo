@@ -472,12 +472,25 @@ int32_t rogue_playerdata(struct CCcontract_info *cp,uint256 &origplayergame,uint
 
 int32_t rogue_playerdataspend(CMutableTransaction &mtx,uint256 playertxid,int32_t vout,uint256 origplayergame)
 {
-    int64_t txfee = 10000;
+    int64_t txfee = 10000; CTransaction tx; uint256 hashBlock;
     if ( CCgettxout(playertxid,vout,1) == 1 ) // not sure if this is enough validation
     {
         mtx.vin.push_back(CTxIn(playertxid,vout,CScript()));
         return(0);
-    } else return(-1);
+    }
+    else
+    {
+        vout = 0;
+        if ( myGetTransaction(playertxid,tx,hashBlock) != 0 && tx.vout[vout].nValue == 1 && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() != 0 )
+        {
+            if ( CCgettxout(playertxid,vout,1) == 1 ) // not sure if this is enough validation
+            {
+                mtx.vin.push_back(CTxIn(playertxid,vout,CScript()));
+                return(0);
+            }
+        }
+        return(-1);
+    }
 }
 
 int32_t rogue_findbaton(struct CCcontract_info *cp,uint256 &playertxid,char **keystrokesp,int32_t &numkeys,int32_t &regslot,std::vector<uint8_t> &playerdata,uint256 &batontxid,int32_t &batonvout,int64_t &batonvalue,int32_t &batonht,uint256 gametxid,CTransaction gametx,int32_t maxplayers,char *destaddr,int32_t &numplayers,std::string &symbol,std::string &pname)
@@ -505,7 +518,7 @@ int32_t rogue_findbaton(struct CCcontract_info *cp,uint256 &playertxid,char **ke
     }
     if ( matches == 1 )
     {
-        if ( myIsutxo_spent(spenttxid,gametxid,maxplayers+i+1) < 0 )
+        if ( 1 || myIsutxo_spent(spenttxid,gametxid,maxplayers+i+1) < 0 )
         {
             numvouts = matchtx.vout.size();
             //fprintf(stderr,"matchtxid.%s matches.%d numvouts.%d\n",matchtx.GetHash().GetHex().c_str(),matches,numvouts);
@@ -532,6 +545,7 @@ int32_t rogue_findbaton(struct CCcontract_info *cp,uint256 &playertxid,char **ke
                             return(-2);
                         }
                         txid = spenttxid;
+                        //fprintf(stderr,"next txid.%s/v%d\n",txid.GetHex().c_str(),spentvini);
                         if ( spentvini != 0 )
                             return(-3);
                         if ( keystrokesp != 0 && myGetTransaction(spenttxid,spenttx,hashBlock) != 0 && spenttx.vout.size() >= 2 )
@@ -575,7 +589,7 @@ int32_t rogue_findbaton(struct CCcontract_info *cp,uint256 &playertxid,char **ke
         else
         {
             fprintf(stderr,"already played\n");
-            return(-5);
+            return(-6);
         }
     }
     return(-1);
@@ -894,7 +908,7 @@ char *rogue_extractgame(int32_t makefiles,char *str,int32_t *numkeysp,std::vecto
                 }
                 else
                 {
-                    sprintf(str,"extracted $$$gold.%d hp.%d strength.%d/%d level.%d exp.%d dl.%d\n",endP.gold,endP.hitpoints,endP.strength&0xffff,endP.strength>>16,endP.level,endP.experience,endP.dungeonlevel);
+                    sprintf(str,"extracted $$$gold.%d hp.%d strength.%d/%d level.%d exp.%d dl.%d",endP.gold,endP.hitpoints,endP.strength&0xffff,endP.strength>>16,endP.level,endP.experience,endP.dungeonlevel);
                     fprintf(stderr,"%s\n",str);
                     *numkeysp = numkeys;
                     return(keystrokes);
@@ -956,13 +970,11 @@ UniValue rogue_extract(uint64_t txfee,struct CCcontract_info *cp,cJSON *params)
     return(result);
 }
 
-int32_t rogue_playerdata_validate(uint256 &playertxid,struct CCcontract_info *cp,std::vector<uint8_t> playerdata,uint256 gametxid,CPubKey pk)
+int32_t rogue_playerdata_validate(int64_t *cashoutp,uint256 &playertxid,struct CCcontract_info *cp,std::vector<uint8_t> playerdata,uint256 gametxid,CPubKey pk)
 {
     static uint32_t good,bad; static uint256 prevgame;
-    char str[512],*keystrokes,rogueaddr[64],str2[67]; int32_t i,numkeys; std::vector<uint8_t> newdata; uint64_t seed; CPubKey roguepk; struct rogue_player P;
-    if ( gametxid == prevgame )
-        return(0);
-    prevgame = gametxid;
+    char str[512],*keystrokes,rogueaddr[64],str2[67]; int32_t i,dungeonlevel,numkeys; std::vector<uint8_t> newdata; uint64_t seed,mult = 10; CPubKey roguepk; struct rogue_player P;
+    *cashoutp = 0;
     roguepk = GetUnspendable(cp,0);
     GetCCaddress1of2(cp,rogueaddr,roguepk,pk);
     //fprintf(stderr,"call extractgame\n");
@@ -971,21 +983,35 @@ int32_t rogue_playerdata_validate(uint256 &playertxid,struct CCcontract_info *cp
         //fprintf(stderr,"numkeys.%d rogue_extractgame %s\n",numkeys,gametxid.GetHex().c_str());
         free(keystrokes);
         //fprintf(stderr,"extracted.(%s)\n",str);
+        for (i=0; i<playerdata.size(); i++)
+            ((uint8_t *)&P)[i] = playerdata[i];
+        if ( P.amulet != 0 )
+            mult *= 5;
+        dungeonlevel = P.dungeonlevel;
+        if ( P.amulet != 0 && dungeonlevel < 21 )
+            dungeonlevel = 21;
+        *cashoutp = (uint64_t)P.gold * P.gold * mult * dungeonlevel;
         if ( newdata == playerdata )
         {
-            good++;
-            fprintf(stderr,"%s good.%d bad.%d\n",gametxid.GetHex().c_str(),good,bad);
+            if ( gametxid != prevgame )
+            {
+                prevgame = gametxid;
+                good++;
+                fprintf(stderr,"%s good.%d bad.%d\n",gametxid.GetHex().c_str(),good,bad);
+            }
             return(0);
         }
         newdata[10] = newdata[11] = playerdata[10] = playerdata[11] = 0;
         if ( newdata == playerdata )
         {
-            good++;
-            fprintf(stderr,"%s matched after clearing maxstrength good.%d bad.%d\n",gametxid.GetHex().c_str(),good,bad);
+            if ( gametxid != prevgame )
+            {
+                prevgame = gametxid;
+                good++;
+                fprintf(stderr,"%s matched after clearing maxstrength good.%d bad.%d\n",gametxid.GetHex().c_str(),good,bad);
+            }
             return(0);
         }
-        for (i=0; i<playerdata.size(); i++)
-            ((uint8_t *)&P)[i] = playerdata[i];
         if ( P.gold <= 0 || P.hitpoints <= 0 || (P.strength&0xffff) <= 0 || P.level <= 0 || P.experience <= 0 || P.dungeonlevel <= 0 )
         {
             //P.gold = (P.gold * 8) / 10;
@@ -993,14 +1019,23 @@ int32_t rogue_playerdata_validate(uint256 &playertxid,struct CCcontract_info *cp
             //    playerdata[i] = ((uint8_t *)&P)[i];
             if ( newdata.size() == 0 )
             {
-                good++;
+                if ( gametxid != prevgame )
+                {
+                    prevgame = gametxid;
+                    good++;
+                    fprintf(stderr,"zero value character was killed -> no playerdata, good.%d bad.%d\n",good,bad);
+                }
+                *cashoutp = 0;
                 return(0);
             }
-            fprintf(stderr,"zero value character was killed -> no playerdata, good.%d bad.%d\n",good,bad);
         }
-        bad++;
-        fprintf(stderr,"%s playerdata: gold.%d hp.%d strength.%d/%d level.%d exp.%d dl.%d\n",gametxid.GetHex().c_str(),P.gold,P.hitpoints,P.strength&0xffff,P.strength>>16,P.level,P.experience,P.dungeonlevel);
-        fprintf(stderr,"newdata[%d] != playerdata[%d], numkeys.%d %s pub.%s playertxid.%s good.%d bad.%d\n",(int32_t)newdata.size(),(int32_t)playerdata.size(),numkeys,rogueaddr,pubkey33_str(str2,(uint8_t *)&pk),playertxid.GetHex().c_str(),good,bad);
+        if ( gametxid != prevgame )
+        {
+            prevgame = gametxid;
+            bad++;
+            fprintf(stderr,"%s playerdata: gold.%d hp.%d strength.%d/%d level.%d exp.%d dl.%d\n",gametxid.GetHex().c_str(),P.gold,P.hitpoints,P.strength&0xffff,P.strength>>16,P.level,P.experience,P.dungeonlevel);
+            fprintf(stderr,"newdata[%d] != playerdata[%d], numkeys.%d %s pub.%s playertxid.%s good.%d bad.%d\n",(int32_t)newdata.size(),(int32_t)playerdata.size(),numkeys,rogueaddr,pubkey33_str(str2,(uint8_t *)&pk),playertxid.GetHex().c_str(),good,bad);
+        }
     }
     //fprintf(stderr,"no keys rogue_extractgame %s\n",gametxid.GetHex().c_str());
     return(-1);
@@ -1308,11 +1343,12 @@ UniValue rogue_setname(uint64_t txfee,struct CCcontract_info *cp,cJSON *params)
 
 bool rogue_validate(struct CCcontract_info *cp,int32_t height,Eval *eval,const CTransaction tx)
 {
-    CScript scriptPubKey; std::vector<uint8_t> vopret; uint8_t *script,e,f,funcid; int32_t i,maxplayers,decoded=0,regslot,ind,err,dispflag,gameheight,score,numvouts; CTransaction vintx,gametx; CPubKey pk; uint256 hashBlock,gametxid,tokenid,batontxid,playertxid,ptxid; int64_t buyin; std::vector<uint8_t> playerdata,keystrokes; std::string symbol,pname;
+    CScript scriptPubKey; std::vector<uint8_t> vopret; uint8_t *script,e,f,funcid,tokentx=0; int32_t i,maxplayers,decoded=0,regslot,ind,err,dispflag,gameheight,score,numvouts; CTransaction vintx,gametx; CPubKey pk; uint256 hashBlock,gametxid,txid,tokenid,batontxid,playertxid,ptxid; int64_t buyin,cashout; std::vector<uint8_t> playerdata,keystrokes; std::string symbol,pname;
     if ( strcmp(ASSETCHAINS_SYMBOL,"ROGUE") == 0 && height < 21274 )
         return(true);
     if ( (numvouts= tx.vout.size()) > 1 )
     {
+        txid = tx.GetHash();
         scriptPubKey = tx.vout[numvouts-1].scriptPubKey;
         GetOpReturnData(scriptPubKey,vopret);
         if ( vopret.size() > 2 )
@@ -1321,6 +1357,7 @@ bool rogue_validate(struct CCcontract_info *cp,int32_t height,Eval *eval,const C
             funcid = script[1];
             if ( (e= script[0]) == EVAL_TOKENS )
             {
+                tokentx = 1;
                 if ( (funcid= rogue_highlanderopretdecode(gametxid,tokenid,regslot,pk,playerdata,symbol,pname,scriptPubKey)) == 0 )
                 {
                     if ( (funcid= rogue_registeropretdecode(gametxid,tokenid,playertxid,scriptPubKey)) == 0 )
@@ -1393,10 +1430,14 @@ bool rogue_validate(struct CCcontract_info *cp,int32_t height,Eval *eval,const C
                         // verify pk belongs to this tx
                         if ( playerdata.size() > 0 )
                         {
-                            if ( rogue_playerdata_validate(ptxid,cp,playerdata,gametxid,pk) < 0 )
+                            if ( rogue_playerdata_validate(&cashout,ptxid,cp,playerdata,gametxid,pk) < 0 )
                             {
-                                //fprintf(stderr,"ht.%d gametxid.%s player.%s invalid playerdata[%d]\n",height,gametxid.GetHex().c_str(),ptxid.GetHex().c_str(),(int32_t)playerdata.size());
-                            } //else fprintf(stderr,"ht.%d playertxid.%s validated\n",height,ptxid.GetHex().c_str());
+                                fprintf(stderr,"ht.%d gametxid.%s player.%s invalid playerdata[%d]\n",height,gametxid.GetHex().c_str(),ptxid.GetHex().c_str(),(int32_t)playerdata.size());
+                            }
+                            if ( funcid == 'H' )
+                                cashout *= 2;
+                            if ( tx.vout.size() > 3 ) // orig of 't' has 0 cashout
+                                fprintf(stderr,"ht.%d txid.%s cashout %.8f vs vout2 %.8f\n",height,txid.GetHex().c_str(),(double)cashout/COIN,(double)tx.vout[2].nValue/COIN);
                         }
                         if ( funcid == 'Q' )
                         {
