@@ -347,17 +347,29 @@ int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout)
     return(0);
 }
 
-int32_t CCgettxout(uint256 txid,int32_t vout,int32_t mempoolflag)
+int32_t CCgettxout(uint256 txid,int32_t vout,int32_t mempoolflag,int32_t lockflag)
 {
     CCoins coins;
+    //fprintf(stderr,"CCgettxoud %s/v%d\n",txid.GetHex().c_str(),vout);
     if ( mempoolflag != 0 )
     {
-        LOCK(mempool.cs);
-        CCoinsViewMemPool view(pcoinsTip, mempool);
-        if (!view.GetCoins(txid, coins))
-            return(-1);
-        if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) != 0 )
-            return(-1);
+        if ( lockflag != 0 )
+        {
+            LOCK(mempool.cs);
+            CCoinsViewMemPool view(pcoinsTip, mempool);
+            if (!view.GetCoins(txid, coins))
+                return(-1);
+            else if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) != 0 )
+                return(-1);
+        }
+        else
+        {
+            CCoinsViewMemPool view(pcoinsTip, mempool);
+            if (!view.GetCoins(txid, coins))
+                return(-1);
+            else if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) != 0 )
+                return(-1);
+        }
     }
     else
     {
@@ -399,7 +411,7 @@ int64_t CCfullsupply(uint256 tokenid)
     {
         if (DecodeTokenCreateOpRet(tx.vout[numvouts-1].scriptPubKey,origpubkey,name,description))
         {
-            return(tx.vout[0].nValue);
+            return(tx.vout[1].nValue);
         }
     }
     return(0);
@@ -420,7 +432,8 @@ int64_t CCtoken_balance(char *coinaddr,uint256 reftokenid)
         {
             char str[65];
 			std::vector<CPubKey> voutTokenPubkeys;
-            if ( reftokenid==txid || (DecodeTokenOpRet(tx.vout[numvouts-1].scriptPubKey, evalCode, tokenid, voutTokenPubkeys, vopretExtra) != 0 && reftokenid == tokenid))
+            std::vector<std::pair<uint8_t, vscript_t>>  oprets;
+            if ( reftokenid==txid || (DecodeTokenOpRet(tx.vout[numvouts-1].scriptPubKey, evalCode, tokenid, voutTokenPubkeys, oprets) != 0 && reftokenid == tokenid))
             {
                 sum += it->second.satoshis;
             }
