@@ -1084,8 +1084,8 @@ int32_t rogue_playerdata_validate(int64_t *cashoutp,uint256 &playertxid,struct C
         if ( P.amulet != 0 )
             mult *= 5;
         dungeonlevel = P.dungeonlevel;
-        if ( P.amulet != 0 && dungeonlevel < 21 )
-            dungeonlevel = 21;
+        if ( P.amulet != 0 && dungeonlevel < 26 )
+            dungeonlevel = 26;
         *cashoutp = (uint64_t)P.gold * P.gold * mult * dungeonlevel;
         if ( newdata == playerdata )
         {
@@ -1315,7 +1315,7 @@ UniValue rogue_gameinfo(uint64_t txfee,struct CCcontract_info *cp,cJSON *params)
                         rogue_gameplayerinfo(cp,obj,txid,tx,i+1,maxplayers,myrogueaddr);
                         a.push_back(obj);
                     }
-                    else
+                    else if ( 0 )
                     {
                         sprintf(str,"vout %d+1 is unspent",i);
                         result.push_back(Pair("unspent",str));
