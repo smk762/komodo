@@ -9,7 +9,6 @@ if [ "$HOST" = "x86_64-w64-mingw32" ]; then
   wget https://github.com/KomodoPlatform/rogue/releases/download/0.3.3b-01/x86_64-w64-mingw32.tar.gz
   tar xvfz x86_64-w64-mingw32.tar.gz && rm x86_64-w64-mingw32.tar.gz
   echo lib archive cleaned
-  cd ..
   echo $PWD
   if make -f Makefile_win "$@"; then
     echo rogue.exe build SUCCESSFUL
