@@ -94,12 +94,12 @@ $(LIBUNIVALUE): $(wildcard univalue/lib/*)
 $(LIBCRYPTOCONDITIONS): $(wildcard cryptoconditions/src/*) $(wildcard cryptoconditions/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
 
-	lib_LTLIBRARIES = $(LIBZCASH_CONSENSUS)
-	noinst_LTLIBRARIES = libzcash.la
+lib_LTLIBRARIES = $(LIBZCASH_CONSENSUS)
+noinst_LTLIBRARIES = libzcash.la
 
-	bin_PROGRAMS =
-	noinst_PROGRAMS =
-	TESTS =
+bin_PROGRAMS =
+noinst_PROGRAMS =
+TESTS =
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
