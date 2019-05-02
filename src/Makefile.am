@@ -32,16 +32,18 @@ BITCOIN_INCLUDES += -I$(srcdir)/snark/libsnark
 BITCOIN_INCLUDES += -I$(srcdir)/univalue/include
 
 if TARGET_WINDOWS
-LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
+LIBBITCOIN_SERVER=libbitcoin_server.a
+LDADD=-lcurl
 endif
 if TARGET_DARWIN
-LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
+LIBBITCOIN_SERVER=libbitcoin_server.a
+LDADD=-lcurl
 endif
 if TARGET_LINUX
-LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
+LIBBITCOIN_SERVER=libbitcoin_server.a
+LDADD=-lcurl
 endif
 
-LIBBITCOIN_WALLET=libbitcoin_wallet.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
 LIBBITCOIN_CLI=libbitcoin_cli.a
 LIBBITCOIN_UTIL=libbitcoin_util.a
@@ -52,7 +54,6 @@ LIBSECP256K1=secp256k1/libsecp256k1.la
 LIBCRYPTOCONDITIONS=cryptoconditions/libcryptoconditions_core.la
 LIBSNARK=snark/libsnark.a
 LIBUNIVALUE=univalue/libunivalue.la
-LIBZCASH=libzcash.a
 
 if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
@@ -64,6 +65,8 @@ if BUILD_BITCOIN_LIBS
 LIBZCASH_CONSENSUS=libzcashconsensus.la
 endif
 if ENABLE_WALLET
+LIBBITCOIN_WALLET=libbitcoin_wallet.a
+else
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
 endif
 
@@ -91,6 +94,13 @@ $(LIBUNIVALUE): $(wildcard univalue/lib/*)
 $(LIBCRYPTOCONDITIONS): $(wildcard cryptoconditions/src/*) $(wildcard cryptoconditions/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
 
+	lib_LTLIBRARIES = $(LIBZCASH_CONSENSUS)
+	noinst_LTLIBRARIES = libzcash.la
+
+	bin_PROGRAMS =
+	noinst_PROGRAMS =
+	TESTS =
+
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES += \
@@ -100,8 +110,8 @@ EXTRA_LIBRARIES += \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_SERVER) \
-  $(LIBBITCOIN_CLI) \
-  libzcash.a
+  $(LIBBITCOIN_CLI)
+
 if ENABLE_WALLET
 BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
 EXTRA_LIBRARIES += $(LIBBITCOIN_WALLET)
@@ -112,12 +122,6 @@ endif
 if ENABLE_PROTON
 EXTRA_LIBRARIES += $(LIBBITCOIN_PROTON)
 endif
-
-lib_LTLIBRARIES = $(LIBZCASH_CONSENSUS)
-
-bin_PROGRAMS =
-noinst_PROGRAMS =
-TESTS =
 
 #if BUILD_BITCOIND
   bin_PROGRAMS += komodod
@@ -555,7 +559,7 @@ komodod_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBVERUS_CRYPTO) \
   $(LIBVERUS_PORTABLE_CRYPTO) \
-  $(LIBZCASH) \
+  libzcash.la \
   $(LIBSNARK) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
@@ -620,7 +624,7 @@ komodo_cli_LDADD = \
 	$(SSL_LIBS) \
 	$(CRYPTO_LIBS) \
 	$(EVENT_LIBS) \
-	$(LIBZCASH) \
+	libzcash.la \
 	$(LIBBITCOIN_CRYPTO) \
   $(LIBVERUS_CRYPTO) \
   $(LIBVERUS_PORTABLE_CRYPTO) \
@@ -638,7 +642,7 @@ wallet_utility_LDADD = \
 	$(BOOST_LIBS) \
 	$(BDB_LIBS) \
 	$(CRYPTO_LIBS) \
-	$(LIBZCASH) \
+	libzcash.la \
 	$(LIBSNARK) \
 	$(LIBZCASH_LIBS)\
   $(LIBCRYPTOCONDITIONS)
@@ -660,7 +664,7 @@ komodo_tx_LDADD = \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
   $(LIBSECP256K1) \
-  $(LIBZCASH) \
+  libzcash.la \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBVERUS_CRYPTO) \
@@ -672,7 +676,7 @@ komodo_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 #
 
 # zcash protocol primitives #
-libzcash_a_SOURCES = \
+libzcash_la_SOURCES = \ = \
 	zcash/IncrementalMerkleTree.cpp \
 	zcash/NoteEncryption.cpp \
 	zcash/Address.cpp \
@@ -681,7 +685,7 @@ libzcash_a_SOURCES = \
 	zcash/Note.cpp \
 	zcash/prf.cpp \
 	zcash/util.cpp \
-  zcash/zip32.cpp \
+	zcash/zip32.cpp \
 	zcash/circuit/commitment.tcc \
 	zcash/circuit/gadget.tcc \
 	zcash/circuit/merkle.tcc \
@@ -689,15 +693,15 @@ libzcash_a_SOURCES = \
 	zcash/circuit/prfs.tcc \
 	zcash/circuit/utils.tcc
 
-libzcash_a_CPPFLAGS = -DMULTICORE -fopenmp -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) $(HARDENED_CXXFLAGS) $(HARDENED_LDFLAGS) -pipe $(SAN_LDFLAGS) -O1 -g -Wstack-protector $(SAN_CXXFLAGS) -fstack-protector-all -fPIE -fvisibility=hidden -DSTATIC $(BITCOIN_INCLUDES)
+libzcash_la_CPPFLAGS = -DMULTICORE -fopenmp -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) $(HARDENED_CXXFLAGS) $(HARDENED_LDFLAGS) -pipe $(SAN_LDFLAGS) -O1 -g -Wstack-protector $(SAN_CXXFLAGS) -fstack-protector-all -fPIE -fvisibility=hidden -DSTATIC $(BITCOIN_INCLUDES)
 
 #libzcash_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 #libzcash_a_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 #libzcash_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -DMONTGOMERY_OUTPUT
 
-libzcash_a_CXXFLAGS = $(SAN_CXXFLAGS) $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
-libzcash_a_LDFLAGS = $(SAN_LDFLAGS) $(HARDENED_LDFLAGS)
-libzcash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
+libzcash_la_CXXFLAGS = $(SAN_CXXFLAGS) $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
+libzcash_la_LDFLAGS = -static $(SAN_LDFLAGS) $(HARDENED_LDFLAGS)
+libzcash_la_CPPFLAGS += -DMONTGOMERY_OUTPUT
 
 # zcashconsensus library #
 if BUILD_BITCOIN_LIBS
