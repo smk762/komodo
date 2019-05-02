@@ -4,11 +4,10 @@
 AC_PREREQ([2.69])
 AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
 AC_CONFIG_HEADERS([src/cryptoconditions-config.h])
-AC_CONFIG_MACRO_DIRS([m4])
-AC_CONFIG_SUBDIRS([src/include/secp256k1])
-
+AM_INIT_AUTOMAKE()
+AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
-LT_INIT
+AC_CONFIG_SUBDIRS([src/include/secp256k1])
 
 # Checks for programs.
 AC_PROG_CC
@@ -37,6 +36,8 @@ AC_CHECK_TYPES([ptrdiff_t])
 AC_FUNC_MALLOC
 AC_FUNC_STRTOD
 AC_CHECK_FUNCS([localeconv memchr memset])
+
+LT_INIT
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
