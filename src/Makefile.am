@@ -32,16 +32,16 @@ BITCOIN_INCLUDES += -I$(srcdir)/snark/libsnark
 BITCOIN_INCLUDES += -I$(srcdir)/univalue/include
 
 if TARGET_WINDOWS
-LIBBITCOIN_SERVER=libbitcoin_server.a
-LDADD=-lcurl
+LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
+LIBBITCOIN_SERVER_LDADD=-lcurl
 endif
 if TARGET_DARWIN
-LIBBITCOIN_SERVER=libbitcoin_server.a
-LDADD=-lcurl
+LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
+LIBBITCOIN_SERVER_LDADD=-lcurl
 endif
 if TARGET_LINUX
-LIBBITCOIN_SERVER=libbitcoin_server.a
-LDADD=-lcurl
+LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
+LIBBITCOIN_SERVER_LDADD=-lcurl
 endif
 
 LIBBITCOIN_COMMON=libbitcoin_common.a
