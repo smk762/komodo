@@ -1,5 +1,6 @@
 dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
+
 define(_CLIENT_VERSION_MAJOR, 2)
 define(_CLIENT_VERSION_MINOR, 0)
 define(_CLIENT_VERSION_REVISION, 15)
@@ -8,11 +9,19 @@ define(_ZC_BUILD_VAL, m4_if(m4_eval(_CLIENT_VERSION_BUILD < 25), 1, m4_incr(_CLI
 define(_CLIENT_VERSION_SUFFIX, m4_if(m4_eval(_CLIENT_VERSION_BUILD < 25), 1, _CLIENT_VERSION_REVISION-beta$1, m4_eval(_CLIENT_VERSION_BUILD < 50), 1, _CLIENT_VERSION_REVISION-rc$1, m4_eval(_CLIENT_VERSION_BUILD == 50), 1, _CLIENT_VERSION_REVISION, _CLIENT_VERSION_REVISION-$1)))
 define(_CLIENT_VERSION_IS_RELEASE, true)
 define(_COPYRIGHT_YEAR, 2018)
+
 AC_INIT([Verus-CLI],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_SUFFIX(_ZC_BUILD_VAL)],[https://github.com/VerusCoin/VerusCoin/issues],[verus-cli])
 AC_CONFIG_SRCDIR([src/main.cpp])
+
+dnl faketime breaks configure and is only needed for make. Disable it here.
+unset FAKETIME
+
 AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
+
+dnl Automake init set-up and checks
+AM_INIT_AUTOMAKE([no-define subdir-objects foreign tar-pax])
 
 BITCOIN_DAEMON_NAME=komodod
 BITCOIN_CLI_NAME=komodo-cli
@@ -29,12 +38,6 @@ AC_CANONICAL_HOST
 AH_TOP([#ifndef BITCOIN_CONFIG_H])
 AH_TOP([#define BITCOIN_CONFIG_H])
 AH_BOTTOM([#endif //BITCOIN_CONFIG_H])
-
-dnl faketime breaks configure and is only needed for make. Disable it here.
-unset FAKETIME
-
-dnl Automake init set-up and checks
-AM_INIT_AUTOMAKE([no-define subdir-objects foreign tar-pax])
 
 dnl faketime messes with timestamps and causes configure to be re-run.
 dnl --disable-maintainer-mode can be used to bypass this.
@@ -977,7 +980,7 @@ case $host in
    ;;
 esac
 
-echo 
+echo
 echo "Options used to compile and link:"
 echo "  with wallet   = $enable_wallet"
 echo "  with proton   = $use_proton"
@@ -985,7 +988,7 @@ echo "  with zmq      = $use_zmq"
 echo "  with test     = $use_tests"
 echo "  debug enabled = $enable_debug"
 echo "  werror        = $enable_werror"
-echo 
+echo
 echo "  target os     = $TARGET_OS"
 echo "  build os      = $BUILD_OS"
 echo
@@ -996,4 +999,4 @@ echo "  CXX           = $CXX"
 echo "  CXXFLAGS      = $CXXFLAGS"
 echo "  LDFLAGS       = $LDFLAGS"
 echo "  ARFLAGS       = $ARFLAGS"
-echo 
+echo
