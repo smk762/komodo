@@ -1,4 +1,4 @@
-DIST_SUBDIRS = secp256k1 univalue cryptoconditions
+DIST_SUBDIRS = secp256k1 univalue cryptoconditions cc
 
 AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(SAN_LDFLAGS) $(HARDENED_LDFLAGS)
 AM_CXXFLAGS = $(SAN_CXXFLAGS) $(HARDENED_CXXFLAGS) $(ERROR_CXXFLAGS)
@@ -585,13 +585,13 @@ komodod_LDADD += \
   $(LIBZCASH_LIBS)
 
 if TARGET_DARWIN
-komodod_LDADD += libcc.dylib $(LIBSECP256K1)
+komodod_LDADD += cc/libcc.la $(LIBSECP256K1)
 endif
 if TARGET_WINDOWS
-komodod_LDADD += libcc.dll $(LIBSECP256K1)
+komodod_LDADD += cc/libcc.la $(LIBSECP256K1)
 endif
 if TARGET_LINUX
-komodod_LDADD += libcc.so $(LIBSECP256K1)
+komodod_LDADD += cc/libcc.la $(LIBSECP256K1)
 endif
 
 if ENABLE_PROTON
