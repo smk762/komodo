@@ -51,6 +51,7 @@ build:ubuntu:
   - beta
   - dev
   - DEX
+  - UNIGE
   artifacts:
     paths:
     - ${AGAMA_ARTIFACTS_LINUX}
@@ -87,6 +88,7 @@ build:windows:
   - beta
   - dev
   - DEX
+  - UNIGE
   artifacts:
     paths:
     - ${AGAMA_ARTIFACTS_WINDOWS}
@@ -122,6 +124,7 @@ build:macos:
   - beta
   - dev
   - DEX
+  - UNIGE
   artifacts:
     paths:
     - ${AGAMA_ARTIFACTS_MACOS}
