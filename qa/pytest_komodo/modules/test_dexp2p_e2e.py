@@ -10,7 +10,7 @@ import sys
 import os
 
 sys.path.append('../')
-from basic.pytest_util import randomstring, in_99_range, collect_orderids,\
+from basic.pytest_util import randomstring, in_99_range, collect_orderids, check_synced, \
                               get_size, write_file, get_filehash, compare_rough, write_empty_file
 
 
@@ -336,6 +336,7 @@ class TestDexP2Pe2e:
         assert res.get('filesize') == size2
         assert res.get('filehash') == fhash2
         time.sleep(20)  # time to broadcast files to node1
+        check_synced(rpc1, rpc2)
 
         # Both nodes should be able locate file by files tag and locators tag
         res = rpc1.DEX_list('0', '0', 'files')
