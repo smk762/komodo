@@ -14,7 +14,6 @@ jobs:
     - name: Install deps(mingw)
       env:
         DEBIAN_FRONTEND: noninteractive
-      if: runner.os == 'Linux'
       run: |
         sudo apt-get remove php5.6-fpm php7.0-fpm php7.1-fpm php7.2-fpm php7.3-fpm php7.3-common php7.4-fpm msodbcsql17
         sudo apt-get update

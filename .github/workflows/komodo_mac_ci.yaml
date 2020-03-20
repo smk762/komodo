@@ -12,7 +12,6 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Install deps (macOS)
-        if: runner.os == 'macOS'
         run: |
           brew update
           brew upgrade
@@ -28,7 +27,6 @@ jobs:
           ./zcutil/fetch-params.sh
 
       - name: Build (macOS)
-        if: runner.os == 'macOS'
         run: |
           # flag for some CC tests transactions - so DO NOT USE THIS CI ARTIFACTS IN PRODUCTION!!!
           export CPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/

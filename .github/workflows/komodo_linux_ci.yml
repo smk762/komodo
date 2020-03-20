@@ -15,7 +15,6 @@ jobs:
 
         env:
           DEBIAN_FRONTEND: noninteractive
-        if: runner.os == 'Linux'
         run: |
           sudo apt-get remove php5.6-fpm php7.0-fpm php7.1-fpm php7.2-fpm php7.3-fpm php7.3-common php7.4-fpm msodbcsql17
           sudo apt-get update
@@ -33,7 +32,6 @@ jobs:
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
           ./zcutil/fetch-params.sh
       - name: Build (Linux)
-        if: runner.os == 'Linux'
         run: |
           # flag for some CC tests transactions - so DO NOT USE THIS CI ARTIFACTS IN PRODUCTION!!!
           CONFIGURE_FLAGS='CPPFLAGS=-DTESTMODE' ./zcutil/build.sh -j$(nproc)
