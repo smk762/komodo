@@ -1,17 +1,13 @@
 name: Komodo Linux CI
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  schedule:
-    - cron: '0 0 * * 1'
+on: pull_request
 
 jobs:
 
   linux-build:
     name: Linux Build
     runs-on: ubuntu-latest
-
+    
     steps:
       - uses: actions/checkout@v2
 
@@ -21,7 +17,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update  # prevents repo404 errors on apt-remove below
-          sudo apt-get remove php5.6-fpm php7.0-fpm php7.1-fpm php7.2-fpm php7.3-fpm php7.3-common php7.4-fpm msodbcsql17 mysql-server*
+          sudo apt-get remove php5.6-fpm php7.0-fpm php7.1-fpm php7.2-fpm php7.3-fpm php7.3-common php7.4-fpm msodbcsql17
           sudo apt-get update
           sudo ACCEPT_EULA=Y apt-get upgrade -y
           sudo apt-get install -q \
@@ -81,6 +77,7 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_token.py cc_modules/test_rewards.py"
+
   linux-test-oracles:
 
     name: Test (Linux/OraclesCC)
@@ -116,6 +113,7 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh cc_modules/test_oracles.py
+
   linux-test-baserpc:
 
     name: Test (Linux/BasicRPC)
@@ -151,6 +149,7 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh basic
+
   linux-test-channels:
 
     name: Test (Linux/ChannelsCC)
@@ -186,6 +185,7 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh cc_modules/test_channels.py
+
   linux-test-heir:
 
     name: Test (Linux/HeirCC)
