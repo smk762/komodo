@@ -162,10 +162,10 @@ def test_channels(test_params):
     # checking if it refunded to opener address
     raw_transaction = rpc.getrawtransaction(refund_txid, 1)
 
-    result = raw_transaction["vout"][2]["valueSat"]
+    result = raw_transaction["vout"][0]["valueSat"]
     assert result == 700000
 
-    result = rpc.validateaddress(raw_transaction["vout"][2]["scriptPubKey"]["addresses"][0])["ismine"]
+    result = rpc.validateaddress(raw_transaction["vout"][0]["scriptPubKey"]["addresses"][0])["ismine"]
     assert result
 
     # creating and draining channel (10 payment by 100000 satoshies in total to fit full capacity)
@@ -177,7 +177,7 @@ def test_channels(test_params):
     # need to have 2+ confirmations in the test mode
     wait_some_blocks(rpc, 2)
 
-    # TODO: maybe it's possible to send in single block to not wait 10 blocks?
+    # txs should be in separate blocks
     for i in range(10):
         result = rpc.channelspayment(channel1_txid, "100000")
         assert_success(result)
