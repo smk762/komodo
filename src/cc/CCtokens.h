@@ -67,8 +67,8 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
 /// @see AddTokenCCInputs
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, bool useMempool = false);
 
-/// @private overload used in old cc
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs);
+/// @private overload used in kogs cc
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs, bool useMempool = false);
 
 /// @private overload used in old assets
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible);
@@ -172,6 +172,8 @@ bool MyGetCCopretV2(const CScript &scriptPubKey, CScript &opret);
 bool IsEqualVouts(const CTxOut &v1, const CTxOut &v2);
 
 bool TokensIsVer1Active(const Eval *eval);
+
+UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& mypk); // rpc used in other ccs
 
 const char cctokens_log[] = "cctokens";
 

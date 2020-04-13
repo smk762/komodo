@@ -795,6 +795,13 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info 
 /// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
 void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool CCflag = true);
 
+/// returns a vector of unspent outputs in the chain and mempool for an address
+/// checks that utxo in the chain is not spent in mempool
+/// @param[out] unspentOutputs vector of pairs of address key and amount
+/// @param coinaddr address where unspent outputs are searched
+/// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
+void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC);
+
 /// SetCCtxids returns a vector of all outputs on an address
 /// @param[out] addressIndex vector of pairs of address index key and amount
 /// @param coinaddr address where the unspent outputs are searched
@@ -930,12 +937,52 @@ inline UniValue MakeResultSuccess(const std::string &txhex) {
 bool inline IS_REMOTE(const CPubKey &remotepk) { return remotepk.IsValid(); }
 
 /// @private add sig data for signing partially signed tx to UniValue object
-void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
+void AddSigData2UniValue(UniValue &sigdata, int32_t vini, const UniValue& ccjson, const std::string &sscriptpubkey, int64_t amount, uint8_t *privkey);
 
 /// returns 0 if requirements for cc module with the evalcode is fulfilled.
 /// @param evalcode eval code for cc module
 /// @returns 0 if okay or -1
 int32_t ensure_CCrequirements(uint8_t evalcode);
+
+/// @private forward decl
+struct CLockedInMemoryUtxos;
+
+/// @private forward decl
+struct CInMemoryTxns;
+
+/// locking utxo functions (to prevent adding utxo to several mtx objects:
+/// if in-memory utxo locking activated Addnormalinputs begins to lock in-mem utxos and will not add to mtx already locked utxos
+class LockUtxoInMemory
+{
+private:
+    static thread_local struct CLockedInMemoryUtxos utxosLocked;
+    static thread_local struct CInMemoryTxns txnsInMem;
+
+    // activate locking in-memory utxos preventing adding to mtx
+    void activateUtxoLock();
+
+    // Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
+    void deactivateUtxoLock();
+
+public:
+    LockUtxoInMemory();
+    ~LockUtxoInMemory();
+
+    // returns if utxo locking is active
+    static bool isLockUtxoActive();
+    // checks if utxo is locked (added to a mtx object)
+    static bool isUtxoLocked(uint256 txid, int32_t nvout);
+
+    // lock utxo
+    static void LockUtxo(uint256 txid, int32_t nvout);
+
+    static bool AddInMemoryTransaction(const CTransaction &tx);
+    static bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
+
+    static void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem);
+    static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem);
+};
+
 
 /*! \cond INTERNAL */
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);

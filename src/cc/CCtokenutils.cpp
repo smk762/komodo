@@ -45,25 +45,32 @@ static int64_t get_chain_active_tip_timestamp()
 bool TokensIsVer1Active(const Eval *eval)
 {
     static const char *chains_only_version1[] = {
-        "RFOXLIKE",
-        "DIMXY11",
+    //    "RFOXLIKE",
+    //    "DIMXY11",
     //    "DIMXY14", "DIMXY14_2"
     };
 
+    static const struct {
+        const char *chainname;
+        uint32_t timestamp;
+    } chains_timestamp_v1[] = {
+        { "RFOXLIKE", 1585077621 },
+        { "DIMXY11", 1585077621 }
+    //    "DIMXY14", "DIMXY14_2"
+    };
+
+    uint32_t latesttime = (eval == NULL ? GetLatestTimestamp(komodo_currentheight()) : GetLatestTimestamp(eval->GetCurrentHeight()));
     bool isTimev1 = true;
-    if (eval == NULL)   {
-        // std::cerr << __func__ << " komodo_currentheight()=" << komodo_currentheight() << " GetLatestTimestamp(komodo_currentheight())=" << GetLatestTimestamp(komodo_currentheight()) << std::endl;
-        if (GetLatestTimestamp(komodo_currentheight()) < MAY2020_NNELECTION_HARDFORK)
-            isTimev1 = false;
-    }
-    else   {
-        // std::cerr << __func__ << " eval->GetCurrentHeight()=" << eval->GetCurrentHeight() << " GetLatestTimestamp(eval->GetCurrentHeight())=" << GetLatestTimestamp(eval->GetCurrentHeight()) << std::endl;
-        if (GetLatestTimestamp(eval->GetCurrentHeight()) < MAY2020_NNELECTION_HARDFORK)
-            isTimev1 = false;
-    }
+    if (latesttime < MAY2020_NNELECTION_HARDFORK)
+        isTimev1 = false;
+
     for (auto const name : chains_only_version1)
         if (strcmp(name, ASSETCHAINS_SYMBOL) == 0)
             return true;
+    for (auto const elem : chains_timestamp_v1)
+        if (strcmp(elem.chainname, ASSETCHAINS_SYMBOL) == 0 && latesttime >= elem.timestamp)
+            return true;
+
     return isTimev1;
 }
 

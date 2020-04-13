@@ -119,12 +119,12 @@ static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
 // get previous token tx
 static bool GetNFTPrevVout(const CTransaction &tokentx, CTransaction &prevtxout, int32_t &nvout, std::vector<CPubKey> &vpks)
 {
-    uint8_t evalcode, version;
+    uint8_t evalcode;
     uint256 tokenid;
     std::vector<CPubKey> pks;
-    std::vector<std::pair<uint8_t, vscript_t>> oprets;
+    std::vector<vscript_t> oprets;
 
-    if (tokentx.vout.size() > 0 && DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcode, tokenid, pks, oprets, version) != 0)
+    if (tokentx.vout.size() > 0 && DecodeTokenOpRetV1(tokentx.vout.back().scriptPubKey, tokenid, pks, oprets) != 0)
     {
         struct CCcontract_info *cp, C;
         cp = CCinit(&C, EVAL_TOKENS);
@@ -136,12 +136,13 @@ static bool GetNFTPrevVout(const CTransaction &tokentx, CTransaction &prevtxout,
                 uint256 hashBlock, tokenIdOpret;
                 uint8_t version;
                 vscript_t opret;
+                std::vector<vscript_t> oprets;
                 CTransaction prevtx;
 
                 // get spent token tx
                 if (GetTransaction(vin.prevout.hash, prevtx, hashBlock, true) &&
                     prevtx.vout.size() > 1 &&
-                    DecodeTokenOpRet(prevtx.vout.back().scriptPubKey, evalcode, tokenIdOpret, pks, oprets, version) != 0)
+                    DecodeTokenOpRetV1(prevtx.vout.back().scriptPubKey, tokenIdOpret, pks, oprets) != 0)
                 {
                     for (int32_t v = 0; v < prevtx.vout.size(); v++)
                     {
@@ -388,7 +389,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
 // if playerId set returns found adtxid and nvout
 // if not set returns all advertisings (checked if signed correctly) in adlist
 
-static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<std::pair<uint8_t, vscript_t>> &oprets)
+static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<vscript_t> &oprets)
 {
     uint256 tokenid;
     uint8_t funcid, evalcode, version;
@@ -401,7 +402,7 @@ static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creati
         if (!MyGetCCopretV2(tx.vout[nvout].scriptPubKey, opret)) 
             opret = tx.vout.back().scriptPubKey;
 
-        if ((funcid = DecodeTokenOpRet(opret, evalcode, tokenid, pubkeys, oprets, version)) != 0)
+        if ((funcid = DecodeTokenOpRetV1(opret, tokenid, pubkeys, oprets)) != 0)
         {
             if (IsTokenTransferFuncid(funcid))
             {
@@ -420,7 +421,7 @@ static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creati
 
             if (!createtx.IsNull())
             {
-                if (DecodeTokenCreateOpRet(createtx.vout.back().scriptPubKey, vorigpubkey, name, description, oprets, version) != 0)
+                if (DecodeTokenCreateOpRetV1(createtx.vout.back().scriptPubKey, vorigpubkey, name, description, oprets) != 0)
                     return true;
             }
         }
@@ -460,7 +461,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
     {
         vuint8_t vorigpubkey;
         std::string name, description;
-        std::vector<std::pair<uint8_t, vscript_t>> oprets;
+        std::vector<vscript_t> oprets;
         uint256 tokenid;
 
         // parse tokens:
@@ -468,7 +469,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
         if (LoadTokenData(tx, nvout, tokenid, vorigpubkey, name, description, oprets))
         {
             vscript_t vnftopret;
-            if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
+            if (GetOpReturnCCBlob(oprets, vnftopret))
             {
                 uint8_t objectType;
                 CTransaction dummytx;
@@ -1867,7 +1868,6 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
     {
         if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1, true) > 0)
         {
-            std::vector<std::pair<uint8_t, vscript_t>>  emptyoprets;
             std::vector<CPubKey> voutPks;
             char unspendableTokenAddr[KOMODO_ADDRESS_BUFSIZE]; uint8_t tokenpriv[32];
             struct CCcontract_info *cpTokens, tokensC;
@@ -1880,7 +1880,7 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 
             mtx.vout.push_back(MakeTokensCC1vout(EVAL_KOGS, 1, burnpk));    // burn tokens
             voutPks.push_back(burnpk);
-            UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPks, emptyoprets));
+            UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenOpRetV1(tokenid, voutPks, {}));
             if (ResultHasTx(sigData))
                 return sigData;
             else

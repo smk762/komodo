@@ -952,7 +952,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs);
 } 
 
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs) 
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs, bool usemempool) 
 {
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     
@@ -963,7 +963,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     
     GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
-    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs);
+    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs, usemempool);
 } 
 
 /*
@@ -1173,7 +1173,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, int64_t txfee, int64_t tokensup
         if (addTxInMemory)
         {
             // add tx to in-mem array to use in subsequent AddNormalinputs()
-            // LockUtxoInMemory::AddInMemoryTransaction(mtx);
+            LockUtxoInMemory::AddInMemoryTransaction(mtx);
         }
         return sigData;
 	}
@@ -1412,8 +1412,8 @@ UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
 			UniValue sigData = FinalizeCCTxExt(isRemote, mask, cp, mtx, mypk, txfee, EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, {} )); 
             if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
-            //else reserved for use in memory mtx:
-            //    LockUtxoInMemory::AddInMemoryTransaction(mtx);  // to be able to spend mtx change
+            else // for use in-memory utxo:
+                LockUtxoInMemory::AddInMemoryTransaction(mtx);  // to be able to spend mtx change
             return sigData;
                                                                                                                                                    
 		}
@@ -1528,7 +1528,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
 
 	struct CCcontract_info *cp, C;
 	cp = CCinit(&C, EVAL_TOKENS);
-	return(AddTokenCCInputs(cp, mtx, pk, tokenid, 0, 0));
+	return(AddTokenCCInputs(cp, mtx, pk, tokenid, 0, 0, false));
 }
 
 UniValue TokenInfo(uint256 tokenid)

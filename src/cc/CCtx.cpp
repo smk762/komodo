@@ -26,14 +26,6 @@ static bool inline IsVinInArray(const std::vector<CTxIn> &vins, uint256 txid, in
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
-// Locking utxo to prevent adding utxo to several mtx objects and maintaining a tx thread memory array to allow spending of utxos from mtx objects
-// ActivateUtxoLock() should be called to begin utxo locking
-// DeactivateUtxoLock() explicitly if you do not need utxo locking any more (if not called then locked utxos ends its life with the end of the thread)
-// LockUtxo locks normal inputs that was just added to the mtx.vin for the current thread, until deactivated or thread ends
-// AddInMemoryTransaction() stores mtx objects in the thread memory array to make possible to spend thier outputs in other mtx objects
-// GetInMemoryTransaction gets tx from the thread memory array
-
-
 /*
 // get utxos from the mempool sent to 'destaddr' param and adds them to the standard unspentOutputs
 // params:
@@ -569,7 +561,7 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
     }
 }
 
-// SetCCunspents with looking utxos in mempool support and check that utxo is not spent in mempool
+// SetCCunspents with support of looking utxos in mempool and checking that utxos are not spent in mempool too
 void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
 {
     SetCCunspents(unspentOutputs, coinaddr, ccflag);
@@ -587,47 +579,6 @@ void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddress
     }
     AddCCunspentsInMempool(unspentOutputs, coinaddr, ccflag);
 }
-
-/*
-// gets mempool indexes for coinaddr from mempool address index
-// converts and adds them into unspentOutputs array (for use in AddNormalInputsRemote
-void AddMempoolUnspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
-{
-    CBitcoinAddress bitcoinAddress(coinaddr);
-    uint160 indexKey;
-    int type;
-
-    if (!bitcoinAddress.GetIndexKey(indexKey, type, ccflag))    
-        return;
-
-    // NOTE: we set type == 1 what means all types except SCRIPT_HASH. 
-    // Seems mempool does not support 3
-    std::vector<std::pair<uint160, int> > address{ std::make_pair(indexKey, type) };  
-    std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > indexes;
-    mempool.getAddressIndex(address, indexes);
-
-    for (std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> >::iterator it = indexes.begin(); it != indexes.end(); it++) 
-    {
-        if (it->second.amount >= 0)  // skip prev out's deltas
-        {
-            CAddressUnspentKey key;
-            CAddressUnspentValue value;
-
-            key.type = it->first.type;
-            key.txhash = it->first.txhash;
-            key.index = it->first.index;
-            key.hashBytes = it->first.addressBytes;
-
-            value.blockHeight = 0;  // h=0 in mempool
-            value.satoshis = it->second.amount;
-            // value.script -- NOTE no script is set, no in mempool. We dont use it in AddNormalInputsRemote for which this func is for
-
-            unspentOutputs.push_back(std::make_pair(key, value));
-            LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "added unspent from mempool, txid=" << key.txhash.GetHex() << " vout=" << key.index << " amount=" << value.satoshis << std::endl);
-        }
-    }
-}
-*/
 
 void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr,bool ccflag)
 {
@@ -1020,8 +971,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
 
     sum = 0;
     Getscriptaddress(coinaddr, CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
-    SetCCunspents(unspentOutputs, coinaddr, false);
-    // AddCCunspentsInMempool(unspentOutputs, coinaddr, false);  // do not spend coins in mempool, spend only confirmed
+    SetCCunspents(unspentOutputs, coinaddr, false);  // TODO add param to add utxos from mempool too
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
     {
@@ -1151,7 +1101,7 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
 }
 
 
-void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount, uint8_t *privkey)
+void AddSigData2UniValue(UniValue &sigdata, int32_t vini, const UniValue& ccjson, const std::string &sscriptpubkey, int64_t amount, uint8_t *privkey)
 {
     UniValue elem(UniValue::VOBJ);
     elem.push_back(Pair("vin", vini));
@@ -1169,6 +1119,13 @@ void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std:
     sigdata.push_back(elem);
 }
 
+
+// Locking utxo to prevent adding utxo to several mtx objects and maintaining a tx thread memory array to allow spending of utxos from mtx objects
+// ActivateUtxoLock() should be called to begin utxo locking
+// DeactivateUtxoLock() explicitly if you do not need utxo locking any more (if not called then locked utxos ends its life with the end of the thread)
+// LockUtxo locks normal inputs that was just added to the mtx.vin for the current thread, until deactivated or thread ends
+// AddInMemoryTransaction() stores mtx objects in the thread memory array to make possible to spend thier outputs in other mtx objects
+// GetInMemoryTransaction gets tx from the thread memory array
 
 typedef std::set<std::pair<uint256, int32_t>> utxo_set;
 typedef std::map<uint256, CTransaction> memtx_map;
