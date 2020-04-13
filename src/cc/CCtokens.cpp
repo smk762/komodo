@@ -69,13 +69,23 @@ static bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKe
 	return found;
 }
 
-
+// compare addresses in two vouts
 bool IsEqualVouts(const CTxOut &v1, const CTxOut &v2)
 {
     char addr1[KOMODO_ADDRESS_BUFSIZE];
     char addr2[KOMODO_ADDRESS_BUFSIZE];
     Getscriptaddress(addr1, v1.scriptPubKey);
     Getscriptaddress(addr2, v2.scriptPubKey);
+    return strcmp(addr1, addr2) == 0;
+}
+
+// compare addresses in two scriptpubkeys
+bool IsEqualScriptPubKeys(const CScript &spk1, const CScript &spk2)
+{
+    char addr1[KOMODO_ADDRESS_BUFSIZE];
+    char addr2[KOMODO_ADDRESS_BUFSIZE];
+    Getscriptaddress(addr1, spk1);
+    Getscriptaddress(addr2, spk2);
     return strcmp(addr1, addr2) == 0;
 }
 

@@ -168,9 +168,10 @@ static bool GetNFTPrevVout(const CTransaction &tokentx, CTransaction &prevtxout,
 }
 
 // check if token has been burned
-static bool IsNFTmine(uint256 tokenid, const CPubKey &mypk)
+static bool IsNFTmine(uint256 reftokenid, const CPubKey &mypk)
 {
-    return GetTokenBalance(mypk, tokenid, true) > 0;
+// bad: very slow:
+//    return GetTokenBalance(mypk, tokenid, true) > 0;
 /*
     CTransaction lasttx;
     //CPubKey mypk = pubkey2pk(Mypubkey());
@@ -185,6 +186,40 @@ static bool IsNFTmine(uint256 tokenid, const CPubKey &mypk)
         }
     }
     return false; */
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspents;
+
+    struct CCcontract_info *cp, C; 
+    cp = CCinit(&C, EVAL_KOGS);
+
+    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+    GetTokensCCaddress(cp, tokenaddr, mypk);    
+    SetCCunspentsWithMempool(unspents, tokenaddr, true); 
+
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspents.begin(); it != unspents.end(); it++) 
+    {
+        if (IsEqualScriptPubKeys (it->second.script, MakeTokensCC1vout(EVAL_KOGS, it->second.satoshis, mypk).scriptPubKey))  {
+            CScript opret;
+            if (!MyGetCCopretV2(it->second.script, opret))    {
+                CTransaction tx;
+                uint256 hashBlock;
+                if (myGetTransaction(it->first.txhash, tx, hashBlock))  {
+                    if (tx.vout.size() > 0) {
+                        opret = tx.vout.back().scriptPubKey;
+                    }
+                }
+            }
+            if (opret.size() > 0)   {
+                uint256 tokenid;
+                std::vector<CPubKey> pks;
+                std::vector<vscript_t> oprets;
+                if (DecodeTokenOpRetV1(opret, tokenid, pks, oprets) != 0) {
+                    if (tokenid == reftokenid)
+                        return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 // check if token has been burned
