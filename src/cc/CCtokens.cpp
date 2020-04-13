@@ -953,6 +953,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
     std::string errorStr;
     if (!TokensExactAmounts(true, cp, eval, tx, errorStr)) 
     {
+        LOGSTREAMFN(cctokens_log, CCLOG_ERROR, stream << "validation error: " << errorStr << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
 		if (eval->state.IsInvalid())
 			return false;  //TokenExactAmounts has already called eval->Invalid()
 		else
