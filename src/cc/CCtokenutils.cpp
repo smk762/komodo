@@ -47,7 +47,7 @@ bool TokensIsVer1Active(const Eval *eval)
     static const char *chains_only_version1[] = {
     //    "RFOXLIKE",
     //    "DIMXY11",
-    //    "DIMXY14", "DIMXY14_2"
+        "DIMXY14", "DIMXY14_2"
     };
 
     static const struct {
