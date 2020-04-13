@@ -17,10 +17,72 @@
 #include "CCtokens.h"
 #include "key_io.h"
 
+const char LOG_CCUTILS_CATEGORY[] = "ccutils";
+
+static bool inline IsVinInArray(const std::vector<CTxIn> &vins, uint256 txid, int32_t vout) {
+    return (std::find_if(vins.begin(), vins.end(), [&](const CTxIn &vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != vins.end());
+}
+
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
-/* see description to function definition in CCinclude.h */
+// Locking utxo to prevent adding utxo to several mtx objects and maintaining a tx thread memory array to allow spending of utxos from mtx objects
+// ActivateUtxoLock() should be called to begin utxo locking
+// DeactivateUtxoLock() explicitly if you do not need utxo locking any more (if not called then locked utxos ends its life with the end of the thread)
+// LockUtxo locks normal inputs that was just added to the mtx.vin for the current thread, until deactivated or thread ends
+// AddInMemoryTransaction() stores mtx objects in the thread memory array to make possible to spend thier outputs in other mtx objects
+// GetInMemoryTransaction gets tx from the thread memory array
+
+
+/*
+// get utxos from the mempool sent to 'destaddr' param and adds them to the standard unspentOutputs
+// params:
+// unspentOutputs outputs array
+// destaddr uxtos are selected if sent to this address
+// isCC selects only cc utxos (or vice versa)
+static void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
+{
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
+        mi != mempool.mapTx.end(); ++mi)
+    {
+        const CTransaction& memtx = mi->GetTx();
+        for (int32_t i = 0; i < memtx.vout.size(); i++)
+        {
+            if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                char voutaddr[64];
+                Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
+                if (strcmp(voutaddr, destaddr) == 0)
+                {
+                    uint160 hashBytes;
+                    std::string addrstr(destaddr);  
+                    CBitcoinAddress address(addrstr);
+                    int type;
+
+                    if (address.GetIndexKey(hashBytes, type, isCC) == 0)
+                        continue;
+
+                    // create unspent output key value pair
+                    CAddressUnspentKey key;
+                    CAddressUnspentValue value;
+
+                    key.type = type;
+                    key.hashBytes = hashBytes;
+                    key.txhash = memtx.GetHash();
+                    key.index = i;
+
+                    value.satoshis = memtx.vout[i].nValue;
+                    value.blockHeight = NULL;
+                    value.script = memtx.vout[i].scriptPubKey;
+
+                    unspentOutputs.push_back(std::make_pair(key, value));
+                }
+            }
+        }
+    }
+}
+*/
+
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
 {
 #ifdef ENABLE_WALLET
@@ -58,9 +120,8 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     int32_t i,flag,mgret,utxovout,n,err = 0;
 	char myaddr[64], destaddr[64], unspendable[64], mytokensaddr[64], mysingletokensaddr[64], unspendabletokensaddr[64],CC1of2CCaddr[64];
     uint8_t *privkey = NULL, myprivkey[32] = { '\0' }, unspendablepriv[32] = { '\0' }, /*tokensunspendablepriv[32],*/ *msg32 = 0;
-    CC *mycond = 0, *othercond = 0, *othercond2 = 0, *othercond4 = 0, *othercond3 = 0, *othercond1of2 = NULL, *othercond1of2tokens = NULL, *cond = 0, *condCC2 = 0,
-       *mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL, *vectcond = NULL;
-	CPubKey unspendablepk /*, tokensunspendablepk*/;
+	CC *mycond=0, *othercond=0, *othercond2=0,*othercond4=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond=0,  *condCC2=0,*mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL, *vectcond = NULL;
+	CPubKey unspendablepk;
 	struct CCcontract_info *cpTokens, tokensC;
     UniValue sigData(UniValue::VARR),result(UniValue::VOBJ);
     const UniValue sigDataNull = NullUniValue;
@@ -121,7 +182,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8)
             continue;
-        if ( myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) != 0 && mtx.vin[i].prevout.n < vintx.vout.size() )
+        if ( (myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) != 0 || LockUtxoInMemory::GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx) != 0) && mtx.vin[i].prevout.n < vintx.vout.size() )
         {
             if ( vintx.vout[mtx.vin[i].prevout.n].scriptPubKey.IsPayToCryptoCondition() == 0 && ccvins==0)
                 normalvins++;            
@@ -129,7 +190,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
         }
         else
         {
-            fprintf(stderr,"vin.%d vout.%d is bigger than vintx.%d\n",i,mtx.vin[i].prevout.n,(int32_t)vintx.vout.size());
+            fprintf(stderr,"vin.%d vout.%d is bigger than vintx.%d or cant load vintx\n",i,mtx.vin[i].prevout.n,(int32_t)vintx.vout.size());
             memset(myprivkey,0,32);
             return UniValue(UniValue::VOBJ);
         }
@@ -146,7 +207,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     for (i=0; i<n; i++)
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8) continue;
-        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 )
+        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) || LockUtxoInMemory::GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx) != 0) != 0 )
         {
             utxovout = mtx.vin[i].prevout.n;
             utxovalues[i] = vintx.vout[utxovout].nValue;
@@ -179,7 +240,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8)
             continue;
-        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 )
+        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 || (mgret= LockUtxoInMemory::GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx)) != 0)
         {
             utxovout = mtx.vin[i].prevout.n;
             if ( vintx.vout[utxovout].scriptPubKey.IsPayToCryptoCondition() == 0 )
@@ -188,6 +249,9 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 {
                     if (!remote)
                     {
+                        //std::cerr << "mtx.before SignTx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
+                        //std::cerr << "mtx.hash SignTx before=" << mtx.GetHash().GetHex() << std::endl;
+
                         if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
                             fprintf(stderr, "signing error for vini.%d of %llx\n", i, (long long)vinimask);
                     }
@@ -196,7 +260,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                         // if no myprivkey for mypk it means remote call from nspv superlite client
                         // add sigData for superlite client
                         UniValue cc(UniValue::VNULL);
-                        AddSigData2UniValue(sigData, i, cc, HexStr(vintx.vout[utxovout].scriptPubKey), vintx.vout[utxovout].nValue );  // store vin i with scriptPubKey
+                        AddSigData2UniValue(sigData, i, cc, HexStr(vintx.vout[utxovout].scriptPubKey), vintx.vout[utxovout].nValue, NULL);  // store vin i with scriptPubKey
                     }
                 }
                 else
@@ -218,18 +282,18 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 if( strcmp(destaddr, myaddr) == 0 )
                 {
 //fprintf(stderr, "FinalizeCCTx() matched cc myaddr (%s)\n", myaddr);
-                    privkey = myprivkey;
+                    privkey = !remote ? myprivkey : NULL;
                     cond = mycond;
                 }
 				else if (strcmp(destaddr, mytokensaddr) == 0)  // if this is TokensCC1vout
 				{
-					privkey = myprivkey;
+					privkey = !remote ? myprivkey : NULL;
 					cond = mytokenscond;
 //fprintf(stderr,"FinalizeCCTx() matched dual-eval TokensCC1vout my token addr.(%s)\n",mytokensaddr);
 				}
 				else if (strcmp(destaddr, mysingletokensaddr) == 0)  // if this is TokensCC1vout
 				{
-					privkey = myprivkey;
+					privkey = !remote ? myprivkey : NULL;
 					cond = mysingletokenscond;
 //fprintf(stderr, "FinalizeCCTx() matched single-eval token CC1vout my token addr.(%s)\n", mytokensaddr);
 				}
@@ -312,7 +376,6 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 
                     if (flag == 0)
                     {
-                        const uint8_t nullpriv[32] = {'\0'};
                         // use vector of dest addresses and conds to probe vintxconds
                         for (auto &t : cp->CCvintxprobes) {
                             char coinaddr[64];
@@ -320,23 +383,22 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                             if (vectcond != NULL)
                                 cc_free(vectcond);  // free prev used cond
                             vectcond = t.CCwrapped.getCC();  // Note: need to cc_free at the function exit
-                            if (vectcond != NULL) {
-                                Getscriptaddress(coinaddr, CCPubKey(vectcond));
-                                // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
-                                if (strcmp(destaddr, coinaddr) == 0) {
-                                    if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
-                                        privkey = t.CCpriv;
-                                    else
-                                        privkey = myprivkey;
-                                    flag = 1;
-                                    cond = vectcond;
-                                    break;
-                                }
+                            Getscriptaddress(coinaddr, CCPubKey(vectcond));
+                            // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
+                            if (strcmp(destaddr, coinaddr) == 0) {
+                                // std::cerr << __func__ << " matched vintxprobe destaddr=" << destaddr << std::endl;
+                                if (t.CCpriv[0])
+                                    privkey = t.CCpriv;
+                                else
+                                    privkey = !remote ? myprivkey : NULL; // use myprivkey if not set in the probecond - for local calls
+                                flag = 1;
+                                cond = vectcond;
+                                break;
                             }
                         }
                     }
 
-                    if (flag == 0)
+                    if ( flag == 0 )
                     {
                         fprintf(stderr,"CC signing error: vini.%d has unknown CC address.(%s)\n",i,destaddr);
                         memset(myprivkey,0,32);
@@ -344,7 +406,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     }
                 }
                 uint256 sighash = SignatureHash(CCPubKey(cond), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
-                if ( false )
+                if ( 0 )  // trace privkey
                 {
                     int32_t z;
                     for (z=0; z<32; z++)
@@ -357,7 +419,10 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 
                 if (!remote)  // we have privkey in the wallet
                 {
-                    if (cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
+                    //std::cerr << "mtx.before cc_signTreeSecp256k1Msg32=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
+                    //std::cerr << "mtx.hash cc_signTreeSecp256k1Msg32 before=" << mtx.GetHash().GetHex() << std::endl;
+
+                    if (privkey && cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
                     {
                         mtx.vin[i].scriptSig = CCSig(cond);
                     }
@@ -370,7 +435,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 }
                 else   // no privkey locally - remote call
                 {
-                    // serialize cc:
+                    // serialize cc for the remote client to sign it:
                     UniValue ccjson;
                     ccjson.read(cc_conditionToJSONString(cond));
                     if (ccjson.empty())
@@ -380,8 +445,9 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                         return sigDataNull;
                     }
 
-                    AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue);  // store vin i with scriptPubKey
+                    AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue, privkey);  // store vin i with scriptPubKey
                 }
+
             }
         } else fprintf(stderr,"FinalizeCCTx2 couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
     }
@@ -407,11 +473,11 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
         cc_free(mysingletokenscond);   
     if ( othertokenscond != 0 )
         cc_free(othertokenscond);   
+    if (vectcond != 0)
+        cc_free(vectcond);
     memset(myprivkey,0,sizeof(myprivkey));
-    if (vectcond != NULL)
-        cc_free(vectcond);  
-
     std::string strHex = EncodeHexTx(mtx);
+
     if ( strHex.size() > 0 )
         result.push_back(Pair(JSON_HEXTX, strHex));
     else {
@@ -424,6 +490,60 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool ccflag);
 void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
 void NSPV_CCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t evalcode,uint256 filtertxid, uint8_t func);
+
+// set cc or normal unspents from mempool
+static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
+{
+    // lock mempool
+    ENTER_CRITICAL_SECTION(cs_main);
+    ENTER_CRITICAL_SECTION(mempool.cs);
+
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
+        mi != mempool.mapTx.end(); ++mi)
+    {
+        const CTransaction& memtx = mi->GetTx();
+        for (int32_t i = 0; i < memtx.vout.size(); i++)
+        {
+            if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                uint256 dummytxid;
+                int32_t dummyvout;
+                if (!myIsutxo_spentinmempool(dummytxid, dummyvout, memtx.GetHash(), i))
+                {
+                    char voutaddr[64];
+                    Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
+                    if (strcmp(voutaddr, destaddr) == 0)
+                    {
+                        uint160 hashBytes;
+                        std::string addrstr(destaddr);
+                        CBitcoinAddress address(addrstr);
+                        int type;
+
+                        if (address.GetIndexKey(hashBytes, type, isCC) == 0)
+                            continue;
+
+                        // create unspent output key value pair
+                        CAddressUnspentKey key;
+                        CAddressUnspentValue value;
+
+                        key.type = type;
+                        key.hashBytes = hashBytes;
+                        key.txhash = memtx.GetHash();
+                        key.index = i;
+
+                        value.satoshis = memtx.vout[i].nValue;
+                        value.blockHeight = 0;
+                        value.script = memtx.vout[i].scriptPubKey;
+
+                        unspentOutputs.push_back(std::make_pair(key, value));
+                    }
+                }
+            }
+        }
+    }
+    LEAVE_CRITICAL_SECTION(cs_main);
+    LEAVE_CRITICAL_SECTION(mempool.cs);
+}
 
 void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool ccflag)
 {
@@ -448,6 +568,66 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
             return;
     }
 }
+
+// SetCCunspents with looking utxos in mempool support and check that utxo is not spent in mempool
+void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
+{
+    SetCCunspents(unspentOutputs, coinaddr, ccflag);
+
+    // remove utxos spent in mempool
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); )
+    {
+        uint256 dummytxid;
+        int32_t dummyvout;
+        if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) {
+            it = unspentOutputs.erase(it);
+        }
+        else
+            it++;
+    }
+    AddCCunspentsInMempool(unspentOutputs, coinaddr, ccflag);
+}
+
+/*
+// gets mempool indexes for coinaddr from mempool address index
+// converts and adds them into unspentOutputs array (for use in AddNormalInputsRemote
+void AddMempoolUnspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
+{
+    CBitcoinAddress bitcoinAddress(coinaddr);
+    uint160 indexKey;
+    int type;
+
+    if (!bitcoinAddress.GetIndexKey(indexKey, type, ccflag))    
+        return;
+
+    // NOTE: we set type == 1 what means all types except SCRIPT_HASH. 
+    // Seems mempool does not support 3
+    std::vector<std::pair<uint160, int> > address{ std::make_pair(indexKey, type) };  
+    std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > indexes;
+    mempool.getAddressIndex(address, indexes);
+
+    for (std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> >::iterator it = indexes.begin(); it != indexes.end(); it++) 
+    {
+        if (it->second.amount >= 0)  // skip prev out's deltas
+        {
+            CAddressUnspentKey key;
+            CAddressUnspentValue value;
+
+            key.type = it->first.type;
+            key.txhash = it->first.txhash;
+            key.index = it->first.index;
+            key.hashBytes = it->first.addressBytes;
+
+            value.blockHeight = 0;  // h=0 in mempool
+            value.satoshis = it->second.amount;
+            // value.script -- NOTE no script is set, no in mempool. We dont use it in AddNormalInputsRemote for which this func is for
+
+            unspentOutputs.push_back(std::make_pair(key, value));
+            LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "added unspent from mempool, txid=" << key.txhash.GetHex() << " vout=" << key.index << " amount=" << value.satoshis << std::endl);
+        }
+    }
+}
+*/
 
 void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr,bool ccflag)
 {
@@ -586,7 +766,6 @@ int64_t CCfullsupply(uint256 tokenid)
     return(0);
 }
 
-// TODO: remove this func or add IsTokenVout check (in other places just AddTokenCCInputs is used instead, maybe make it to do the job here)
 int64_t CCtoken_balance(char *coinaddr,uint256 reftokenid)
 {
     int64_t price,sum = 0; int32_t numvouts; CTransaction tx; uint256 tokenid,txid,hashBlock; 
@@ -611,7 +790,6 @@ int64_t CCtoken_balance(char *coinaddr,uint256 reftokenid)
     return(sum);
 }
 
-// finds two utxo indexes that are closest to the passed value from below or above:
 int32_t CC_vinselect(int32_t *aboveip,int64_t *abovep,int32_t *belowip,int64_t *belowp,struct CC_utxo utxos[],int32_t numunspents,int64_t value)
 {
     int32_t i,abovei,belowi; int64_t above,below,gap,atx_value;
@@ -669,7 +847,10 @@ int32_t CC_vinselect(int32_t *aboveip,int64_t *abovep,int32_t *belowip,int64_t *
 
 int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs)
 {
-    int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; uint256 txid,hashBlock; std::vector<COutput> vecOutputs; CTransaction tx; struct CC_utxo *utxos,*up;
+    int32_t abovei,belowi,ind, i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; uint256 hashBlock; 
+    std::vector<COutput> vecOutputs; 
+    CTransaction tx; struct CC_utxo *utxos,*up;
+
     if ( KOMODO_NSPV_SUPERLITE )
         return(NSPV_AddNormalinputs(mtx,mypk,total,maxinputs,&NSPV_U));
 
@@ -688,23 +869,25 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
         threshold = total/maxinputs;
     else threshold = total;
     sum = 0;
+
+    // check that outputs are not in the mtx, not locked in other mtxs not spent by tx in mempool and add to utxos array
     BOOST_FOREACH(const COutput& out, vecOutputs)
     {
-        if ( out.fSpendable != 0 && (vecOutputs.size() < maxinputs || out.tx->vout[out.i].nValue >= threshold) )
+        if ( out.fSpendable != 0 /*&& out.tx->vout[out.i].nValue >= threshold threshold is not used any more*/ )
         {
-            txid = out.tx->GetHash();
-            vout = out.i;
+            uint256 txid = out.tx->GetHash();
+            int32_t vout = out.i;
+
+            // check if the utxo has been already added to another mtx object
+            if (LockUtxoInMemory::isLockUtxoActive() && LockUtxoInMemory::isUtxoLocked(txid, vout))
+                continue;   
+
             if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
             {
                 //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)out.tx->vout[out.i].nValue/COIN,n,maxutxos,txid.GetHex().c_str(),(int32_t)vout);
-                if ( mtx.vin.size() > 0 )
-                {
-                    for (i=0; i<mtx.vin.size(); i++)
-                        if ( txid == mtx.vin[i].prevout.hash && vout == mtx.vin[i].prevout.n )
-                            break;
-                    if ( i != mtx.vin.size() )
-                        continue;
-                }
+                if (IsVinInArray(mtx.vin, txid, vout))
+                    continue;
+
                 if ( n > 0 )
                 {
                     for (i=0; i<n; i++)
@@ -727,6 +910,42 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
             }
         }
     }
+
+    // check that in-memory utxos are not already used in mtx objects and add them to utxo array too:
+    if (n < maxinputs && sum < total)
+    {
+        std::vector<CC_utxo> utxosInMem;
+        if (LockUtxoInMemory::isLockUtxoActive())
+            LockUtxoInMemory::GetMyUtxosInMemory(pwalletMain, false, utxosInMem);
+
+        for (int i = 0;  i < utxosInMem.size(); i ++)
+        {
+            uint256 txid = utxosInMem[i].txid;
+            int32_t vout = utxosInMem[i].vout;
+            CAmount value = utxosInMem[i].nValue;
+            // check if the utxo has been already added to another mtx object
+            if (LockUtxoInMemory::isLockUtxoActive() && LockUtxoInMemory::isUtxoLocked(txid, vout))
+                continue;   
+
+            if (LockUtxoInMemory::GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
+            {
+                // check if utxo is already in mtx.vin
+                if (IsVinInArray(mtx.vin, txid, vout))
+                    continue;
+
+                utxos[n].txid = txid;
+                utxos[n].vout = vout;
+                utxos[n].nValue = value;
+                sum += utxos[n].nValue;
+                n++;
+
+                //check limits:
+                if (n >= maxinputs || sum >= total)
+                    break;
+            }
+        }
+    }
+
     remains = total;
     for (i=0; i<maxinputs && n>0; i++)
     {
@@ -749,10 +968,17 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
         }
         up = &utxos[ind];
         mtx.vin.push_back(CTxIn(up->txid,up->vout,CScript()));
+
+        if (LockUtxoInMemory::isLockUtxoActive())
+            LockUtxoInMemory::LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
+
         totalinputs += up->nValue;
         remains -= up->nValue;
+
+        // remove used utxo from utxos array:
         utxos[ind] = utxos[--n];
-        memset(&utxos[n],0,sizeof(utxos[n]));
+        memset(&utxos[n], 0, sizeof(utxos[n]));
+
         //fprintf(stderr,"totalinputs %.8f vs total %.8f i.%d vs max.%d\n",(double)totalinputs/COIN,(double)total/COIN,i,maxinputs);
         if ( totalinputs >= total || (i+1) >= maxinputs )
             break;
@@ -777,47 +1003,52 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx, int64_t total, int32_t maxinp
 // has additional mypk param for nspv calls
 int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs)
 {
-    int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; char coinaddr[64]; uint256 txid,hashBlock; CTransaction tx; struct CC_utxo *utxos,*up;
+    int32_t abovei, belowi, ind, vout, i, n = 0; int64_t sum, threshold, above, below; int64_t remains, nValue, totalinputs = 0; char coinaddr[64]; uint256 txid, hashBlock; CTransaction tx; struct CC_utxo *utxos, *up;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
-    if ( KOMODO_NSPV_SUPERLITE )
-        return(NSPV_AddNormalinputs(mtx,mypk,total,maxinputs,&NSPV_U));
-    utxos = (struct CC_utxo *)calloc(CC_MAXVINS,sizeof(*utxos));
-    if ( maxinputs > CC_MAXVINS )
+
+    if (KOMODO_NSPV_SUPERLITE)
+        return(NSPV_AddNormalinputs(mtx, mypk, total, maxinputs, &NSPV_U));   // TODO: add utxo locking to NSPV_AddNormalinputs
+
+    utxos = (struct CC_utxo *)calloc(CC_MAXVINS, sizeof(*utxos));
+    if (maxinputs > CC_MAXVINS)
         maxinputs = CC_MAXVINS;
-    if ( maxinputs > 0 )
-        threshold = total/maxinputs;
-    else threshold = total;
+    
+    if (maxinputs > 0)
+        threshold = total / maxinputs;
+    else 
+        threshold = total;
+
     sum = 0;
-    Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
-    SetCCunspents(unspentOutputs,coinaddr,false);
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
+    Getscriptaddress(coinaddr, CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
+    SetCCunspents(unspentOutputs, coinaddr, false);
+    // AddCCunspentsInMempool(unspentOutputs, coinaddr, false);  // do not spend coins in mempool, spend only confirmed
+
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
-        //if ( it->second.satoshis < threshold )
+
+        //if ( it->second.satoshis < threshold ) // threshold is not used any more
         //    continue;
         if( it->second.satoshis == 0 )
             continue;
-        if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
+        if (LockUtxoInMemory::isLockUtxoActive() && LockUtxoInMemory::isUtxoLocked(txid, vout))
+            continue; 
+        if (myGetTransaction(txid, tx, hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0)
         {
             //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)tx.vout[vout].nValue/COIN,n,maxinputs,txid.GetHex().c_str(),(int32_t)vout);
-            if ( mtx.vin.size() > 0 )
+            if (IsVinInArray(mtx.vin, txid, vout))
+                continue;
+
+            if (n > 0)
             {
-                for (i=0; i<mtx.vin.size(); i++)
-                    if ( txid == mtx.vin[i].prevout.hash && vout == mtx.vin[i].prevout.n )
+                for (i = 0; i < n; i++)
+                    if (txid == utxos[i].txid && vout == utxos[i].vout)
                         break;
-                if ( i != mtx.vin.size() )
+                if (i != n)
                     continue;
             }
-            if ( n > 0 )
-            {
-                for (i=0; i<n; i++)
-                    if ( txid == utxos[i].txid && vout == utxos[i].vout )
-                        break;
-                if ( i != n )
-                    continue;
-            }
-            if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
+            if (myIsutxo_spentinmempool(ignoretxid, ignorevin, txid, vout) == 0)
             {
                 up = &utxos[n++];
                 up->txid = txid;
@@ -825,43 +1056,85 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
                 up->vout = vout;
                 sum += up->nValue;
                 //fprintf(stderr,"add %.8f to vins array.%d of %d\n",(double)up->nValue/COIN,n,maxinputs);
-                if ( n >= maxinputs || sum >= total )
+                if (n >= maxinputs || sum >= total)
                     break;
             }
         }
     }
+
+    // Allow to spend change in transactions just being created, for this add in-memory utxos
+    // check that in-memory utxos are not already used in mtx objects and add them to utxo array too
+    // this would allow to have only a single utxo on user address abd create several transactions
+    if (n < maxinputs && sum < total)
+    {
+        std::vector<CC_utxo> utxosInMem;
+        if (LockUtxoInMemory::isLockUtxoActive())
+            LockUtxoInMemory::GetAddrUtxosInMemory(coinaddr, false, utxosInMem);
+
+        for (int i = 0; i < utxosInMem.size(); i++)
+        {
+            uint256 txid = utxosInMem[i].txid;
+            int32_t vout = utxosInMem[i].vout;
+            CAmount value = utxosInMem[i].nValue;
+            // check if the utxo has been already added to another mtx object
+            if (LockUtxoInMemory::isLockUtxoActive() && LockUtxoInMemory::isUtxoLocked(txid, vout))
+                continue;
+
+            if (LockUtxoInMemory::GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
+            {
+                // check if utxo is already in mtx.vin
+                if (IsVinInArray(mtx.vin, txid, vout))
+                    continue;
+
+                utxos[n].txid = txid;
+                utxos[n].vout = vout;
+                utxos[n].nValue = value;
+                sum += utxos[n].nValue;
+                n++;
+
+                //check limits:
+                if (n >= maxinputs || sum >= total)
+                    break;
+            }
+        }
+    }
+
     remains = total;
-    for (i=0; i<maxinputs && n>0; i++)
+    for (i = 0; i < maxinputs && n>0; i++)
     {
         below = above = 0;
         abovei = belowi = -1;
-        if ( CC_vinselect(&abovei,&above,&belowi,&below,utxos,n,remains) < 0 )
+        if (CC_vinselect(&abovei, &above, &belowi, &below, utxos, n, remains) < 0)
         {
-            printf("error finding unspent i.%d of %d, %.8f vs %.8f\n",i,n,(double)remains/COIN,(double)total/COIN);
+            printf("error finding unspent i.%d of %d, %.8f vs %.8f\n", i, n, (double)remains / COIN, (double)total / COIN);
             free(utxos);
             return(0);
         }
-        if ( belowi < 0 || abovei >= 0 )
+        if (belowi < 0 || abovei >= 0)
             ind = abovei;
         else ind = belowi;
-        if ( ind < 0 )
+        if (ind < 0)
         {
-            printf("error finding unspent i.%d of %d, %.8f vs %.8f, abovei.%d belowi.%d ind.%d\n",i,n,(double)remains/COIN,(double)total/COIN,abovei,belowi,ind);
+            printf("error finding unspent i.%d of %d, %.8f vs %.8f, abovei.%d belowi.%d ind.%d\n", i, n, (double)remains / COIN, (double)total / COIN, abovei, belowi, ind);
             free(utxos);
             return(0);
         }
         up = &utxos[ind];
-        mtx.vin.push_back(CTxIn(up->txid,up->vout,CScript()));
+        mtx.vin.push_back(CTxIn(up->txid, up->vout, CScript()));
+
+        if (LockUtxoInMemory::isLockUtxoActive())
+            LockUtxoInMemory::LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
+
         totalinputs += up->nValue;
         remains -= up->nValue;
         utxos[ind] = utxos[--n];
-        memset(&utxos[n],0,sizeof(utxos[n]));
+        memset(&utxos[n], 0, sizeof(utxos[n]));
         //fprintf(stderr,"totalinputs %.8f vs total %.8f i.%d vs max.%d\n",(double)totalinputs/COIN,(double)total/COIN,i,maxinputs);
-        if ( totalinputs >= total || (i+1) >= maxinputs )
+        if (totalinputs >= total || (i + 1) >= maxinputs)
             break;
     }
     free(utxos);
-    if ( totalinputs >= total )
+    if (totalinputs >= total)
     {
         //fprintf(stderr,"return totalinputs %.8f\n",(double)totalinputs/COIN);
         return(totalinputs);
@@ -871,11 +1144,14 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
 
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs,bool remote)
 {
-    if (!remote)  return (AddNormalinputsLocal(mtx,mypk,total,maxinputs));
-    else return (AddNormalinputsRemote(mtx,mypk,total,maxinputs));
+    if (!remote)  
+        return (AddNormalinputsLocal(mtx,mypk,total,maxinputs));
+    else 
+        return (AddNormalinputsRemote(mtx,mypk,total,maxinputs));
 }
 
-void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount)
+
+void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount, uint8_t *privkey)
 {
     UniValue elem(UniValue::VOBJ);
     elem.push_back(Pair("vin", vini));
@@ -884,5 +1160,163 @@ void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std:
     if (!sscriptpubkey.empty())
         elem.push_back(Pair("scriptPubKey", sscriptpubkey));
     elem.push_back(Pair("amount", amount));
+
+    if (privkey && privkey[0])
+    {
+        std::string strPrivkey = HexStr(privkey, privkey + 32);
+        elem.push_back(Pair("globalPrivKey", strPrivkey));
+    }
     sigdata.push_back(elem);
+}
+
+
+typedef std::set<std::pair<uint256, int32_t>> utxo_set;
+typedef std::map<uint256, CTransaction> memtx_map;
+
+// utxo array that are locked, that is, used in mtx objects created in the current rpc call
+struct CLockedInMemoryUtxos : public utxo_set {
+    bool isActive;
+    //mutable CCriticalSection cs;
+    CLockedInMemoryUtxos() {
+        isActive = false;
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxosLocked object created" << std::endl);
+    }
+    ~CLockedInMemoryUtxos() {
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxosLocked object deleted" << std::endl);
+    }
+};  // will be created in each thread at the first usage
+
+    // thread memory array of mtx objects
+struct CInMemoryTxns : public memtx_map {
+    CInMemoryTxns() {
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "txnsInMem object created" << std::endl);
+    }
+    ~CInMemoryTxns() {
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "txnsInMem object deleted" << std::endl);
+    }
+};
+
+
+// def static LockUtxoInMemory member vars:
+thread_local struct CLockedInMemoryUtxos LockUtxoInMemory::utxosLocked;
+thread_local struct CInMemoryTxns LockUtxoInMemory::txnsInMem;
+
+// activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
+void LockUtxoInMemory::activateUtxoLock()
+{
+    LockUtxoInMemory::txnsInMem.clear();
+    LockUtxoInMemory::utxosLocked.clear();
+    LockUtxoInMemory::utxosLocked.isActive = true;
+    LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locking activated" << std::endl);
+}
+
+// Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
+void LockUtxoInMemory::deactivateUtxoLock()
+{
+    LockUtxoInMemory::utxosLocked.isActive = false;
+    LockUtxoInMemory::txnsInMem.clear();
+    LockUtxoInMemory::utxosLocked.clear();
+    LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locking deactivated" << std::endl);
+}
+
+LockUtxoInMemory::LockUtxoInMemory()
+{
+    activateUtxoLock();
+}
+
+LockUtxoInMemory::~LockUtxoInMemory()
+{
+    deactivateUtxoLock();
+}
+
+// returns if utxo locking is active
+bool LockUtxoInMemory::isLockUtxoActive()
+{
+    return LockUtxoInMemory::utxosLocked.isActive;
+}
+
+// checks if utxo is locked (added to a mtx object)
+bool LockUtxoInMemory::isUtxoLocked(uint256 txid, int32_t nvout)
+{
+    if (std::find(LockUtxoInMemory::utxosLocked.begin(), LockUtxoInMemory::utxosLocked.end(), std::make_pair(txid, nvout)) != LockUtxoInMemory::utxosLocked.end()) {
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo already locked: " << txid.GetHex() << "/" << nvout << std::endl);
+        return true;
+    }
+    else
+        return false;
+}
+
+// lock utxo
+void LockUtxoInMemory::LockUtxo(uint256 txid, int32_t nvout)
+{
+    if (!isUtxoLocked(txid, nvout)) {
+        LockUtxoInMemory::utxosLocked.insert(std::make_pair(txid, nvout));
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locked: " << txid.GetHex() << "/" << nvout << std::endl);
+    }
+}
+
+
+// add utxo to thread memory array
+bool LockUtxoInMemory::AddInMemoryTransaction(const CTransaction &tx)
+{
+    uint256 txid = tx.GetHash();
+    LockUtxoInMemory::txnsInMem[txid] = tx;
+    LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "transaction added to thread memory txid=" << txid.GetHex() << std::endl);
+    return true;
+}
+
+// get tx from thread mem array
+bool LockUtxoInMemory::GetInMemoryTransaction(uint256 txid, CTransaction &tx)
+{
+    tx = LockUtxoInMemory::txnsInMem[txid];
+    return !tx.IsNull();
+}
+
+// get utxos from the thread memory tx array that were sent to one of my addresses (in the wallet)
+// params:
+// pWallet wallet object
+// isCC selects only cc utxos (or vice versa)
+// utxosInMem output utxo array
+void LockUtxoInMemory::GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem)
+{
+    if (pWallet)
+    {
+        for (const auto &elem : LockUtxoInMemory::txnsInMem)
+        {
+            for (int32_t i = 0; i < elem.second.vout.size(); i++)
+            {
+                if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
+                {
+                    if (pWallet->IsMine(elem.second.vout[i]))
+                    {
+                        utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
+                    }
+                }
+            }
+        }
+    }
+}
+
+// get utxos from the thread memory tx array sent to 'destaddr' param
+// params:
+// destaddr uxtos are selected if sent to this address
+// isCC selects only cc utxos (or vice versa)
+// utxosInMem output utxo array
+void LockUtxoInMemory::GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem)
+{
+    for (const auto &elem : LockUtxoInMemory::txnsInMem)
+    {
+        for (int32_t i = 0; i < elem.second.vout.size(); i++)
+        {
+            if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                char voutaddr[KOMODO_ADDRESS_BUFSIZE];
+                Getscriptaddress(voutaddr, elem.second.vout[i].scriptPubKey);
+                if (strcmp(voutaddr, destaddr) == 0)
+                {
+                    utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
+                }
+            }
+        }
+    }
 }

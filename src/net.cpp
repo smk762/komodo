@@ -1241,8 +1241,10 @@ void ThreadSocketHandler()
             if (FD_ISSET(pnode->hSocket, &fdsetSend))
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend)
+                if (lockSend) {
                     SocketSendData(pnode);
+                    // LogPrint("net2", "%s socket send data, peer=%d\n", __func__, pnode->id);
+                }
             }
 
             //
@@ -1603,6 +1605,7 @@ void ThreadMessageHandler()
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
                 {
+                    // LogPrint("net2", "ProcessMessages before\n");
                     if (!g_signals.ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
 
@@ -1613,6 +1616,7 @@ void ThreadMessageHandler()
                             fSleep = false;
                         }
                     }
+                    // LogPrint("net2", "ProcessMessages after\n");
                 }
             }
             boost::this_thread::interruption_point();
@@ -1620,8 +1624,11 @@ void ThreadMessageHandler()
             // Send messages
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend)
+                if (lockSend)   {
+                    // LogPrint("net2", "SendMessages before, trickle param = %d\n", (int)(pnode == pnodeTrickle || pnode->fWhitelisted));
                     g_signals.SendMessages(pnode, pnode == pnodeTrickle || pnode->fWhitelisted);
+                    // LogPrint("net2", "SendMessages after\n");
+                }
             }
             boost::this_thread::interruption_point();
         }
@@ -2130,6 +2137,7 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     fGetAddr = false;
     fRelayTxes = false;
     fSentAddr = false;
+    sentAddrTime = 0;
     pfilter = new CBloomFilter();
     nPingNonceSent = 0;
     nPingUsecStart = 0;
@@ -2252,8 +2260,10 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     nSendSize += (*it).size();
 
     // If write queue empty, attempt "optimistic write"
-    if (it == vSendMsg.begin())
+    if (it == vSendMsg.begin()) {
         SocketSendData(this);
+        // LogPrint("net2", "%s socket send data, peer=%d\n", __func__, this->id);
+    }
 
     LEAVE_CRITICAL_SECTION(cs_vSend);
 }

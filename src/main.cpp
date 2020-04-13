@@ -7526,16 +7526,17 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     {
         // Only send one GetAddr response per connection to reduce resource waste
         //  and discourage addr stamping of INV announcements.
-        if (pfrom->fSentAddr) {
+        if (pfrom->fSentAddr) {  
             LogPrint("net", "Ignoring repeated \"getaddr\". peer=%d\n", pfrom->id);
             return true;
         }
         pfrom->fSentAddr = true;
+        pfrom->sentAddrTime = GetTime();
         
         pfrom->vAddrToSend.clear();
         vector<CAddress> vAddr = addrman.GetAddr();
         BOOST_FOREACH(const CAddress &addr, vAddr)
-        pfrom->PushAddress(addr);
+            pfrom->PushAddress(addr);
     }
     else if (strCommand == "getnSPV")
     {
@@ -8295,8 +8296,10 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         }
 
         TRY_LOCK(cs_main, lockMain); // Acquire cs_main for IsInitialBlockDownload() and CNodeState()
-        if (!lockMain)
+        if (!lockMain) {
+            //LogPrint("net2", "%s could not lock cs_main\n", __func__);
             return true;
+        }
 
         // Address refresh broadcast
         static int64_t nLastRebroadcast;
@@ -8315,6 +8318,46 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             if (!vNodes.empty())
                 nLastRebroadcast = GetTime();
         }
+
+        // periodically set node flag fSentAddr to allow for clients (meaning libnspv clients) to repeat getaddr requests
+        static int64_t lastClientAddrCheck = 0L;
+        static int64_t lastClientKnownReset = 0L;
+        if (!IsInitialBlockDownload() && GetTime() - lastClientAddrCheck > 60)
+        {
+            LOCK(cs_vNodes);
+            BOOST_FOREACH(CNode* pnode, vNodes)
+            {
+                if (pnode->fClient)
+                {
+                    // clear addr sent status after timeout
+                    if (GetTime() - pnode->sentAddrTime > 60) 
+                    {
+                        pnode->fSentAddr = false;
+                        LogPrint("net", "allow for peer %d to request getaddr again\n", pnode->id);
+                    }
+                    
+                }
+            }
+
+            // clear known addresses after some timeout
+            if (GetTime() - lastClientKnownReset > 60) 
+            {
+                if (lastClientKnownReset > 0)  // dont call reset early
+                {
+                    BOOST_FOREACH(CNode* pnode, vNodes)
+                    {
+                        if (pnode->fClient)
+                        {
+                            pnode->addrKnown.reset();
+                            LogPrint("net", "known addresses table reset for peer %d\n", pnode->id);
+                        }
+                    }
+                }
+                lastClientKnownReset = GetTime();
+            }
+            lastClientAddrCheck = GetTime();
+        }
+
 
         //
         // Message: addr
@@ -8338,8 +8381,10 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 }
             }
             pto->vAddrToSend.clear();
-            if (!vAddr.empty())
+            if (!vAddr.empty())   {
                 pto->PushMessage("addr", vAddr);
+                LogPrint("net", "sent %d addresses to peer %d\n", vAddr.size(), pto->id);
+            }
         }
 
         CNodeState &state = *State(pto->GetId());

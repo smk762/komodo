@@ -572,7 +572,10 @@ public:
         Check();
         std::vector<CAddress> vAddr;
         {
-            LOCK(cs);
+            //LOCK(cs);
+            TRY_LOCK(cs, locked);  // addrman might be locked for a long time in Select(). Better to return empty addresses and not block ProcessMessages 
+            if (!locked)
+                return vAddr;
             GetAddr_(vAddr);
         }
         Check();

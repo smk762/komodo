@@ -22,6 +22,8 @@
 #include "notarisationdb.h"
 #include "rpc/server.h"
 
+// cc rpc commands allowed for nspv calls
+// parameters: method-name, is-mypk-required 
 static std::map<std::string,bool> nspv_remote_commands =  {
     
 {"channelsopen", true},{"channelspayment", true},{"channelsclose", true},{"channelsrefund", true},
@@ -30,7 +32,16 @@ static std::map<std::string,bool> nspv_remote_commands =  {
 {"gatewayswithdrawsign", true},{"gatewaysmarkdone", true},{"gatewayspendingdeposits", true},{"gatewayspendingsignwithdraws", true},{"gatewayssignedwithdraws", true},
 {"gatewaysinfo", false},{"gatewayslist", false},{"faucetfund", true},{"faucetget", true},{"pegscreate", true},{"pegsfund", true},{"pegsget", true},{"pegsclose", true},
 {"pegsclose", true},{"pegsredeem", true},{"pegsexchange", true},{"pegsliquidate", true},{"pegsaccounthistory", true},{"pegsaccountinfo", true},{"pegsworstaccounts", true},
-{"pegsinfo", true},{ "marmaralock", false },{ "marmaraissue", false },{ "marmaratransfer", true },{ "marmarareceive", true },{ "marmarainfo", true },{ "marmaracreditloop", true }
+{"pegsinfo", true},{ "marmaralock", false },{ "marmaraissue", false },{ "marmaratransfer", true },{ "marmarareceive", true },{ "marmarainfo", true },{ "marmaracreditloop", true },
+    // kogs:
+    { "kogskoglist", true }, { "kogscreategameconfig", true }, { "kogsstartgame", true }, {  "kogscreateplayer", true }, { "kogscreatekogs", true }, { "kogscreateslammers", true }, 
+    { "kogscreatepack", true }, { "kogsunsealpack", true }, { "kogscreatecontainer", true }, { "kogsdepositcontainer", true }, { "kogsaddkogstocontainer",  true },
+    { "kogsremovekogsfromcontainer",  true }, { "kogsaddress", true }, { "kogsburntoken", true }, { "kogspacklist", true }, { "kogskoglist", true },
+    { "kogsslammerlist", true }, { "kogscontainerlist", true }, { "kogsdepositedcontainerlist",  true }, { "kogsplayerlist", true }, { "kogsgameconfiglist", true },
+    { "kogsgamelist", true }, { "kogsremoveobject", true }, { "kogsslamdata",  true }, { "kogsobjectinfo", true }, { "kogsadvertiseplayer", true },{ "kogsstopadvertiseplayer", true }, { "kogsadvertisedplayerlist", true },
+    { "kogsbalance", true },
+    // tokens:
+    { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
 };
 
 struct NSPV_ntzargs
@@ -688,7 +699,9 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
         {
             rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
             response=rpc_result.write();
-            memcpy(ptr->json,response.c_str(),response.size());
+            if (ptr->json == NULL)   // allocate response buf
+                ptr->json = (char*)malloc(response.size());
+            memcpy(ptr->json, response.c_str(), response.size());
             len+=response.size();
             return (len);
         }
@@ -709,7 +722,10 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
         rpc_result = JSONRPCReplyObj(NullUniValue,JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
         response=rpc_result.write();
     }
-    memcpy(ptr->json,response.c_str(),response.size());
+
+    if (ptr->json == NULL)   // allocate response buf
+        ptr->json = (char*)malloc(response.size());
+    memcpy(ptr->json, response.c_str(), response.size());
     len+=response.size();
     return (len);
 }
@@ -879,6 +895,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
             ind = (int32_t)(sizeof(pfrom->prevtimes)/sizeof(*pfrom->prevtimes)) - 1;
         if ( pfrom->prevtimes[ind] > timestamp )
             pfrom->prevtimes[ind] = 0;
+        LogPrint("nspv", "processing getnSPV request id=%d from peer %d\n", request[0], pfrom->id);
         if ( request[0] == NSPV_INFO ) // info
         {
             //fprintf(stderr,"check info %u vs %u, ind.%d\n",timestamp,pfrom->prevtimes[ind],ind);
@@ -1153,7 +1170,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
         {
             if ( timestamp > pfrom->prevtimes[ind] )
             {
-                struct NSPV_remoterpcresp R; int32_t p;
+                struct NSPV_remoterpcresp R = { "", NULL }; int32_t p;
                 p = 1;
                 p+=iguana_rwnum(0,&request[p],sizeof(slen),&slen);
                 memset(&R,0,sizeof(R));
@@ -1164,8 +1181,15 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     NSPV_rwremoterpcresp(1,&response[1],&R,slen);
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
+                    LogPrint("nspv", "pushed NSPV_REMOTERPCRESP response method %s to peer %d\n", R.method, pfrom->id);
+                    LogPrint("nspv-details", "NSPV_REMOTERPCRESP response json %s to peer %d\n", R.json, pfrom->id);
+
                     NSPV_remoterpc_purge(&R);
-                }                
+                }  
+
+                //free resp buf:
+                if (R.json)
+                    free(R.json);
             }
         }
         else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
