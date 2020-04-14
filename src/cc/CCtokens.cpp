@@ -345,7 +345,8 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
 
 	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition()) 
 	{
-		/*if (goDeeper) {
+		/* old code recursively checking vintx
+        if (goDeeper) {
 			//validate all tx
 			int64_t myCCVinsAmount = 0, myCCVoutsAmount = 0;
 
@@ -364,6 +365,7 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
 			}
 		}*/
 
+        // instead of recursively checking tx just check that the tx has token cc vin, that is it was validated by tokens cc module
         bool hasMyccvin = false;
         for (auto const vin : tx.vin)   {
             if (cp->ismyvin(vin.scriptSig)) {
@@ -421,8 +423,9 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
         }
         
         
-        if (!isLastVoutOpret)
+        if (!isLastVoutOpret)  // check OP_DROP vouts:
         {            
+            // get up to two eval codes from cc data:
             uint8_t evalCode1 = 0, evalCode2 = 0;
             if (oprets.size() >= 1) {
                 evalCode1 = oprets[0].size() > 0 ? oprets[0][0] : 0;
@@ -430,6 +433,7 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
                     evalCode2 = oprets[1].size() > 0 ? oprets[1][0] : 0;
             }
 
+            // get optional nft eval code:
             vscript_t vopretNonfungible;
             GetNonfungibleData(reftokenid, vopretNonfungible);
             if (vopretNonfungible.size() > 0)   {
@@ -450,6 +454,7 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
                     }
                 }
             
+                // test the vout if it is a tokens vout with or withouts other cc modules eval codes:
                 if (voutPubkeysInOpret.size() == 1) 
                 {
                     if (evalCode1 == 0 && evalCode2 == 0)   {
@@ -547,7 +552,7 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
         }
         else 
         {
-            // check vout with last vout opret   
+            // check vout with last vout OP_RETURN   
 
             // token opret most important checks (tokenid == reftokenid, tokenid is non-zero, tx is 'tokenbase'):
             const uint8_t funcId = ValidateTokenOpret(tx.GetHash(), tx.vout.back().scriptPubKey, reftokenid);
@@ -602,7 +607,7 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
             }
             
             if (IsTokenTransferFuncid(funcId)) 
-            { // for 'c' there is no pubkeys
+            { 
                 // verify that the vout is token by constructing vouts with the pubkeys in the opret:
 
                 // maybe this is dual-eval 1 pubkey or 1of2 pubkey vout?

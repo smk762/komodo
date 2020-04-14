@@ -247,7 +247,7 @@ std::string CreateSell(int64_t txfee, int64_t numtokens, uint256 assetid, int64_
 
             CAmount unit_price = askamount / numtokens;
 
-            uint8_t evalcodeNFT = cpTokens->evalcodeNFT ? cpTokens->evalcodeNFT : EVAL_TOKENS;
+            uint8_t evalcodeNFT = cpTokens->evalcodeNFT ? cpTokens->evalcodeNFT : 0;
 
 			CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, NULL);
             mtx.vout.push_back(MakeTokensCC1vout(EVAL_ASSETS, evalcodeNFT, numtokens, unspendableAssetsPubkey));
@@ -256,7 +256,7 @@ std::string CreateSell(int64_t txfee, int64_t numtokens, uint256 assetid, int64_
                 CCchange = (inputs - numtokens);
             if (CCchange != 0)
                 // change to single-eval or non-fungible token vout (although for non-fungible token change currently is not possible)
-                mtx.vout.push_back(MakeTokensCC1vout(evalcodeNFT, CCchange, mypk));	
+                mtx.vout.push_back(MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : EVAL_TOKENS, CCchange, mypk));	
 
             return FinalizeCCTx(mask, cpTokens, mtx, mypk, txfee, 
                 EncodeTokenOpRetV1(assetid, { unspendableAssetsPubkey }, 
@@ -440,7 +440,7 @@ std::string CancelSell(int64_t txfee,uint256 assetid,uint256 asktxid)
             if (vopretNonfungible.size() > 0)
                 cpAssets->evalcodeNFT = vopretNonfungible.begin()[0];
 
-            mtx.vout.push_back(MakeTokensCC1vout(cpAssets->evalcodeNFT == 0 ? EVAL_TOKENS : cpAssets->evalcodeNFT, askamount, mypk));	// one-eval token vout
+            mtx.vout.push_back(MakeTokensCC1vout(cpAssets->evalcodeNFT ? cpAssets->evalcodeNFT : EVAL_TOKENS, askamount, mypk));	// one-eval token vout
             mtx.vout.push_back(CTxOut(ASSETS_MARKER_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
 
             // this is only for unspendable addresses:
@@ -525,18 +525,18 @@ std::string FillBuyOffer(int64_t txfee, uint256 assetid, uint256 bidtxid, int64_
                 cpAssets = CCinit(&assetsC, EVAL_ASSETS);
                 CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 
-                uint8_t evalcodeNFT = cpTokens->evalcodeNFT ? cpTokens->evalcodeNFT : EVAL_TOKENS;
+                uint8_t evalcodeNFT = cpTokens->evalcodeNFT ? cpTokens->evalcodeNFT : 0;
 
                 if (orig_units - fill_units > 0)
                     mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bid_amount - paid_amount, unspendableAssetsPk));     // vout0 coins remainder
                 else
                     mtx.vout.push_back(CTxOut(bid_amount - paid_amount, CScript() << ParseHex(HexStr(origpubkey)) << OP_CHECKSIG));     // if no more tokens to buy, send the remainder to originator
                 mtx.vout.push_back(CTxOut(paid_amount, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));	// vout1 coins to mypk normal 
-                mtx.vout.push_back(MakeTokensCC1vout(evalcodeNFT, fill_units, pubkey2pk(origpubkey)));	        // vout2 single-eval tokens sent to the originator
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, ASSETS_MARKER_AMOUNT, origpubkey));                                // vout3 marker to origpubkey
+                mtx.vout.push_back(MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : EVAL_TOKENS, fill_units, pubkey2pk(origpubkey)));	        // vout2 single-eval tokens sent to the originator
+                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, ASSETS_MARKER_AMOUNT, origpubkey));                 // vout3 marker to origpubkey
 
                 if (CCchange != 0)
-                    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, CCchange, mypk));								// vout4 change in single-eval tokens
+                    mtx.vout.push_back(MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : EVAL_TOKENS, CCchange, mypk));		// vout4 change in single-eval tokens
 
                 //fprintf(stderr, "%s remaining_units %lld -> origpubkey\n", __func__, (long long)remaining_units);
 
@@ -658,7 +658,7 @@ std::string FillSell(int64_t txfee, uint256 assetid, uint256 assetid2, uint256 a
             // vout.0 tokens remainder to unspendable cc addr:
             mtx.vout.push_back(MakeTokensCC1vout(EVAL_ASSETS, evalCodeNFT, orig_assetoshis - fillunits, GetUnspendable(cpAssets, NULL)));  // token remainder on cc global addr
             //vout.1 purchased tokens to self token single-eval or dual-eval token+nonfungible cc addr:
-            mtx.vout.push_back(MakeTokensCC1vout(evalCodeNFT == 0 ? EVAL_TOKENS : evalCodeNFT, fillunits, mypk));					
+            mtx.vout.push_back(MakeTokensCC1vout(evalCodeNFT ? evalCodeNFT : EVAL_TOKENS, fillunits, mypk));					
                 
 			if (assetid2 != zeroid) {
 				std::cerr << __func__ << " WARNING: asset swap not implemented yet!" << std::endl;
