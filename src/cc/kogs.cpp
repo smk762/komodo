@@ -637,23 +637,37 @@ private:
     uint256 playerid;
 };
 
-static void ListGameObjects(const CPubKey &dummypk, uint8_t objectType, GOCheckerBase *pObjChecker, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, GOCheckerBase *pObjChecker, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    //bool isRemote = IS_REMOTE(remotepk);
-    //CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     struct CCcontract_info *cp, C; 
     cp = CCinit(&C, EVAL_KOGS);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectType=" << (char)objectType << std::endl);
-    SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
+    if (pObjChecker == nullptr) {
+        // all objects:
+        SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
+    }
+    else {
+        // my objects:
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        GetTokensCCaddress(cp, tokenaddr, mypk);    
+        SetCCunspentsWithMempool(addressUnspents, tokenaddr, true); 
+
+        char kogsaddr[KOMODO_ADDRESS_BUFSIZE];
+        GetCCaddress(cp, kogsaddr, mypk);    
+        SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);         
+    }
+
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
-        if (it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // 10000 to differenciate it from batons with 20000
+        if (pObjChecker != nullptr || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // 10000 to differenciate it from batons with 20000
         {
             struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, it->first.index); // parse objectType and unmarshal corresponding gameobject
-            if (obj != nullptr && obj->objectType == objectType && (pObjChecker == NULL || (*pObjChecker)(obj)))
+            if (obj != nullptr && obj->objectType == objectType /*&& (pObjChecker == NULL || (*pObjChecker)(obj))*/)
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
         }
     }

@@ -947,6 +947,7 @@ public:
         }
         return nullptr;
     }
+
 };
 
 const std::vector<UniValue> NullResults;  //empty results
