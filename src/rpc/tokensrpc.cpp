@@ -452,7 +452,7 @@ UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& remotepk)
     return(result);
 }
 
-UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); std::string hex; int32_t i; uint256 tokenid,bidtxid;
     CCerror.clear();
@@ -472,9 +472,10 @@ UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
         result.push_back(Pair("error", "invalid parameter"));
         return(result);
     }
-
+    CPubKey mypk;
+    SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (TokensIsVer1Active(NULL))
-        hex = CancelBuyOffer(0,tokenid,bidtxid);
+        hex = CancelBuyOffer(mypk, 0,tokenid,bidtxid);
     else
         hex = tokensv0::CancelBuyOffer(0,tokenid,bidtxid);
     RETURN_IF_ERROR(CCerror);
@@ -488,7 +489,7 @@ UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(result);
 }
 
-UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); 
     int64_t fillamount; 
@@ -521,9 +522,10 @@ UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
     CAmount unit_price = 0LL;
     if (params.size() == 4)
 	    unit_price = AmountFromValue(params[3].get_str().c_str());
-
+    CPubKey mypk;
+    SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (TokensIsVer1Active(NULL))	 
-        hex = FillBuyOffer(0, tokenid, bidtxid, fillamount, unit_price);
+        hex = FillBuyOffer(mypk, 0, tokenid, bidtxid, fillamount, unit_price);
     else
         hex = tokensv0::FillBuyOffer(0, tokenid, bidtxid, fillamount);
 
@@ -618,7 +620,7 @@ UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(result);
 }
 
-UniValue tokencancelask(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokencancelask(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); std::string hex; int32_t i; uint256 tokenid,asktxid;
 
@@ -638,8 +640,10 @@ UniValue tokencancelask(const UniValue& params, bool fHelp, const CPubKey& mypk)
         result.push_back(Pair("error", "invalid parameter"));
         return(result);
     }
+    CPubKey mypk;
+    SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (TokensIsVer1Active(NULL))	 
-        hex = CancelSell(0, tokenid, asktxid);
+        hex = CancelSell(mypk, 0, tokenid, asktxid);
     else
         hex = tokensv0::CancelSell(0, tokenid, asktxid);
 
@@ -654,7 +658,7 @@ UniValue tokencancelask(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(result);
 }
 
-UniValue tokenfillask(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokenfillask(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); 
     int64_t fillunits; 
@@ -685,9 +689,10 @@ UniValue tokenfillask(const UniValue& params, bool fHelp, const CPubKey& mypk)
     CAmount unit_price = 0LL;
     if (params.size() == 4)
 	    unit_price = AmountFromValue(params[3].get_str().c_str());	 
-
+    CPubKey mypk;
+    SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (TokensIsVer1Active(NULL))	 
-        hex = FillSell(0, tokenid, zeroid, asktxid, fillunits, unit_price);
+        hex = FillSell(mypk, 0, tokenid, zeroid, asktxid, fillunits, unit_price);
     else
         hex = tokensv0::FillSell(0, tokenid, zeroid, asktxid, fillunits);
     RETURN_IF_ERROR(CCerror);
@@ -705,7 +710,7 @@ UniValue tokenfillask(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(result);
 }
 
-UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     static uint256 zeroid;
     UniValue result(UniValue::VOBJ); 
@@ -730,8 +735,9 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& mypk)
     CAmount unit_price = 0LL;
     if (params.size() == 5)
 	    unit_price = AmountFromValue(params[4].get_str().c_str());
-
-    hex = FillSell(0,tokenid,otherid,asktxid,fillunits, unit_price);
+    CPubKey mypk;
+    SET_MYPK_OR_REMOTE(mypk, remotepk);
+    hex = FillSell(mypk,0,tokenid,otherid,asktxid,fillunits, unit_price);
     RETURN_IF_ERROR(CCerror);
     if (fillunits > 0) {
         if ( hex.size() > 0 ) {
