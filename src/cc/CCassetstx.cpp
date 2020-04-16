@@ -187,7 +187,8 @@ UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, u
     if (txfee == 0)
         txfee = 10000;
 
-    if ((inputs = AddNormalinputsRemote(mtx, mypk, bidamount+(txfee+ASSETS_MARKER_AMOUNT), 0x10000)) > 0)   // use AddNormalinputsRemote to sign with mypk
+    // use AddNormalinputsRemote to sign only with mypk
+    if ((inputs = AddNormalinputsRemote(mtx, mypk, bidamount+(txfee+ASSETS_MARKER_AMOUNT), 0x10000)) > 0)   
     {
 		if (inputs < bidamount+txfee) {
 			CCerror = strprintf("insufficient coins to make buy offer");
@@ -351,7 +352,7 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
     if (txfee == 0)
         txfee = 10000;
 
-    // add normal inputs only from my mypk (not from any pk in the wallet) to validate the owner
+    // add normal inputs only from my mypk (not from any pk in the wallet) to validate the ownership of the canceller
     if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
@@ -404,7 +405,7 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 a
     if (txfee == 0)
         txfee = 10000;
 
-    // add normal inputs only from my mypk (not from any pk in the wallet) to validate the owner
+    // add normal inputs only from my mypk (not from any pk in the wallet) to validate the ownership
     if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
@@ -484,7 +485,7 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
 	if (txfee == 0)
         txfee = 10000;
 
-    if (AddNormalinputs(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000, IsRemoteRPCCall()) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
         if (myGetTransaction(bidtxid, vintx, hashBlock) != 0 && vintx.vout.size() > bidvout)
@@ -616,7 +617,8 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
         }
         else
         {
-            inputs = AddNormalinputs(mtx, mypk, txfee + ASSETS_MARKER_AMOUNT + paid_nValue, 0x10000);  // Better to use single AddNormalinputs() to allow payment if user has only single utxo with normal funds
+            // Use only one AddNormalinputs() in each rpc call to allow payment if user has only single utxo with normal funds
+            inputs = AddNormalinputs(mtx, mypk, txfee + ASSETS_MARKER_AMOUNT + paid_nValue, 0x10000, IsRemoteRPCCall());  
             mask = ~((1LL << mtx.vin.size()) - 1);
         }
         if (inputs > 0)
