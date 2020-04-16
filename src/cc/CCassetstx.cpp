@@ -154,7 +154,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalCodeNFT)
 }
 
 // rpc tokenbid implementation, locks 'bidamount' coins for the 'pricetotal' of tokens
-std::string CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, uint256 assetid, int64_t numtokens)
+UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, uint256 assetid, int64_t numtokens)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	struct CCcontract_info *cpAssets, C; 
@@ -203,12 +203,7 @@ std::string CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount
         UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), 0, cpAssets, mtx, mypk, txfee, 
 			EncodeTokenOpRetV1(assetid, {},     // TODO: actually this tx is not 'tokens', maybe it is better not to have token opret here but only asset opret.
 				{ EncodeAssetOpRet('b', zeroid, unit_price, Mypubkey()) } ));   // But still such token opret should not make problems because no token eval in these vouts
-        if (ResultHasTx(sigData))
-            return ResultGetTx(sigData);
-        else     {
-            CCerror = ResultGetError(sigData);
-            return "";
-        }
+        return sigData;
         
     }
 	CCerror = "no coins found to make buy offer";
@@ -216,7 +211,7 @@ std::string CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount
 }
 
 // rpc tokenask implementation, locks 'numtokens' tokens for the 'askamount' 
-std::string CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint256 assetid, int64_t askamount)
+UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint256 assetid, int64_t askamount)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	uint64_t mask; 
@@ -262,12 +257,7 @@ std::string CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, ui
             UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpTokens, mtx, mypk, txfee, 
                 EncodeTokenOpRetV1(assetid, { unspendableAssetsPubkey }, 
                     { EncodeAssetOpRet('s', zeroid, unit_price, Mypubkey()) } ));
-            if (ResultHasTx(sigData))
-                return ResultGetTx(sigData);
-            else     {
-                CCerror = ResultGetError(sigData);
-                return "";
-            }
+            return sigData;
 		}
 		else {
             CCerror = "need some tokens to place ask";
@@ -349,7 +339,7 @@ std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 a
 }  ////////////////////////// NOT IMPLEMENTED YET/////////////////////////////////
 
 // unlocks coins, ends bid order
-std::string CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 bidtxid)
+UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 bidtxid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CTransaction vintx;	uint64_t mask;
@@ -391,12 +381,7 @@ std::string CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,ui
             UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
                 EncodeTokenOpRetV1(assetid, {},
                     { EncodeAssetOpRet('o', zeroid, 0, Mypubkey()) }));
-            if (ResultHasTx(sigData))
-                return ResultGetTx(sigData);
-            else     {
-                CCerror = ResultGetError(sigData);
-                return "";
-            }
+            return sigData;
         }
         else
             CCerror = "could not load bid tx";
@@ -407,7 +392,7 @@ std::string CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,ui
 }
 
 //unlocks tokens, ends ask order
-std::string CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 asktxid)
+UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 asktxid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CTransaction vintx; uint64_t mask; 
@@ -466,12 +451,7 @@ std::string CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint25
             UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
                 EncodeTokenOpRetV1(assetid, { mypk },
                     { EncodeAssetOpRet('x', zeroid, 0, Mypubkey()) } ));
-            if (ResultHasTx(sigData))
-                return ResultGetTx(sigData);
-            else     {
-                CCerror = ResultGetError(sigData);
-                return "";
-            }
+            return sigData;
         }
         else
             CCerror = "could not get ask tx";
@@ -482,7 +462,7 @@ std::string CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint25
 }
 
 //send tokens, receive coins:
-std::string FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 bidtxid, int64_t fill_units, CAmount paid_unit_price)
+UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 bidtxid, int64_t fill_units, CAmount paid_unit_price)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CTransaction vintx; 
@@ -561,12 +541,7 @@ std::string FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, ui
                 UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpTokens, mtx, mypk, txfee,
                     EncodeTokenOpRetV1(assetid, { pubkey2pk(origpubkey) },
                         { EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) }));
-                if (ResultHasTx(sigData))
-                    return ResultGetTx(sigData);
-                else     {
-                    CCerror = ResultGetError(sigData);
-                    return "";
-                }
+                return sigData;
             }
             else {
                 CCerror = "dont have any assets to fill bid";
@@ -584,7 +559,7 @@ std::string FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, ui
 
 
 // send coins, receive tokens 
-std::string FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 assetid2, uint256 asktxid, int64_t fillunits, CAmount paid_unit_price)
+UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 assetid2, uint256 asktxid, int64_t fillunits, CAmount paid_unit_price)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CTransaction vintx; 
@@ -703,12 +678,7 @@ std::string FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint25
             UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
 				EncodeTokenOpRetV1(assetid, { mypk }, 
                     { EncodeAssetOpRet(assetid2 != zeroid ? 'E' : 'S', assetid2, unit_price, origpubkey) } ));
-                if (ResultHasTx(sigData))
-                    return  ResultGetTx(sigData);
-                else     {
-                    CCerror = ResultGetError(sigData);
-                    return "";
-                }
+            return sigData;
         } else {
             CCerror = strprintf("filltx not enough normal utxos");
             return "";
