@@ -395,7 +395,7 @@ UniValue tokenconvert(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(result); */
 }
 
-UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); int64_t bidamount,numtokens; std::string hex; uint256 tokenid;
 
@@ -427,8 +427,12 @@ UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
         ERR_RESULT("bid amount must be positive");
         return(result);
     }
+
+    CPubKey mypk;
+    SET_MYPK_OR_REMOTE(mypk, remotepk);
+    
     if (TokensIsVer1Active(NULL))
-        hex = CreateBuyOffer(0, bidamount, tokenid, numtokens);
+        hex = CreateBuyOffer(mypk, 0, bidamount, tokenid, numtokens);
     else
         hex = tokensv0::CreateBuyOffer(0, bidamount, tokenid, numtokens);
     RETURN_IF_ERROR(CCerror);
@@ -534,7 +538,7 @@ UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(result);
 }
 
-UniValue tokenask(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokenask(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); 
     int64_t askamount, numtokens; 
@@ -560,8 +564,10 @@ UniValue tokenask(const UniValue& params, bool fHelp, const CPubKey& mypk)
         ERR_RESULT("invalid parameter");
         return(result);
     }
+    CPubKey mypk;
+    SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (TokensIsVer1Active(NULL))	 
-        hex = CreateSell(0, numtokens, tokenid, askamount);
+        hex = CreateSell(mypk, 0, numtokens, tokenid, askamount);
     else
         hex = tokensv0::CreateSell(0, numtokens, tokenid, askamount);
     RETURN_IF_ERROR(CCerror);

@@ -154,10 +154,9 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalCodeNFT)
 }
 
 // rpc tokenbid implementation, locks 'bidamount' coins for the 'pricetotal' of tokens
-std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, int64_t numtokens)
+std::string CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, uint256 assetid, int64_t numtokens)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk; 
 	struct CCcontract_info *cpAssets, C; 
 	uint256 hashBlock; 
 	CTransaction vintx; 
@@ -188,8 +187,6 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
     if (txfee == 0)
         txfee = 10000;
 
-    mypk = pubkey2pk(Mypubkey());
-
     if ((inputs = AddNormalinputsRemote(mtx, mypk, bidamount+(txfee+ASSETS_MARKER_AMOUNT), 0x10000)) > 0)   // use AddNormalinputsRemote to sign with mypk
     {
 		std::cerr << "CreateBuyOffer() inputs=" << inputs << std::endl;
@@ -204,19 +201,25 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
         mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount, unspendableAssetsPubkey));
         mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, ASSETS_MARKER_AMOUNT, mypk));
 
-        return FinalizeCCTx(0, cpAssets, mtx, mypk, txfee, 
+        UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), 0, cpAssets, mtx, mypk, txfee, 
 			EncodeTokenOpRetV1(assetid, {},     // TODO: actually this tx is not 'tokens', maybe it is better not to have token opret here but only asset opret.
 				{ EncodeAssetOpRet('b', zeroid, unit_price, Mypubkey()) } ));   // But still such token opret should not make problems because no token eval in these vouts
+        if (ResultHasTx(sigData))
+            return ResultGetTx(sigData);
+        else     {
+            CCerror = ResultGetError(sigData);
+            return "";
+        }
+        
     }
-	CCerror = strprintf("no coins found to make buy offer");
+	CCerror = "no coins found to make buy offer";
     return("");
 }
 
 // rpc tokenask implementation, locks 'numtokens' tokens for the 'askamount' 
-std::string CreateSell(int64_t txfee, int64_t numtokens, uint256 assetid, int64_t askamount)
+std::string CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint256 assetid, int64_t askamount)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk; 
 	uint64_t mask; 
 	int64_t inputs, CCchange; 
 	struct CCcontract_info *cpAssets, assetsC;
@@ -232,7 +235,6 @@ std::string CreateSell(int64_t txfee, int64_t numtokens, uint256 assetid, int64_
     if (txfee == 0)
         txfee = 10000;
 
-    mypk = pubkey2pk(Mypubkey());
     if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)   // use AddNormalinputsRemote to sign with mypk
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
@@ -258,9 +260,15 @@ std::string CreateSell(int64_t txfee, int64_t numtokens, uint256 assetid, int64_
                 // change to single-eval or non-fungible token vout (although for non-fungible token change currently is not possible)
                 mtx.vout.push_back(MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : EVAL_TOKENS, CCchange, mypk));	
 
-            return FinalizeCCTx(mask, cpTokens, mtx, mypk, txfee, 
+            UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpTokens, mtx, mypk, txfee, 
                 EncodeTokenOpRetV1(assetid, { unspendableAssetsPubkey }, 
                     { EncodeAssetOpRet('s', zeroid, unit_price, Mypubkey()) } ));
+            if (ResultHasTx(sigData))
+                return ResultGetTx(sigData);
+            else     {
+                CCerror = ResultGetError(sigData);
+                return "";
+            }
 		}
 		else {
             CCerror = "need some tokens to place ask";

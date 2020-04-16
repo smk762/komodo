@@ -983,6 +983,16 @@ public:
     static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem);
 };
 
+/*! \cond INTERNAL */
+void SetRemoteRPCCall(bool isRemote);
+#define SET_MYPK_OR_REMOTE(mypk, remotepk) \
+    if (remotepk.IsValid()) \
+        SetRemoteRPCCall(true), mypk = remotepk; \
+    else    \
+        SetRemoteRPCCall(false), mypk = pubkey2pk(Mypubkey()); 
+
+bool IsRemoteRPCCall();
+/*! \endcond */
 
 /*! \cond INTERNAL */
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
