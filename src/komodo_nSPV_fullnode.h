@@ -41,7 +41,8 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "kogsgamelist", true }, { "kogsremoveobject", true }, { "kogsslamdata",  true }, { "kogsobjectinfo", true }, { "kogsadvertiseplayer", true },{ "kogsstopadvertiseplayer", true }, { "kogsadvertisedplayerlist", true },
     { "kogsbalance", true },
     // tokens:
-    { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
+    { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokencancelask", true }, { "tokencancelbid", true }, 
+    { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
 };
 
 struct NSPV_ntzargs
@@ -1182,7 +1183,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
                     LogPrint("nspv", "pushed NSPV_REMOTERPCRESP response method %s to peer %d\n", R.method, pfrom->id);
-                    LogPrint("nspv-details", "NSPV_REMOTERPCRESP response json %s to peer %d\n", R.json, pfrom->id);
+                    LogPrint("nspv-details", "NSPV_REMOTERPCRESP response details: json %s to peer %d\n", R.json, pfrom->id);
 
                     NSPV_remoterpc_purge(&R);
                 }  
