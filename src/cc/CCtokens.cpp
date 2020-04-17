@@ -1356,7 +1356,7 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
     UniValue sigData = FinalizeCCTxExt(isRemote, mask, cp, mtx, mypk, txfee, opret); 
     LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "mtx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl);
     if (ResultHasTx(sigData)) {
-        // LockUtxoInMemory::AddInMemoryTransaction(mtx);  // to be able to spend mtx change
+        LockUtxoInMemory::AddInMemoryTransaction(mtx);  // to be able to spend mtx change
         return sigData;
     }
     else 
