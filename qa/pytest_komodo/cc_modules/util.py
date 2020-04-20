@@ -13,9 +13,19 @@ def assert_success(result):
     assert result['result'] == 'success'
 
 
+ 
 def assert_error(result):
-    assert result['result'] == 'error'
-
+    """In some cases CCs throwing exception such as:
+    {'error': {'code': -3, 'message': 'Amount out of range'}
+    And in some cases errors responses forming manually, e.g.
+    { "result" : "error", "error" : "something" }
+    lets handle both options
+    """
+    
+    if 'result' in result.keys():
+        assert result['result'] == 'error'
+    else:
+        assert 'error' in result.keys()
 
 def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx is send
     # we need the tx above to be confirmed in the next block
