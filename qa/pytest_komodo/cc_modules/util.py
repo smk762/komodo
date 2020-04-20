@@ -13,7 +13,15 @@ def assert_success(result):
     assert result['result'] == 'success'
 
 
+ 
 def assert_error(result):
+    """In some cases CCs throwing exception such as:
+    {'error': {'code': -3, 'message': 'Amount out of range'}
+    And in some cases errors responses forming manually, e.g.
+    { "result" : "error", "error" : "something" }
+    lets handle both options
+    """
+    
     if 'result' in result.keys():
         assert result['result'] == 'error'
     else:
