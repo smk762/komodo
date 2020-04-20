@@ -14,8 +14,10 @@ def assert_success(result):
 
 
 def assert_error(result):
-    assert result['result'] == 'error'
-
+    if 'result' in result.keys():
+        assert result['result'] == 'error'
+    else:
+        assert 'error' in result.keys()
 
 def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx is send
     # we need the tx above to be confirmed in the next block
