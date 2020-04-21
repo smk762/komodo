@@ -199,6 +199,7 @@ static bool IsNFTmine(uint256 reftokenid, const CPubKey &mypk)
     {
         if (IsEqualScriptPubKeys (it->second.script, MakeTokensCC1vout(EVAL_KOGS, it->second.satoshis, mypk).scriptPubKey))  {
             CScript opret;
+			// check op_drop data
             if (!MyGetCCopretV2(it->second.script, opret))    {
                 CTransaction tx;
                 uint256 hashBlock;
@@ -209,6 +210,7 @@ static bool IsNFTmine(uint256 reftokenid, const CPubKey &mypk)
                 }
             }
             if (opret.size() > 0)   {
+				// check opreturn if no op_drop
                 uint256 tokenid;
                 std::vector<CPubKey> pks;
                 std::vector<vscript_t> oprets;
@@ -421,8 +423,6 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
     return CTransaction(); // empty tx
 }
 
-// if playerId set returns found adtxid and nvout
-// if not set returns all advertisings (checked if signed correctly) in adlist
 
 static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<vscript_t> &oprets)
 {
@@ -605,13 +605,10 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     return LoadGameObject(txid, 10e8);  // 10e8 means use last vout opreturn
 }
 
-class GOCheckerBase{
-public:
-    virtual bool operator()(KogsBaseObject*) = 0;
-};
+
 
 // game object checker if NFT is mine
-class IsNFTMineChecker : public GOCheckerBase  {
+class IsNFTMineChecker : public KogsObjectFilterBase  {
 public:
     IsNFTMineChecker(const CPubKey &_mypk) { mypk = _mypk; }
     virtual bool operator()(KogsBaseObject *obj) {
@@ -621,7 +618,7 @@ private:
     CPubKey mypk;
 };
 
-class GameHasPlayerIdChecker : public GOCheckerBase {
+class GameHasPlayerIdChecker : public KogsObjectFilterBase {
 public:
     GameHasPlayerIdChecker(uint256 _playerid) { playerid = _playerid; }
     virtual bool operator()(KogsBaseObject *obj) {
@@ -637,7 +634,7 @@ private:
     uint256 playerid;
 };
 
-static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, GOCheckerBase *pObjChecker, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool onlyMine, KogsObjectFilterBase *pObjFilter, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
     bool isRemote = IS_REMOTE(remotepk);
@@ -647,16 +644,19 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, GOCheck
     cp = CCinit(&C, EVAL_KOGS);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectType=" << (char)objectType << std::endl);
-    if (pObjChecker == nullptr) {
-        // all objects:
+    if (onlyMine == false) {
+        // list all objects by marker:
         SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
     }
     else {
-        // my objects:
+        // list my objects by utxos on token+kogs or kogs address
+		// TODO: add check if this is nft or enclosure
+		// if this is nfts:
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
         GetTokensCCaddress(cp, tokenaddr, mypk);    
         SetCCunspentsWithMempool(addressUnspents, tokenaddr, true); 
 
+		// if this is kogs 'enclosure'
         char kogsaddr[KOMODO_ADDRESS_BUFSIZE];
         GetCCaddress(cp, kogsaddr, mypk);    
         SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);         
@@ -664,10 +664,10 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, GOCheck
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
-        if (pObjChecker != nullptr || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // 10000 to differenciate it from batons with 20000
+        if (onlyMine || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
         {
             struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, it->first.index); // parse objectType and unmarshal corresponding gameobject
-            if (obj != nullptr && obj->objectType == objectType /*&& (pObjChecker == NULL || (*pObjChecker)(obj))*/)
+            if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj)))
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
         }
     }
@@ -807,6 +807,8 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     }
 }
 
+// if playerId set returns found adtxid and nvout
+// if not set returns all advertisings (checked if signed correctly) in adlist
 static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, std::vector<KogsAdvertising> &adlist)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
@@ -1089,13 +1091,13 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
 }
 
 // returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectType
-void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, std::vector<uint256> &creationtxids)
+void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, KogsObjectFilterBase *pFilter, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
-    IsNFTMineChecker checker( IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey()) );
+    //IsNFTMineChecker checker( IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey()) );
 
     // get all objects with this objectType
-    ListGameObjects(remotepk, objectType, onlymy ? &checker : nullptr, objlist);
+    ListGameObjects(remotepk, objectType, onlymy, pFilter, objlist);
 
     for (const auto &o : objlist)
     {
@@ -1110,7 +1112,7 @@ void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid, std::vector<uin
     GameHasPlayerIdChecker checker(playerid);
 
     // get all objects with this objectType
-    ListGameObjects(remotepk, KOGSID_GAME, !playerid.IsNull() ? &checker : nullptr, objlist);
+    ListGameObjects(remotepk, KOGSID_GAME, false, !playerid.IsNull() ? &checker : nullptr, objlist);
 
     for (auto &o : objlist)
     {
@@ -1163,69 +1165,11 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
 // after this the system user sends the NFTs from the pack to the puchaser.
 // NOTE: for packs we cannot use more robust algorithm of sending kogs on the pack's 1of2 address (like in containers) 
 // because in such a case the pack content would be immediately available for everyone
-UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
+UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack)
 {
-    std::vector<std::shared_ptr<KogsBaseObject>> koglist;
-    std::vector<std::shared_ptr<KogsBaseObject>> packlist;
-    IsNFTMineChecker checker(IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey()));
-
     // TODO: do we need to check remote pk or suppose we are always in local mode with sys pk in the wallet?
     if (!CheckSysPubKey())
         return NullUniValue;
-
-    // get all kogs on the syspubkey 
-    ListGameObjects(remotepk, KOGSID_KOG, &checker, koglist);
-
-    // get all packs
-    ListGameObjects(remotepk, KOGSID_PACK, nullptr, packlist);
-
-    // decrypt the packs content
-    for (auto &p : packlist) {
-        KogsPack *pack = (KogsPack*)p.get();
-        if (!pack->DecryptContent(encryptkey, iv)) {
-            CCerror = "cant decrypt pack";
-            return NullUniValue;
-        }
-    }
-
-    // find list of kogs txids that are not in any pack
-    std::vector<uint256> freekogids;
-    for (auto &k : koglist)
-    {
-        KogsMatchObject *kog = (KogsMatchObject *)k.get();
-        bool found = false;
-        for (auto &p : packlist) {
-            KogsPack *pack = (KogsPack *)p.get();
-            if (std::find(pack->tokenids.begin(), pack->tokenids.end(), kog->creationtxid) != pack->tokenids.end())
-                found = true;
-        }
-        if (!found)
-            freekogids.push_back(kog->creationtxid);
-    }
-
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found free kogs num=" << freekogids.size() << std::endl);
-
-    // check the kogs num is sufficient
-    if (packsize > freekogids.size()) {
-        CCerror = "requested kogs num not available";
-        return NullUniValue;
-    }
-
-    // randomly get kogs txids
-    srand(time(NULL));
-    while (packsize--)
-    {
-        int32_t i = rand() % freekogids.size();
-        newpack.tokenids.push_back(freekogids[i]); // add randomly found kog nft
-        freekogids.erase(freekogids.begin() + i);  // remove the kogid that just has been added to the new pack
-    }
-
-    // encrypt new pack content with nft list
-    if (!newpack.EncryptContent(encryptkey, iv))
-    {
-        CCerror = "cant encrypt new pack";
-        return NullUniValue;
-    }
 
     return CreateGameObjectNFT(remotepk, &newpack);
 }
@@ -1840,18 +1784,18 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
             }
 
             KogsPack *pack = (KogsPack *)sppackbaseobj.get();  
-            if (!pack->DecryptContent(encryptkey, iv))
+            /*if (!pack->DecryptContent(encryptkey, iv))
             {
                 CCerror = "can't decrypt pack content";
                 return NullResults;
-            }
+            }*/
 
             std::vector<UniValue> results;
 
             LockUtxoInMemory lockutxos;
 
             // create txns sending the pack's kog NFTs to pack's vout address:
-            for (auto tokenid : pack->tokenids)
+            /*for (auto tokenid : pack->tokenids)
             {
                 char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
                 bool isRemote = IS_REMOTE(remotepk);
@@ -1868,7 +1812,7 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
                 }
                 else
                     results.push_back(sigData);
-            }
+            }*/
 
             if (results.size() > 0)
             {
@@ -2174,9 +2118,9 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         return err;
     }
 
-    if (pobj->evalcode != EVAL_KOGS || pobj->version != KOGS_VERSION) {
+    if (pobj->evalcode != EVAL_KOGS) {
         err.push_back(std::make_pair("result", "error"));
-        err.push_back(std::make_pair("error", "not a kogs object or unsupported version"));
+        err.push_back(std::make_pair("error", "not a kogs object"));
         return err;
     }
 
@@ -2213,6 +2157,8 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         info.push_back(std::make_pair("appearanceId", std::to_string(matchobj->appearanceId)));
         if (pobj->objectType == KOGSID_SLAMMER)
             info.push_back(std::make_pair("borderId", std::to_string(matchobj->borderId)));
+		if (!matchobj->packId.IsNull())
+		    info.push_back(std::make_pair("packId", matchobj->packId.GetHex()));
         break;
 
     case KOGSID_PACK:
@@ -2817,5 +2763,8 @@ UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins)
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
+
+	
+
     return true;
 }

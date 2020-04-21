@@ -40,6 +40,7 @@
 //#include "zcash/zip32.h"
 //#include "notaries_staked.h"
 
+#include "sync_ext.h"
 #include "../wallet/crypter.h"
 
 #include "cc/CCinclude.h"
@@ -47,8 +48,24 @@
 
 using namespace std;
 
-int32_t ensure_CCrequirements(uint8_t evalcode);
-UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
+
+// if param is object or string that could be parsed into object
+static bool IsJsonParam(UniValue param, UniValue &outJson)
+{
+    if (param.getType() == UniValue::VOBJ && param.getKeys().size() > 0) {
+        outJson = param.get_obj();
+        return true;
+    }
+    else if (param.getType() == UniValue::VSTR)  { // json in quoted string '{...}'
+        UniValue tempJson(UniValue::VOBJ);
+        tempJson.read(param.get_str().c_str());
+        if (tempJson.getKeys().size() > 0)   {
+            outJson = tempJson;
+            return true;
+        }
+    }
+    return false;
+}
 
 // rpc kogsaddress impl
 UniValue kogsaddress(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -237,6 +254,10 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey&
         }
     }
 
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
     UniValue sigData = KogsCreateGameConfig(remotepk, newgameconfig);
     RETURN_IF_ERROR(CCerror);
 
@@ -288,6 +309,10 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& rem
         newplayer.param1 = param.isNum() ? param.get_int() : atoi(param.get_str());
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newplayer.param1=" << newplayer.param1 << std::endl);
     }
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsCreatePlayer(remotepk, newplayer);
     RETURN_IF_ERROR(CCerror);
@@ -356,6 +381,10 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
     for (const auto &p : playerids)
         newgame.playerids.push_back(p);
 
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
     UniValue sigData = KogsStartGame(remotepk, newgame);
     RETURN_IF_ERROR(CCerror);
 
@@ -404,32 +433,35 @@ static UniValue CreateMatchObjects(const CPubKey& remotepk, const UniValue& para
             iter = std::find(ikeys.begin(), ikeys.end(), "nameId");
             if (iter != ikeys.end()) {
                 gameobj.nameId = jsonArray[i][iter - ikeys.begin()].get_str();
-                std::cerr << __func__ << " test output gameobj.nameId=" << gameobj.nameId << std::endl;
+                //std::cerr << __func__ << " test output gameobj.nameId=" << gameobj.nameId << std::endl;
                 reqparamcount++;
             }
             iter = std::find(ikeys.begin(), ikeys.end(), "descriptionId");
             if (iter != ikeys.end()) {
                 gameobj.descriptionId = jsonArray[i][iter - ikeys.begin()].get_str();
-                std::cerr << __func__ << " test output gameobj.descriptionId=" << gameobj.descriptionId << std::endl;
+                //std::cerr << __func__ << " test output gameobj.descriptionId=" << gameobj.descriptionId << std::endl;
                 reqparamcount++;
             }
             iter = std::find(ikeys.begin(), ikeys.end(), "imageId");
             if (iter != ikeys.end()) {
                 gameobj.imageId = jsonArray[i][iter - ikeys.begin()].get_str();
-                std::cerr << __func__ << " test output gameobj.imageId=" << gameobj.imageId << std::endl;
+                //std::cerr << __func__ << " test output gameobj.imageId=" << gameobj.imageId << std::endl;
                 reqparamcount++;
             }
             iter = std::find(ikeys.begin(), ikeys.end(), "setId");
             if (iter != ikeys.end()) {
                 gameobj.setId = jsonArray[i][iter - ikeys.begin()].get_str();
-                std::cerr << __func__ << " test output gameobj.setId=" << gameobj.setId << std::endl;
+                //std::cerr << __func__ << " test output gameobj.setId=" << gameobj.setId << std::endl;
                 reqparamcount++;
             }
             iter = std::find(ikeys.begin(), ikeys.end(), "subsetId");
             if (iter != ikeys.end()) {
                 gameobj.subsetId = jsonArray[i][iter - ikeys.begin()].get_str();
-                std::cerr << __func__ << " test output gameobj.subsetId=" << gameobj.subsetId << std::endl;
+                //std::cerr << __func__ << " test output gameobj.subsetId=" << gameobj.subsetId << std::endl;
             }
+
+            if (!jsonArray["packId"].isNull()) 
+                gameobj.packId = Parseuint256(jsonArray["packId"].get_str().c_str());
 
             if (reqparamcount < 4)
                 throw runtime_error("not all required game object data passed\n");
@@ -438,13 +470,9 @@ static UniValue CreateMatchObjects(const CPubKey& remotepk, const UniValue& para
         }
     }
 
-/*    CPubKey remotepk;
-    if (params.size() == 2)
-        remotepk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
-    else
-        remotepk = pubkey2pk(Mypubkey());
-    if (!remotepk.IsFullyValid())
-        throw runtime_error("remotepk is not set\n");*/
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsCreateMatchObjectNFTs(remotepk, gameobjects);
     RETURN_IF_ERROR(CCerror);
@@ -472,7 +500,7 @@ UniValue kogscreatekogs(const UniValue& params, bool fHelp, const CPubKey& remot
     if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' \n"
+            "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\", \"packId\":\"txid\"}, {...}]}' \n"
             "creates array of kog NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
     return CreateMatchObjects(remotepk, params, true);
@@ -509,8 +537,9 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& remot
     if (fHelp || (params.size() < 5 || params.size() > 6))
     {
         throw runtime_error(
-            "kogscreatepack name description packsize encryptkey initvector \n"
-            "creates a pack with the 'number' of randomly selected kogs. The pack content is encrypted (to decrypt it later after purchasing)\n" "\n");
+            "kogscreatepack name description kogs-number slammer-number imaged-id [true|false]\n"
+            "creates a pack with the 'kogs-number' and 'slammer-number' of randomly selected kogs and slammer. The kogs and slammers will be sent to the pack owner who burned it (opened)\n"
+            "if 'true' is set then pack content is revealed" "\n");
     }
 
     KogsPack newpack;
@@ -518,19 +547,24 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& remot
     newpack.nameId = params[0].get_str();
     newpack.descriptionId = params[1].get_str();
 
-    int32_t packsize = atoi(params[2].get_str());
-    if (packsize <= 0)
-        throw runtime_error("packsize should be positive number\n");
+    newpack.kogNumber = atoi(params[2].get_str());
+    if (newpack.kogNumber <= 0)
+        throw runtime_error("kog-number should be positive number\n");
+    newpack.slammerNumber = atoi(params[3].get_str());
+    if (newpack.slammerNumber <= 0)
+        throw runtime_error("slammer-number should be positive number\n");
+    newpack.imageid = params[4].get_str();
+    newpack.isRevealed = 0;
+    if (params.size() == 6) {
+        if (params[5].get_str() == "true")
+            newpack.isRevealed = 1;
+    }
 
-    vuint8_t enckey = ParseHex(params[3].get_str().c_str());
-    if (enckey.size() != WALLET_CRYPTO_KEY_SIZE)
-        throw runtime_error(std::string("encryption key length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
-    vuint8_t iv = ParseHex(params[4].get_str().c_str());
-    if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
-        throw runtime_error(std::string("initvector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
-
-    UniValue sigData = KogsCreatePack(remotepk, newpack, packsize, enckey, iv);
+    UniValue sigData = KogsCreatePack(remotepk, newpack);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -547,6 +581,8 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& remot
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+throw runtime_error("not supported any more");
 
     if (fHelp || (params.size() < 3 || params.size() > 4))
     {
@@ -566,6 +602,10 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& remot
     vuint8_t iv = ParseHex(params[2].get_str().c_str());
     if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("init vector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsUnsealPackToOwner(remotepk, packid, enckey, iv);
     RETURN_IF_ERROR(CCerror);
@@ -638,6 +678,9 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
     if (tokenids.size() != params.size() - 3)
         throw runtime_error("duplicate tokenids in params\n");
 
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsCreateContainerV2(remotepk, newcontainer, tokenids);
     RETURN_IF_ERROR(CCerror);
@@ -681,6 +724,10 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey&
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
     
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
     UniValue sigData = KogsDepositContainerV2(remotepk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
@@ -716,6 +763,10 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const C
     uint256 containerid = Parseuint256(params[1].get_str().c_str());
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsClaimDepositedContainer(remotepk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
@@ -780,6 +831,10 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
     }
     if (tokenids.size() != params.size() - 1)
         throw runtime_error("duplicate tokenids in params\n");
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsAddKogsToContainerV2(remotepk, 0, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
@@ -865,6 +920,10 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
     std::vector<UniValue> sigDataArr = KogsRemoveKogsFromContainerV2(remotepk, 0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
     for (const auto &sigData : sigDataArr)
@@ -941,6 +1000,10 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotep
     if (slamparams.armStrength < 0 || slamparams.armStrength > 100)
         throw runtime_error("incorrect armstrength value\n");
 
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
     UniValue sigData = KogsAddSlamParams(remotepk, slamparams);
     RETURN_IF_ERROR(CCerror);
 
@@ -970,6 +1033,10 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& remote
     uint256 tokenid = Parseuint256(params[0].get_str().c_str());
     if (tokenid.IsNull())
         throw runtime_error("tokenid incorrect\n");
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsBurnNFT(remotepk, tokenid);
     RETURN_IF_ERROR(CCerror);
@@ -1002,6 +1069,10 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& rem
 
     int32_t nvout = atoi(params[1].get_str().c_str());
 
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
     UniValue sigData = KogsRemoveObject(remotepk, txid, nvout);
     RETURN_IF_ERROR(CCerror);
 
@@ -1016,25 +1087,41 @@ UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& remotepk
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() > 1))
+    if (fHelp || (params.size() > 2))
     {
         throw runtime_error(
-            "kogskoglist [my]\n"
-            "returns all kog tokenids\n"
-            "if 'my' is present then returns kog ids on my pubkey and not in any container\n" "\n");
+            "kogskoglist [my|all] [json-props]\n"
+            "returns all or my kog tokenids\n"
+            "if 'my' is present then returns kog ids on my pubkey and not in any container\n" 
+            "json-prop is optional list of properties to filter objects if any of the properties matched" "\n");
     }
 
     bool onlymy = false;
-    if (params.size() == 1)
+    std::map<std::string, UniValue> filterprops;
+    if (params.size() >= 1)
     {
+        UniValue json;
         if (params[0].get_str() == "my")
             onlymy = true;
+        else if (params[0].get_str() == "all") 
+            onlymy = false;
         else
-            throw runtime_error("incorrect param\n");
+            throw runtime_error("incorrect param 1\n");
+    
+        if (params.size() == 2)
+        {
+            UniValue json;
+            if (IsJsonParam(params[1], json)) {
+                json.getObjMap(filterprops);
+            }
+            else
+                throw runtime_error("incorrect param 2\n");
+        }
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(remotepk, KOGSID_KOG, onlymy, tokenids);
+    KogsMatchObjectFilter_OR filter(filterprops);
+    KogsCreationTxidList(remotepk, KOGSID_KOG, onlymy, filterprops.size() > 0 ? &filter : nullptr, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1050,25 +1137,41 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& remo
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() > 1))
+    if (fHelp || (params.size() > 2))
     {
         throw runtime_error(
-            "kogsslammerlist [my]\n"
-            "returns all slammer tokenids\n"
-            "if 'my' is present then returns slammer ids on my pubkey" "\n");
+            "kogsslammerlist [my|all] [json-props]\n"
+            "returns all or my slammer tokenids\n"
+            "if 'my' is present then returns slammer ids on my pubkey and not in any container\n"
+            "json-prop is optional list of properties to filter objects if any of the properties matched" "\n");
     }
 
     bool onlymy = false;
-    if (params.size() == 1)
+    std::map<std::string, UniValue> filterprops;
+    if (params.size() >= 1)
     {
+        UniValue json;
         if (params[0].get_str() == "my")
             onlymy = true;
+        else if (params[0].get_str() == "all") 
+            onlymy = false;
         else
-            throw runtime_error("incorrect param\n");
+            throw runtime_error("incorrect param 1\n");
+    
+        if (params.size() == 2)
+        {
+            UniValue json;
+            if (IsJsonParam(params[1], json)) {
+                json.getObjMap(filterprops);
+            }
+            else
+                throw runtime_error("incorrect param 2\n");
+        }
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(remotepk, KOGSID_SLAMMER, onlymy, tokenids);
+    KogsMatchObjectFilter_OR filter(filterprops);
+    KogsCreationTxidList(remotepk, KOGSID_SLAMMER, onlymy, filterprops.size() > 0 ? &filter : nullptr, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1101,7 +1204,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& remotep
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(remotepk, KOGSID_PACK, onlymy, tokenids);
+    KogsCreationTxidList(remotepk, KOGSID_PACK, onlymy, nullptr, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1135,7 +1238,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& re
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(remotepk, KOGSID_CONTAINER, onlymy, tokenids);
+    KogsCreationTxidList(remotepk, KOGSID_CONTAINER, onlymy, nullptr, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1166,7 +1269,7 @@ UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CP
     KogsDepositedContainerList(gameid, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto t : tokenids)
+    for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
     result.push_back(std::make_pair("tokenids", resarray));
@@ -1196,7 +1299,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& remot
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(remotepk, KOGSID_PLAYER, onlymy, creationids);
+    KogsCreationTxidList(remotepk, KOGSID_PLAYER, onlymy, nullptr, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)
@@ -1220,7 +1323,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& r
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(remotepk, KOGSID_GAMECONFIG, false, creationids);
+    KogsCreationTxidList(remotepk, KOGSID_GAMECONFIG, false, nullptr, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)
@@ -1343,6 +1446,10 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
     if (newadplayer.gameOpts == 0)
         newadplayer.gameOpts = KOGS_OPTS_PLAYFORFUN;
 
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
     result = KogsAdvertisePlayer(remotepk, newadplayer);
     RETURN_IF_ERROR(CCerror);
 
@@ -1407,6 +1514,10 @@ UniValue kogsstopadvertiseplayer(const UniValue& params, bool fHelp, const CPubK
     uint256 playerid = Parseuint256(params[0].get_str().c_str());
     if (playerid.IsNull())
         throw runtime_error("playerid incorrect\n");
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsStopAdvertisePlayer(remotepk, playerid);
     RETURN_IF_ERROR(CCerror);

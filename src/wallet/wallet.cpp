@@ -2879,12 +2879,15 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             pindex = chainActive.Next(pindex);
 
         ShowProgress(_("Rescanning..."), 0); // show rescan progress in GUI as dialog or on splashscreen, if -rescan on startup
+        std::cerr << "Rescanning chain to add txns to wallet... ";
         double dProgressStart = Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex, false);
         double dProgressTip = Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), chainActive.LastTip(), false);
         while (pindex)
         {
-            if (pindex->GetHeight() % 100 == 0 && dProgressTip - dProgressStart > 0.0)
+            if (pindex->GetHeight() % 100 == 0 && dProgressTip - dProgressStart > 0.0) {
                 ShowProgress(_("Rescanning..."), std::max(1, std::min(99, (int)((Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex, false) - dProgressStart) / (dProgressTip - dProgressStart) * 100))));
+                std::cerr << "h=" << pindex->GetHeight() << " ";
+            }
 
             CBlock block;
             ReadBlockFromDisk(block, pindex,1);
@@ -2929,6 +2932,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
         }
 
         ShowProgress(_("Rescanning..."), 100); // hide progress dialog in GUI
+        std::cerr << std::endl;
     }
     return ret;
 }
