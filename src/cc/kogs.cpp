@@ -320,7 +320,7 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, KogsBaseObject *baseo
     if (needBaton)
         normals += KOGS_BATON_AMOUNT;
 
-    if (AddNormalinputs(mtx, mypk, normals, 8, isRemote) > 0)
+    if (AddNormalinputs(mtx, mypk, normals, 0x10000, isRemote) > 0)
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
@@ -353,7 +353,7 @@ static void AddBatonVouts(CMutableTransaction &mtx, struct CCcontract_info *cp, 
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
 
-    //if (AddNormalinputs(mtx, minerpk, txfee, 8, false) > 0)
+    //if (AddNormalinputs(mtx, minerpk, txfee, 0x10000, false) > 0)
     //{
     mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
     mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
@@ -401,7 +401,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
 
-    if (AddNormalinputs(mtx, minerpk, txfee, 8, false) > 0)
+    if (AddNormalinputs(mtx, minerpk, txfee, 0x10000, false) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
@@ -721,7 +721,7 @@ static UniValue CreateSlamParamTx(const CPubKey &remotepk, uint256 prevtxid, int
 
     mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
 
-    if (AddNormalinputs(mtx, mypk, 3*txfee, 8, isRemote) > 0)
+    if (AddNormalinputs(mtx, mypk, 3*txfee, 0x10000, isRemote) > 0)
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, GetUnspendable(cp, NULL))); // marker to find batons
 
@@ -761,7 +761,7 @@ static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertisi
     enc.name = ad.nameId;
     enc.description = ad.descriptionId;
 
-    if (AddNormalinputsRemote(mtx, mypk, txfee, 8) > 0)   // add always from mypk because it will be checked who signed this advertising tx
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)   // add always from mypk because it will be checked who signed this advertising tx
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_ADVERISING_AMOUNT, GetUnspendable(cp, NULL))); // baton for miner to indicate the slam data added
 
@@ -1303,7 +1303,7 @@ static UniValue SpendEnclosure(const CPubKey &remotepk, int64_t txfee, KogsEnclo
     bool isRemote = IS_REMOTE(remotepk);
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
-    if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
     {
         if (enc.latesttxid.IsNull()) {
             CCerror = strprintf("incorrect latesttx in container");
@@ -1857,7 +1857,7 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 
     cp = CCinit(&C, EVAL_TOKENS);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
     {
         if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1, true) > 0)
         {
@@ -1905,7 +1905,7 @@ UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
 
     cp = CCinit(&C, EVAL_KOGS);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
     {
         mtx.vin.push_back(CTxIn(txid, nvout));
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
@@ -1960,7 +1960,7 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
 
     cp = CCinit(&C, EVAL_KOGS);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
     {
         mtx.vin.push_back(CTxIn(adtxid, advout));   // spend advertising marker:
         mtx.vout.push_back(CTxOut(KOGS_ADVERISING_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
@@ -2764,7 +2764,7 @@ UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins)
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
 
-	
+
 
     return true;
 }
