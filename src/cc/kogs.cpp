@@ -2837,7 +2837,7 @@ static bool log_and_return_error(Eval* eval, std::string errorStr, const CTransa
 	return eval->Error(errorStr);
 }
 
-static bool check_matchobject_spending(struct CCcontract_info *cp, const KogsMatchObject *pObj, const CTransaction &tx, std::string &errorStr)
+static bool check_match_object(struct CCcontract_info *cp, const KogsMatchObject *pObj, const CTransaction &tx, std::string &errorStr)
 {
 	CPubKey kogsGlobalPk = GetUnspendable(cp, NULL);
 
@@ -2933,9 +2933,12 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 		switch(pBaseObj->objectType)	{
 			case KOGSID_KOG:
 			case KOGSID_SLAMMER:
-				return true;
+				if (!check_match_object(cp, (KogsMatchObject*)pBaseObj, tx, errorStr))
+					return log_and_return_error(eval, "invalid kog or slammer op: " + errorStr, tx);
+				else
+					return true;			
 			case KOGSID_PACK:
-				return true;
+				break;
 			case KOGSID_CONTAINER:
 				break;
 			case KOGSID_PLAYER:
