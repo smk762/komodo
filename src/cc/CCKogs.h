@@ -34,13 +34,21 @@ const uint8_t KOGSID_BATON = 'B';
 const uint8_t KOGSID_SLAMPARAMS = 'R';
 const uint8_t KOGSID_GAMEFINISHED = 'F';
 const uint8_t KOGSID_ADVERTISING = 'A';
+const uint8_t KOGSID_ADDTOCONTAINER = 'H';
+const uint8_t KOGSID_REMOVEFROMCONTAINER = 'J';
 
 const uint8_t KOGS_MIN_VERSION = 1;
 const uint8_t ENCLOSURE_VERSION = 1;
 
-#define KOGS_IS_MATCH_OBJECT(objectType) (objectType == KOGSID_SLAMMER || objectType == KOGSID_KOG)
+#if !defined(IS_CHARINSTR)
+#define IS_CHARINSTR(c, str) (std::string(str).find((char)(c)) != std::string::npos)
+#endif
 
-inline bool IsObjectVersionSupported(uint8_t objectType, uint8_t version) { return KOGS_IS_MATCH_OBJECT(objectType) && version >= 1 && version <= 2 || version == 1; }
+inline std::string funcIdToPrint(uint8_t funcid) { return isprint(funcid) ? std::string(1, funcid) : std::to_string((int)funcid); }
+
+inline bool KogsIsMatchObject(uint8_t objectType) { return objectType == KOGSID_SLAMMER || objectType == KOGSID_KOG; }
+inline bool KogsIsSysCreateObject(uint8_t objectType) { return IS_CHARINSTR(objectType, "MKSP"); }
+inline bool KogsIsObjectVersionSupported(uint8_t objectType, uint8_t version) { return KogsIsMatchObject(objectType) && version >= KOGS_MIN_VERSION && version <= 2 || version == KOGS_MIN_VERSION; }
 
 #define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
 #define KOGS_NFT_MARKER_VOUT        2   // additional kogs global address marker vout num for tokens
@@ -68,6 +76,7 @@ struct KogsBaseObject {
     uint8_t objectType;
     uint8_t version;
 
+    uint8_t funcid; // token or enclosure funcid
     uint256 creationtxid;
     bool istoken;
     //CTransaction latesttx;
@@ -79,7 +88,7 @@ struct KogsBaseObject {
         uint8_t version = (uint8_t)0;
 
         E_UNMARSHAL(vopret, ss >> evalcode; ss >> objectType; ss >> version);
-        if (evalcode != EVAL_KOGS || !IsObjectVersionSupported(objectType, version)) {
+        if (evalcode != EVAL_KOGS || !KogsIsObjectVersionSupported(objectType, version)) {
             LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect game object evalcode or version" << std::endl);
             return false;
         }
@@ -179,7 +188,7 @@ struct KogsGameConfig : public KogsBaseObject {
         READWRITE(evalcode);
         READWRITE(objectType);
         READWRITE(version);
-        if (evalcode == EVAL_KOGS && IsObjectVersionSupported(objectType, version))
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
         {
             READWRITE(numKogsInContainer);
             READWRITE(numKogsInStack);
@@ -233,7 +242,7 @@ struct KogsPlayer : public KogsBaseObject {
         READWRITE(evalcode);
         READWRITE(objectType);
         READWRITE(version);
-        if (evalcode == EVAL_KOGS && IsObjectVersionSupported(objectType, version))
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
         {
             READWRITE(param1);
         }
@@ -283,7 +292,7 @@ struct KogsMatchObject : public KogsBaseObject {
         READWRITE(evalcode);
         READWRITE(objectType);
         READWRITE(version);
-        if (evalcode == EVAL_KOGS && IsObjectVersionSupported(objectType, version))
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
         {
             READWRITE(imageId);
             READWRITE(setId);
@@ -342,7 +351,7 @@ struct KogsPack : public KogsBaseObject {
         READWRITE(evalcode);
         READWRITE(objectType);
         READWRITE(version);
-        if (evalcode == EVAL_KOGS && IsObjectVersionSupported(objectType, version))
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
         {
             READWRITE(kogNumber);
             READWRITE(slammerNumber);
@@ -530,9 +539,9 @@ struct KogsEnclosure {
                 uint8_t version = (uint8_t)0;
 
                 E_UNMARSHAL(enc.vdata, ss >> evalcode; ss >> objectType; ss >> version);
-                if (evalcode != EVAL_KOGS || IsObjectVersionSupported(objectType, version))
+                if (evalcode != EVAL_KOGS || !KogsIsObjectVersionSupported(objectType, version))
                 {
-                    LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not kog evalcode or incorrect version for txid=" << tx.GetHash().GetHex() << std::endl);
+                    LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not kog evalcode (" << (int)evalcode << ") or incorrect version (" << (int)version << ") objectType=" << funcIdToPrint(objectType) << " for txid=" << tx.GetHash().GetHex() << std::endl);
                     return false;
                 }
 
@@ -897,6 +906,53 @@ struct KogsAdvertising : public KogsBaseObject {
     }
 };
 
+// object storing data for sending and releasing kogs to and from the container
+struct KogsContainerOps : public KogsBaseObject {
+
+    uint256 containerid;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {  // clear to zeros to indicate if could not read
+            evalcode = 0;
+            objectType = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectType);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
+        {
+            READWRITE(containerid);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    }
+
+    KogsContainerOps(uint8_t _objectType) : KogsBaseObject()
+    {
+        nameId = "cops";
+        descriptionId = "";
+        objectType = _objectType;
+    }
+
+    void Init(uint256 contid)
+    {
+        containerid = contid;
+    }
+};
+
+
 // simple factory for Kogs game objects
 class KogsFactory
 {
@@ -913,6 +969,7 @@ public:
         struct KogsSlamParams *sp;
         struct KogsGameFinished *e;
         struct KogsAdvertising *a;
+        struct KogsContainerOps *co;
 
         switch (objectType)
         {
@@ -957,6 +1014,11 @@ public:
             a = new KogsAdvertising();
             return (KogsBaseObject*)a;
 
+        case KOGSID_ADDTOCONTAINER:
+        case KOGSID_REMOVEFROMCONTAINER:
+            co = new KogsContainerOps(objectType);
+            return (KogsBaseObject*)co;
+
         default:
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "requested to create unsupported objectType=" << (int)objectType << std::endl);
         }
@@ -976,7 +1038,7 @@ class KogsMatchObjectFilter_OR : public KogsObjectFilterBase  {
 public:
     KogsMatchObjectFilter_OR(std::map<std::string, UniValue> &_kvmap) { kvmap = _kvmap; }
     virtual bool operator()(KogsBaseObject *obj) {
-        if (KOGS_IS_MATCH_OBJECT(obj->objectType))  {
+        if (KogsIsMatchObject(obj->objectType))  {
             KogsMatchObject *pMatchObj = (KogsMatchObject *)obj;
             for (auto const &k : kvmap) {
                 if (k.first == "nameId" && k.second.getValStr() == pMatchObj->nameId)

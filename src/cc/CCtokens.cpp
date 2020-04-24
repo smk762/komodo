@@ -1256,7 +1256,7 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
 		txfee = 10000;
 
     mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    int64_t normalInputs = AddNormalinputs(mtx, mypk, txfee, 3, isRemote);
+    int64_t normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote);
     if (normalInputs < 0)
 	{
         return MakeResultError("cannot find normal inputs");
@@ -1494,9 +1494,9 @@ UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
         return NullUniValue;
     }
 
-    if (AddNormalinputs(mtx, mypk, txfee, 3, isRemote) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
     {
-        if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60, useMempool)) > 0)
+        if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 0x10000, useMempool)) > 0)
         {
             if (inputs < total) {
                 CCerror = strprintf("insufficient token inputs");
