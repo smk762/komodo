@@ -705,6 +705,20 @@ struct KogsBaton : public KogsBaseObject {
         nextturn = 0;
         prevturncount = 0;
     }
+
+    bool operator!=(const KogsBaton &baton)   
+    {
+        if (baton.gameid == gameid && 
+            baton.gameconfigid == gameconfigid &&
+            baton.nextturn == nextturn &&
+            baton.prevturncount == prevturncount &&
+            baton.playerids == playerids &&
+            baton.kogsInStack == kogsInStack &&
+            baton.kogsFlipped == kogsFlipped)
+            return false;
+        else
+            return true;
+    }
 };
 
 // slam parameters sent by player
@@ -1078,8 +1092,8 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
 std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContainer newcontainer, const std::set<uint256> &tokenids);
 UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid);
 UniValue KogsClaimDepositedContainer(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid);
-std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
-std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids);
+std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 containerid, const std::set<uint256> &tokenids);
+std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid, const std::set<uint256> &tokenids);
 void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids);
 UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams &newslamparams);
 UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout);
