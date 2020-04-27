@@ -3049,7 +3049,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 	if (KogsIsSysCreateObject(pBaseObj->objectType) && sysPk != pBaseObj->encOrigPk)
 		return log_and_return_error(eval, "invalid object creator pubkey", tx);
 
-	if (pBaseObj->funcid == 't' || pBaseObj->funcid == 'c')
+	if (!pBaseObj->istoken && (pBaseObj->funcid == 't' || pBaseObj->funcid == 'c'))
 	{
 		switch(pBaseObj->objectType)	{
 			case KOGSID_KOG:
