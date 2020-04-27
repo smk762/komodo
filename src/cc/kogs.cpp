@@ -962,8 +962,20 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &sla
         return false;
     }
     // calc percentage of flipped based on height or ranges
-    int heightFract = heightRanges[iheight].left + rand() % (heightRanges[iheight].right - heightRanges[iheight].left);
-    int strengthFract = strengthRanges[istrength].left + rand() % (strengthRanges[istrength].right - strengthRanges[istrength].left);
+    int randH;
+    int randS;
+    if (ptestbaton == nullptr)  {
+        // make random range offset
+        newbaton.randomHeightRange = rand();
+        newbaton.randomStrengthRange = rand();  
+    }
+    else {
+        // use existing randoms to validate
+        newbaton.randomHeightRange = ptestbaton->randomHeightRange;
+        newbaton.randomStrengthRange = ptestbaton->randomStrengthRange;
+    }
+    int heightFract = heightRanges[iheight].left + newbaton.randomHeightRange % (heightRanges[iheight].right - heightRanges[iheight].left);
+    int strengthFract = strengthRanges[istrength].left + newbaton.randomStrengthRange % (strengthRanges[istrength].right - strengthRanges[istrength].left);
     int totalFract = heightFract + strengthFract;
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "heightFract=" << heightFract << " strengthFract=" << strengthFract << std::endl);
@@ -2505,7 +2517,10 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 			return false;
 		}
 		// randomly select whose turn is the first:
-		nextturn = rand() % pgame->playerids.size();
+        if (ptestbaton == nullptr)
+		    nextturn = rand() % pgame->playerids.size();
+        else
+            nextturn == ptestbaton->nextturn; // validate
 		playerids = pgame->playerids;
 		gameid = pPrevObj->creationtxid;
 		gameconfigid = pgame->gameconfigid;
@@ -3016,8 +3031,8 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 {
 	std::string errorStr;
 
-    return true;
-    
+    //return true;
+
 	if (tx.vout.size() == 0)
 		return log_and_return_error(eval, "no vouts", tx);
 

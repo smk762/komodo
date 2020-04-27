@@ -661,6 +661,7 @@ struct KogsBaton : public KogsBaseObject {
     std::vector<uint256> playerids;
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
+    int32_t randomHeightRange, randomStrengthRange;
 
     ADD_SERIALIZE_METHODS;
 
@@ -685,6 +686,8 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
+            READWRITE(randomHeightRange);
+            READWRITE(randomStrengthRange);
         }
         else
         {
@@ -713,11 +716,16 @@ struct KogsBaton : public KogsBaseObject {
             baton.nextturn == nextturn &&
             baton.prevturncount == prevturncount &&
             baton.playerids == playerids &&
-            baton.kogsInStack == kogsInStack &&
             baton.kogsFlipped == kogsFlipped)
-            return false;
-        else
-            return true;
+        {
+            // compare orderred as stack is shuffled
+            std::set<uint256> set1(baton.kogsInStack.begin(), baton.kogsInStack.end()); 
+            std::set<uint256> set2(kogsInStack.begin(), kogsInStack.end());
+
+            if (set1 == set2)
+                return false;
+        }
+        return true;
     }
 };
 
