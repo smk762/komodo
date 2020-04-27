@@ -3049,48 +3049,52 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 	if (KogsIsSysCreateObject(pBaseObj->objectType) && sysPk != pBaseObj->encOrigPk)
 		return log_and_return_error(eval, "invalid object creator pubkey", tx);
 
-	if (!pBaseObj->istoken && (pBaseObj->funcid == 't' || pBaseObj->funcid == 'c'))
+	if (!pBaseObj->istoken)
 	{
-		switch(pBaseObj->objectType)	{
-			case KOGSID_KOG:
-			case KOGSID_SLAMMER:
-				if (!check_match_object(cp, (KogsMatchObject*)pBaseObj, tx, errorStr))
-					return log_and_return_error(eval, "invalid kog or slammer op: " + errorStr, tx);
-				else
-					return true;
-			case KOGSID_PACK:
-				break;
-			case KOGSID_CONTAINER:
-				break;
-			case KOGSID_PLAYER:
-				return true;
-			case KOGSID_GAMECONFIG:
-				// could only be in funcid 'c':
-				return log_and_return_error(eval, "invalid gameconfig object", tx);
-			case KOGSID_GAME:
-				// could only be in funcid 'c':
-				return log_and_return_error(eval, "invalid game object", tx);
-			case KOGSID_SLAMPARAMS:
-				return true;
-			case KOGSID_GAMEFINISHED:
-			case KOGSID_BATON:
-				if (!check_baton(cp, (KogsBaton*)pBaseObj, tx, errorStr))
-					return log_and_return_error(eval, "invalid baton: " + errorStr, tx);
-				else
-					return true;
-				break;
-			case KOGSID_ADVERTISING:
-				break;
-			case KOGSID_ADDTOCONTAINER:
-			case KOGSID_REMOVEFROMCONTAINER:
-				if (!check_container_ops(cp, (KogsContainerOps*)pBaseObj, tx, errorStr))
-					return log_and_return_error(eval, "invalid op with kogs in container: " + errorStr, tx);
-				else
-					return true;			
-				break;
-			default:
-			    return log_and_return_error(eval, "invalid object type", tx);
-		}
+        if (pBaseObj->funcid == 't' || pBaseObj->funcid == 'c')
+        {
+            switch(pBaseObj->objectType)	{
+                case KOGSID_KOG:
+                case KOGSID_SLAMMER:
+                    if (!check_match_object(cp, (KogsMatchObject*)pBaseObj, tx, errorStr))
+                        return log_and_return_error(eval, "invalid kog or slammer op: " + errorStr, tx);
+                    else
+                        return true;
+                case KOGSID_PACK:
+                    break;
+                case KOGSID_CONTAINER:
+                    break;
+                case KOGSID_PLAYER:
+                    return true;
+                case KOGSID_GAMECONFIG:
+                    // could only be in funcid 'c':
+                    return log_and_return_error(eval, "invalid gameconfig object", tx);
+                case KOGSID_GAME:
+                    // could only be in funcid 'c':
+                    return log_and_return_error(eval, "invalid game object", tx);
+                case KOGSID_SLAMPARAMS:
+                    return true;
+                case KOGSID_GAMEFINISHED:
+                case KOGSID_BATON:
+                    if (!check_baton(cp, (KogsBaton*)pBaseObj, tx, errorStr))
+                        return log_and_return_error(eval, "invalid baton: " + errorStr, tx);
+                    else
+                        return true;
+                    break;
+                case KOGSID_ADVERTISING:
+                    break;
+                case KOGSID_ADDTOCONTAINER:
+                case KOGSID_REMOVEFROMCONTAINER:
+                    if (!check_container_ops(cp, (KogsContainerOps*)pBaseObj, tx, errorStr))
+                        return log_and_return_error(eval, "invalid op with kogs in container: " + errorStr, tx);
+                    else
+                        return true;			
+                    break;
+                default:
+                    return log_and_return_error(eval, "invalid object type", tx);
+            }
+        }
+        return log_and_return_error(eval, "invalid funcid", tx);
 	}
-    return log_and_return_error(eval, "invalid funcid", tx);
+    return true;  // allow simple token transfers
 }
