@@ -3046,7 +3046,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 		return log_and_return_error(eval, "invalid sys pubkey", tx);
 
 	// check pk for objects that only allowed to create by sys pk
-	if (KogsIsSysCreateObject(pBaseObj->objectType) || sysPk != pBaseObj->encOrigPk)
+	if (KogsIsSysCreateObject(pBaseObj->objectType) && sysPk != pBaseObj->encOrigPk)
 		return log_and_return_error(eval, "invalid object creator pubkey", tx);
 
 	if (pBaseObj->funcid == 't' || pBaseObj->funcid == 'c')
