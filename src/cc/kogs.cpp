@@ -1152,6 +1152,10 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
 
     if (containers.size() != owners.size())
     {
+        for (auto const &c : containers) std::cerr << __func__ << " container=" << c->creationtxid.GetHex() << std::endl;
+        for (auto const &o : owners) std::cerr << __func__ << " owner=" << o.GetHex() << std::endl;
+        for (auto const &p : playerids) std::cerr << __func__ << " playerid=" << p.GetHex() << std::endl;
+
         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "containers number != container owners number, some containers are from the same owner" << std::endl);
         IsSufficientContainers = false;
     }

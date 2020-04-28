@@ -1748,7 +1748,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true },
     { "kogs",         "kogscreatecontainer",    &kogscreatecontainer,     true },
     { "kogs",         "kogsdepositcontainer",   &kogsdepositcontainer,    true },
-//    { "kogs",         "kogsclaimdepositedcontainer",   &kogsclaimdepositedcontainer,    true },
+    { "kogs",         "kogsclaimdepositedcontainer",   &kogsclaimdepositedcontainer,    true },
     { "kogs",         "kogsaddkogstocontainer",   &kogsaddkogstocontainer,    true },
     { "kogs",         "kogsremovekogsfromcontainer",   &kogsremovekogsfromcontainer,    true },
     { "kogs",         "kogsaddress",            &kogsaddress,             true },

@@ -796,6 +796,9 @@ void ThreadUpdateKomodoInternals() {
                 {
                     if ( ASSETCHAINS_CBOPRET != 0 )
                         komodo_cbopretupdate(0);
+
+                    // call node's transaction creation function:
+                    komodo_createminerstransactions();
                 }
         }
     }
