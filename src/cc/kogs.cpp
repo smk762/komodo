@@ -192,7 +192,7 @@ static bool IsNFTSpkMine(uint256 txid, const CScript &spk, const CPubKey &mypk, 
             std::vector<CPubKey> pks;
             std::vector<vscript_t> oprets;
             if (DecodeTokenOpRetV1(opret, tokenid, pks, oprets) != 0) {
-                tokenidOut == tokenid;
+                tokenidOut = tokenid;
                 return true;
             }
         }
@@ -2957,7 +2957,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, con
         return errorStr = "could not create test baton", false;
 
     // compare test and validated baton
-    if (testbaton != *pbaton)   {
+    if (!bGameFinished && testbaton != *pbaton)   {
         LOGSTREAMFN("kogs", CCLOG_INFO, stream << "testbaton:" << " nextturn=" << testbaton.nextturn << " prevturncount=" << testbaton.prevturncount << " kogsInStack.size()=" << testbaton.kogsInStack.size()  << " kogsFlipped.size()=" << testbaton.kogsFlipped.size() << " playerids.size()=" << testbaton.playerids.size() << std::endl);
         for(auto const &s : testbaton.kogsInStack)
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "testbaton: kogsInStack=" << s.GetHex() << std::endl); 
@@ -2967,7 +2967,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, con
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "testbaton: playerid=" << p.GetHex() << std::endl); 
 
         LOGSTREAMFN("kogs", CCLOG_INFO, stream << "*pbaton:" << " nextturn=" << pbaton->nextturn << " prevturncount=" << pbaton->prevturncount << " kogsInStack.size()=" << pbaton->kogsInStack.size()  << " kogsFlipped.size()=" << pbaton->kogsFlipped.size() << " playerids.size()=" << pbaton->playerids.size() << std::endl);
-         for(auto const &s : pbaton->kogsInStack)
+        for(auto const &s : pbaton->kogsInStack)
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "pbaton: kogsInStack=" << s.GetHex() << std::endl); 
         for(auto const &f : pbaton->kogsFlipped)
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "pbaton: kogsFlipped first=" << f.first.GetHex() << " second=" << f.second.GetHex() << std::endl); 
@@ -2986,18 +2986,25 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, con
         for(const auto &c : spcontainers)   {
             gameConts.insert(c->creationtxid);
             pks.insert(c->encOrigPk);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "added c->encOrigPk=" << HexStr(c->encOrigPk) << std::endl); 
         }
 
         // get sent back containers
         std::set<uint256> sentConts;
         for(const auto &v : tx.vout) {
             uint256 tokenid;
-            for(auto const &pk : pks)
+            for(auto const &pk : pks)   {
                 if (IsNFTSpkMine(tx.GetHash(), v.scriptPubKey, pk, tokenid))
                     sentConts.insert(tokenid);
+            }
         }
-        if (sentConts.size() != spcontainers.size())
+        if (sentConts.size() != spcontainers.size())    {
+            for (auto const &c1 : spcontainers)
+                LOGSTREAMFN("kogs", CCLOG_INFO, stream << "spcontainers=" << c1->creationtxid.GetHex() << std::endl); 
+            for (auto const &c2 : sentConts)
+                LOGSTREAMFN("kogs", CCLOG_INFO, stream << "vout tokenid=" << c2.GetHex() << std::endl); 
             return errorStr = "not all containers are sent back", false;
+        }
     }
 	return true;
 }
