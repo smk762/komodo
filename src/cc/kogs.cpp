@@ -2981,7 +2981,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
     if (bGameFinished)
     {                            
         // check gamefinished data:
-        if (pobj->objectType == KOGSID_GAMEFINISHED)
+        if (pobj->objectType != KOGSID_GAMEFINISHED)
             return errorStr = "incorrect object type, should be gamefinished", false;
         KogsGameFinished *pgamefinished = (KogsGameFinished *)pobj;
 
