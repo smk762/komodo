@@ -1048,7 +1048,7 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
     else
         kogsToAddFromPlayer = gameconfig.numKogsToAdd;
 
-    for (auto c : spcontainers)
+    for (const auto &c : spcontainers)
     {
         // get kogs that are not yet in the stack or flipped
         std::vector<uint256> freekogs;
@@ -1071,7 +1071,9 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
         int added = 0;
         while (added < kogsToAddFromPlayer && freekogs.size() > 0)
         {
-            int i = rand() % freekogs.size(); // take random pos to add to the stack
+            // TODO remove random to simplify the validation:
+            // int i = rand() % freekogs.size(); // take random pos to add to the stack
+            int i = 0;
             baton.kogsInStack.push_back(freekogs[i]);  // add to stack
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "added kog to stack kogid=" << freekogs[i].GetHex() << std::endl);
             freekogs.erase(freekogs.begin() + i);
@@ -2524,7 +2526,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
         if (ptestbaton == nullptr)
 		    nextturn = rand() % pgame->playerids.size();
         else
-            nextturn == ptestbaton->nextturn; // validate
+            nextturn = ptestbaton->nextturn; // validate
 		playerids = pgame->playerids;
 		gameid = pPrevObj->creationtxid;
 		gameconfigid = pgame->gameconfigid;
@@ -2936,10 +2938,17 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, con
     uint256 gameid;
     bool bGameFinished;
 
-    if (tx.vin.size() == 0)
-        return errorStr = "no vins", false;
+    int32_t ccvin = -1;
+    for(int32_t i = 0; i < tx.vin.size(); i++)
+        if (cp->ismyvin(tx.vin[i].scriptSig))  {
+            ccvin = i;
+            break;
+        }
 
-    std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(tx.vin[0].prevout.hash)); 
+    if (ccvin < 0)
+        return errorStr = "no cc vins", false;
+
+    std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(tx.vin[ccvin].prevout.hash)); 
     if (spPrevObj == nullptr)
         return errorStr = "could not load prev object", false;
 
@@ -2947,8 +2956,24 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, con
         return errorStr = "could not create test baton", false;
 
     // compare test and validated baton
-    if (testbaton != *pbaton)   
+    if (testbaton != *pbaton)   {
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "testbaton:" << " nextturn=" << testbaton.nextturn << " prevturncount=" << testbaton.prevturncount << " kogsInStack.size()=" << testbaton.kogsInStack.size()  << " kogsFlipped.size()=" << testbaton.kogsFlipped.size() << " playerids.size()=" << testbaton.playerids.size() << std::endl);
+        for(auto const &s : testbaton.kogsInStack)
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "testbaton: kogsInStack=" << s.GetHex() << std::endl); 
+        for(auto const &f : testbaton.kogsFlipped)
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "testbaton: kogsFlipped first=" << f.first.GetHex() << " second=" << f.second.GetHex() << std::endl); 
+        for(auto const &p : testbaton.playerids)
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "testbaton: playerid=" << p.GetHex() << std::endl); 
+
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "*pbaton:" << " nextturn=" << pbaton->nextturn << " prevturncount=" << pbaton->prevturncount << " kogsInStack.size()=" << pbaton->kogsInStack.size()  << " kogsFlipped.size()=" << pbaton->kogsFlipped.size() << " playerids.size()=" << pbaton->playerids.size() << std::endl);
+         for(auto const &s : pbaton->kogsInStack)
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "pbaton: kogsInStack=" << s.GetHex() << std::endl); 
+        for(auto const &f : pbaton->kogsFlipped)
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "pbaton: kogsFlipped first=" << f.first.GetHex() << " second=" << f.second.GetHex() << std::endl); 
+        for(auto const &p : pbaton->playerids)
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "pbaton: playerid=" << p.GetHex() << std::endl); 
         return errorStr = "could not validate test baton", false;
+    }
 
     if (bGameFinished)
     {                            
