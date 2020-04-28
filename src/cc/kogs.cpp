@@ -980,24 +980,25 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &sla
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "heightFract=" << heightFract << " strengthFract=" << strengthFract << std::endl);
 
-    int countFlipped = 0;
-    if (ptestbaton == nullptr)  {
+    //int countFlipped = 0;
+    //if (ptestbaton == nullptr)  {
 
-        // how many kogs would flip:
-        int countFlipped = (newbaton.kogsInStack.size() * totalFract) / 100;
-        if (countFlipped > newbaton.kogsInStack.size())
-            countFlipped = newbaton.kogsInStack.size();
-        // set limit for 1st turn: no more than 50% flipped
-        if (newbaton.prevturncount == 1 && countFlipped > newbaton.kogsInStack.size() / 2)
-            countFlipped = newbaton.kogsInStack.size() / 2; //no more than 50%
-    }
+    // how many kogs would flip:
+    int countFlipped = (newbaton.kogsInStack.size() * totalFract) / 100;
+    if (countFlipped > newbaton.kogsInStack.size())
+        countFlipped = newbaton.kogsInStack.size();
+    // set limit for 1st turn: no more than 50% flipped
+    if (newbaton.prevturncount == 1 && countFlipped > newbaton.kogsInStack.size() / 2)
+        countFlipped = newbaton.kogsInStack.size() / 2; //no more than 50%
+
+    /*}
     else {
         // test countFlipped
         // get countFlipped from stack in testbaton and prev stack:
         countFlipped = 0;
         for (int i = 0; i < newbaton.kogsInStack.size(); i ++)    {
             if (i >= ptestbaton->kogsInStack.size() || newbaton.kogsInStack[i] != ptestbaton->kogsInStack[i])
-            countFlipped ++;
+                countFlipped ++;
         }
         // check countFlipped for min max:
         if (ptestbaton->prevturncount == 1 && countFlipped > newbaton.kogsInStack.size() / 2)
@@ -1012,7 +1013,7 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &sla
                 return false;
             }
         }
-    }
+    }*/
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "countFlipped=" << countFlipped << std::endl);
 
