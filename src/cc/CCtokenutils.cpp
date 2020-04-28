@@ -236,9 +236,7 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
         return funcid;
     }
     
-
     GetOpReturnData(scriptPubKey, vopret);
-
     if (vopret.size() > 2 && vopret.begin()[0] == EVAL_TOKENS && IsTokenCreateFuncid(vopret.begin()[1]))
     {
         if (E_UNMARSHAL(vopret, ss >> dummyEvalcode; ss >> funcid; ss >> version; ss >> origpubkey; ss >> name; ss >> description;
@@ -248,8 +246,7 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
             }))
         {
             return(funcid);
-        }
-        
+        }   
     }
     LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "incorrect token create opret" << std::endl);
     return (uint8_t)0;
@@ -272,10 +269,26 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
     std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
     if ((funcId = tokensv0::DecodeTokenOpRet(scriptPubKey, evalCodeOld, tokenid, voutPubkeys, opretswithid)) != 0 && (funcId =='c' || !tokenid.IsNull())) // if 't' tokenid must be not null
     {
-        for (auto const & oi : opretswithid)
-            oprets.push_back(oi.second);
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcId << " tokenid=" << tokenid.GetHex() << std::endl);
-        return funcId;
+        bool cParsed = false;
+        if (funcId == 'c') {
+            // additional check for 'c'
+            std::vector<uint8_t> origpubkey; 
+            std::string name;
+            std::string description;
+            std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
+
+            tokensv0::DecodeTokenCreateOpRet(scriptPubKey, origpubkey, name, description, opretswithid);
+            if (origpubkey.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+                cParsed = true;
+        }
+
+        if (funcId != 'c' || cParsed)
+        {
+            for (auto const & oi : opretswithid)
+                oprets.push_back(oi.second);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcId << " tokenid=" << tokenid.GetHex() << std::endl);
+            return funcId;
+        }
     }
 
     GetOpReturnData(scriptPubKey, vopret);
