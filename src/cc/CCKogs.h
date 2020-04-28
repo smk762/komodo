@@ -1123,7 +1123,7 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams &newslamparam
 UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout);
 UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid);
 void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, KogsObjectFilterBase *pFilter, std::vector<uint256> &tokenids);
-void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid, std::vector<uint256> &creationtxids);
+void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid1, uint256 playerid2, std::vector<uint256> &creationtxids);
 UniValue KogsObjectInfo(uint256 gameobjectid);
 UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad);
 void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist);

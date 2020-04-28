@@ -680,18 +680,20 @@ private:
 
 class GameHasPlayerIdChecker : public KogsObjectFilterBase {
 public:
-    GameHasPlayerIdChecker(uint256 _playerid) { playerid = _playerid; }
+    GameHasPlayerIdChecker(uint256 _playerid1, uint256 _playerid2) { playerid1 = _playerid1; playerid2 = _playerid2; }
     virtual bool operator()(KogsBaseObject *obj) {
         if (obj != NULL && obj->objectType == KOGSID_GAME)
         {
             KogsGame *game = (KogsGame*)obj;
-            return std::find(game->playerids.begin(), game->playerids.end(), playerid) != game->playerids.end();
+            return 
+                (playerid1.IsNull() || std::find(game->playerids.begin(), game->playerids.end(), playerid1) != game->playerids.end()) &&
+                (playerid2.IsNull() || std::find(game->playerids.begin(), game->playerids.end(), playerid2) != game->playerids.end()) ;
         }
         else
             return false;
     }
 private:
-    uint256 playerid;
+    uint256 playerid1, playerid2;
 };
 
 static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool onlyMine, KogsObjectFilterBase *pObjFilter, std::vector<std::shared_ptr<KogsBaseObject>> &list)
@@ -1210,13 +1212,13 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
 } 
 
 // returns game list, either in which playerid participates or all
-void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid, std::vector<uint256> &creationtxids)
+void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid1, uint256 playerid2, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
-    GameHasPlayerIdChecker checker(playerid);
+    GameHasPlayerIdChecker checker(playerid1, playerid2);
 
     // get all objects with this objectType
-    ListGameObjects(remotepk, KOGSID_GAME, false, !playerid.IsNull() ? &checker : nullptr, objlist);
+    ListGameObjects(remotepk, KOGSID_GAME, false, (!playerid1.IsNull() || !playerid2.IsNull()) ? &checker : nullptr, objlist);
 
     for (auto &o : objlist)
     {

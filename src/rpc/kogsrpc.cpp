@@ -1339,18 +1339,24 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() > 1))
+    if (fHelp || (params.size() > 2))
     {
         throw runtime_error(
-            "kogsgamelist [playerid]\n"
-            "returns all game ids or in which playerid participates\n" "\n");
+            "kogsgamelist [playerid1] [playerid2]\n"
+            "returns all gameids in which playerid1 and playerid2 participates\n"
+            "\n");
     }
 
-    uint256 playerid = zeroid;
-    if (params.size() == 1)
-        playerid = Parseuint256(params[0].get_str().c_str());
+    uint256 playerid1 = zeroid;
+    uint256 playerid2 = zeroid;
+
+    if (params.size() >= 1)
+        playerid1 = Parseuint256(params[0].get_str().c_str());
+    if (params.size() >= 2)
+        playerid2 = Parseuint256(params[1].get_str().c_str());
+
     std::vector<uint256> creationids;
-    KogsGameTxidList(remotepk, playerid, creationids);
+    KogsGameTxidList(remotepk, playerid1, playerid2, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)
