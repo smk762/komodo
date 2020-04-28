@@ -828,6 +828,22 @@ struct KogsGameFinished : public KogsBaseObject {
         objectType = KOGSID_GAMEFINISHED;
         isError = 0;
     }
+
+    bool operator!=(const KogsGameFinished &gamefinished)   
+    {
+        if (gamefinished.gameid == gameid && 
+            gamefinished.winnerid == winnerid &&
+            gamefinished.kogsFlipped == kogsFlipped)
+        {
+            // compare orderred as stack is shuffled
+            std::set<uint256> set1(gamefinished.kogsInStack.begin(), gamefinished.kogsInStack.end()); 
+            std::set<uint256> set2(kogsInStack.begin(), kogsInStack.end());
+
+            if (set1 == set2)
+                return false;
+        }
+        return true;
+    }
 };
 
 // game object

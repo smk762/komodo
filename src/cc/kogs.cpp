@@ -942,7 +942,6 @@ static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
 }
 
 // flip kogs based on slam data and height and strength ranges
-// flip kogs based on slam data and height and strength ranges
 static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &slamparams, KogsBaton &newbaton, const KogsBaton *ptestbaton)
 {
     std::vector<KogsSlamRange> heightRanges = heightRangesDefault;
@@ -962,8 +961,6 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &sla
         return false;
     }
     // calc percentage of flipped based on height or ranges
-    int randH;
-    int randS;
     if (ptestbaton == nullptr)  {
         // make random range offset
         newbaton.randomHeightRange = rand();
@@ -2599,20 +2596,22 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 	newbaton.prevturncount = turncount;  
 	newbaton.gameid = gameid;
 	newbaton.gameconfigid = gameconfigid;
-	bool bBatonCreated = KogsManageStack(*spGameConfig.get(), (KogsSlamParams *)pPrevObj, spPrevBaton.get(), newbaton, ptestbaton, spcontainers);
-	if (!bBatonCreated) {
-		LOGSTREAMFN("kogs", CCLOG_INFO, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
-		return false;
-	}
 
 	if (IsGameFinished(*spGameConfig.get(), &newbaton))
     {  
+        // create gamefinished object:
 		bGameFinished = true;
 	 	gamefinished.kogsInStack = spPrevBaton->kogsInStack;
 		gamefinished.kogsFlipped = spPrevBaton->kogsFlipped;
 		gamefinished.gameid = gameid;
 		gamefinished.winnerid = GetWinner(spPrevBaton.get());
 		gamefinished.isError = false;
+	}
+
+	bool bBatonCreated = KogsManageStack(*spGameConfig.get(), (KogsSlamParams *)pPrevObj, spPrevBaton.get(), newbaton, ptestbaton, spcontainers);
+	if (!bBatonCreated) {
+		LOGSTREAMFN("kogs", CCLOG_INFO, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
+		return false;
 	}
 	return true;
 }
@@ -2925,17 +2924,19 @@ static bool check_match_object(struct CCcontract_info *cp, const KogsMatchObject
 		if (check_signing_pubkey(vin.scriptSig) == kogsGlobalPk)	{ //spent with global pk
 			return errorStr = "invalid kogs transfer from global address", false; // this is allowed only with the baton
 		}*/
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated okay" << std::endl); 
 	return true;
 }
 
-static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, const CTransaction &tx, std::string &errorStr)
+static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, const CTransaction &tx, std::string &errorStr)
 {
 	// get prev baton or game config
     std::shared_ptr<KogsGameConfig> spGameConfig;
     std::shared_ptr<KogsPlayer> spPlayer;
     std::shared_ptr<KogsBaton> spPrevBaton;
     KogsBaton testbaton;
-    KogsGameFinished gamefinished;
+    KogsGameFinished testgamefinished;
     uint256 gameid;
     bool bGameFinished;
 
@@ -2953,7 +2954,8 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, con
     if (spPrevObj == nullptr)
         return errorStr = "could not load prev object", false;
 
-    if (!KogsCreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, spPrevBaton, testbaton, pbaton, gamefinished, bGameFinished))
+    KogsBaton *pbaton = pobj->objectType == KOGSID_BATON ? (KogsBaton*)pobj : nullptr;
+    if (!KogsCreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, spPrevBaton, testbaton, pbaton, testgamefinished, bGameFinished))
         return errorStr = "could not create test baton", false;
 
     // compare test and validated baton
@@ -2978,7 +2980,15 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, con
 
     if (bGameFinished)
     {                            
-        // check cointainers if game is finished
+        // check gamefinished data:
+        if (pobj->objectType == KOGSID_GAMEFINISHED)
+            return errorStr = "incorrect object type, should be gamefinished", false;
+        KogsGameFinished *pgamefinished = (KogsGameFinished *)pobj;
+
+        if (*pgamefinished != testgamefinished)
+            return errorStr = "could not validate game finished object", false;
+
+        // check sent back cointainers if game finished
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
         KogsDepositedContainerListImpl(gameid, spcontainers);
         std::set<uint256> gameConts;
@@ -3006,6 +3016,8 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pbaton, con
             return errorStr = "not all containers are sent back", false;
         }
     }
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated okay" << std::endl); 
 	return true;
 }
 
@@ -3113,7 +3125,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                     return true;
                 case KOGSID_GAMEFINISHED:
                 case KOGSID_BATON:
-                    if (!check_baton(cp, (KogsBaton*)pBaseObj, tx, errorStr))
+                    if (!check_baton(cp, pBaseObj, tx, errorStr))
                         return log_and_return_error(eval, "invalid baton: " + errorStr, tx);
                     else
                         return true;
