@@ -22,11 +22,16 @@
 #include "notarisationdb.h"
 #include "rpc/server.h"
 
-static std::map<std::string,bool> nspv_remote_commands =  {{"channelsopen", true},{"channelspayment", true},{"channelsclose", true},{"channelsrefund", true},
+static std::map<std::string,bool> nspv_remote_commands =  {
+    
+{"channelsopen", true},{"channelspayment", true},{"channelsclose", true},{"channelsrefund", true},
 {"channelslist", true},{"channelsinfo", true},{"oraclescreate", true},{"oraclesfund", true},{"oraclesregister", true},{"oraclessubscribe", true}, 
-{"oraclesdata", true},{"oraclesinfo", false},{"oracleslist", false},{"gatewaysbind", true},{"gatewaysdeposit", true},{"gatewaysclaim", true},{"gatewayswithdraw", true},
-{"gatewayspartialsign", true},{"gatewayscompletesigning", true},{"gatewaysmarkdone", true},{"gatewayspendingdeposits", true},{"gatewayspendingwithdraws", true},
-{"gatewaysprocessed", true},{"gatewaysinfo", false},{"gatewayslist", false},{"faucetfund", true},{"faucetget", true}};
+{"oraclesdata", true},{"oraclesinfo", false},{"oracleslist", false},{"gatewaysbind", true},{"gatewaysdeposit", true},{"gatewayswithdraw", true},
+{"gatewayswithdrawsign", true},{"gatewaysmarkdone", true},{"gatewayspendingdeposits", true},{"gatewayspendingsignwithdraws", true},{"gatewayssignedwithdraws", true},
+{"gatewaysinfo", false},{"gatewayslist", false},{"faucetfund", true},{"faucetget", true},{"pegscreate", true},{"pegsfund", true},{"pegsget", true},{"pegsclose", true},
+{"pegsclose", true},{"pegsredeem", true},{"pegsexchange", true},{"pegsliquidate", true},{"pegsaccounthistory", true},{"pegsaccountinfo", true},{"pegsworstaccounts", true},
+{"pegsinfo", true},{ "marmaralock", false },{ "marmaraissue", false },{ "marmaratransfer", true },{ "marmarareceive", true },{ "marmarainfo", true },{ "marmaracreditloop", true }
+};
 
 struct NSPV_ntzargs
 {
@@ -502,11 +507,11 @@ int32_t NSPV_mempoolfuncs(bits256 *satoshisp,int32_t *vindexp,std::vector<uint25
                 if (txid!=zeroid || func!=0)
                 {
                     myGetTransaction(it->first.txhash,tx,hashBlock);
-                    std::vector<std::pair<uint8_t, vscript_t>>  oprets; uint256 tokenid,txid;
-                    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f,tokenevalcode;
+                    std::vector<vscript_t>  oprets; uint256 tokenid,txid;
+                    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f;
                     std::vector<CPubKey> pubkeys;
 
-                    if (DecodeTokenOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,tokenevalcode,tokenid,pubkeys,oprets)!=0 && GetOpretBlob(oprets, OPRETID_CHANNELSDATA, vOpretExtra) && tokenevalcode==EVAL_TOKENS && vOpretExtra.size()>0)
+                    if (DecodeTokenOpRetV1(tx.vout[tx.vout.size()-1].scriptPubKey,tokenid,pubkeys,oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
                     {
                         vopret=vOpretExtra;
                     }
@@ -571,11 +576,9 @@ int32_t NSPV_mempoolfuncs(bits256 *satoshisp,int32_t *vindexp,std::vector<uint25
                 CScript scriptPubKey = tx.vout[tx.vout.size()-1].scriptPubKey;
                 if ( GetOpReturnData(scriptPubKey,vopret) != 0 )
                 {
-                    if ( vopret[0] == evalcode && vopret[1] == func )
-                    {
-                        txids.push_back(hash);
-                        num++;
-                    }
+                    if ( vopret[0] != evalcode || (func!=0 && vopret[1] != func) ) continue;
+                    txids.push_back(hash);
+                    num++;
                 }
             }
             continue;
