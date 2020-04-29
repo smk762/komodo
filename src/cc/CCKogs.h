@@ -23,19 +23,23 @@
 #include "../wallet/crypter.h"
 
 // object ids:
-const uint8_t KOGSID_GAMECONFIG = 'M';
-const uint8_t KOGSID_GAME = 'G';
-const uint8_t KOGSID_PLAYER = 'W';
-const uint8_t KOGSID_KOG = 'K';
-const uint8_t KOGSID_SLAMMER = 'S';
-const uint8_t KOGSID_PACK = 'P';
-const uint8_t KOGSID_CONTAINER = 'C';
-const uint8_t KOGSID_BATON = 'B';  
-const uint8_t KOGSID_SLAMPARAMS = 'R';
-const uint8_t KOGSID_GAMEFINISHED = 'F';
-const uint8_t KOGSID_ADVERTISING = 'A';
-const uint8_t KOGSID_ADDTOCONTAINER = 'H';
-const uint8_t KOGSID_REMOVEFROMCONTAINER = 'J';
+enum kogids : uint8_t {
+    KOGSID_GAMECONFIG = 'M',
+    KOGSID_GAME = 'G',
+    KOGSID_PLAYER = 'W',
+    KOGSID_KOG = 'K',
+    KOGSID_SLAMMER = 'S',
+    KOGSID_PACK = 'P',
+    KOGSID_CONTAINER = 'C',
+    KOGSID_BATON = 'B',
+    KOGSID_SLAMPARAMS = 'R',
+    KOGSID_GAMEFINISHED = 'F',
+    KOGSID_ADVERTISING = 'A',
+    KOGSID_ADDTOCONTAINER = 'H',
+    KOGSID_REMOVEFROMCONTAINER = 'J',
+    KOGSID_ADDTOGAME = 'X',
+    KOGSID_REMOVEFROMGAME = 'Y'
+};
 
 const uint8_t KOGS_MIN_VERSION = 1;
 const uint8_t ENCLOSURE_VERSION = 1;
@@ -979,7 +983,7 @@ struct KogsContainerOps : public KogsBaseObject {
 
     KogsContainerOps(uint8_t _objectType) : KogsBaseObject()
     {
-        nameId = "cops";
+        nameId = "c_op";
         descriptionId = "";
         objectType = _objectType;
     }
@@ -990,6 +994,51 @@ struct KogsContainerOps : public KogsBaseObject {
     }
 };
 
+// object storing data for sending and releasing container to/from game
+struct KogsGameOps : public KogsBaseObject {
+
+    uint256 gameid;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {  // clear to zeros to indicate if could not read
+            evalcode = 0;
+            objectType = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectType);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
+        {
+            READWRITE(gameid);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    }
+
+    KogsGameOps(uint8_t _objectType) : KogsBaseObject()
+    {
+        nameId = "g_op";
+        descriptionId = "";
+        objectType = _objectType;
+    }
+
+    void Init(uint256 _gameid)
+    {
+        gameid = _gameid;
+    }
+};
 
 // simple factory for Kogs game objects
 class KogsFactory

@@ -333,7 +333,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || params.size() < 2)
+    if (fHelp || params.size() < 3)
     {
         throw runtime_error(
             "kogsstartgame gameconfigid playerid1 playerid2 ...  \n"
