@@ -3082,7 +3082,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 {
 	std::string errorStr;
 
-    //return true;
+    return true;
 
 	if (tx.vout.size() == 0)
 		return log_and_return_error(eval, "no vouts", tx);
