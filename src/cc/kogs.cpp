@@ -3345,7 +3345,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 	if (!pBaseObj->istoken)  
 	{
         // check enclosures funcid and objectType:
-        if (pBaseObj->funcid == 't')
+        if (pBaseObj->funcid == 'c' || pBaseObj->funcid == 't')
         {
             switch(pBaseObj->objectType)	{
                 case KOGSID_KOG:
@@ -3397,11 +3397,8 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                     return log_and_return_error(eval, "invalid object type transfer", tx);
             }
         }
-        else if(pBaseObj->funcid == 'c')
-            return log_and_return_error(eval, "invalid funcid 'c'", tx);
         else
             return log_and_return_error(eval, "invalid funcid", tx);
-
 	}
 
     // prohibit unchecked spendings with kogs global pubkey:
