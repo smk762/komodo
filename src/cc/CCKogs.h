@@ -1156,11 +1156,11 @@ private:
 
 const std::vector<UniValue> NullResults;  //empty results
 
-UniValue KogsCreateGameConfig(const CPubKey &remotepk, KogsGameConfig newgameconfig);
-UniValue KogsCreatePlayer(const CPubKey &remotepk, KogsPlayer newplayer);
-UniValue KogsStartGame(const CPubKey &remotepk, KogsGame newgame);
+UniValue KogsCreateGameConfig(const CPubKey &remotepk, const KogsGameConfig &newgameconfig);
+UniValue KogsCreatePlayer(const CPubKey &remotepk, const KogsPlayer &newplayer);
+UniValue KogsStartGame(const CPubKey &remotepk, const KogsGame &newgame);
 std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::vector<KogsMatchObject> & newkogs);
-UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack);
+UniValue KogsCreatePack(const CPubKey &remotepk, const KogsPack &newpack);
 std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 packid, vuint8_t encryptkey, vuint8_t iv);
 std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContainer newcontainer, const std::set<uint256> &tokenids);
 UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid);
