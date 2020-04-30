@@ -654,13 +654,17 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
         KogsBaseObject *pBaseObj = DecodeGameObjectOpreturn(tx, nvout);   
 		if (pBaseObj) {
             // check if only sys key allowed to create object
-            if (KogsIsSysCreateObject(pBaseObj->objectType) && GetSystemPubKey() != pBaseObj->encOrigPk)
+            if (KogsIsSysCreateObject(pBaseObj->objectType) && GetSystemPubKey() != pBaseObj->encOrigPk)    {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "not syspk creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
 			    return nullptr;  // invalid syspk creator
+            }
             
             // for enclosures check that origpk really created the tx
-            if (pBaseObj->istoken && pBaseObj->funcid == 'c')    {
-                if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)
+            if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
+                if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no normal inputs signed by creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
                     return nullptr;
+                }
             }
 		    return pBaseObj;
         }
@@ -3382,14 +3386,14 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                 case KOGSID_ADDTOCONTAINER:
                 case KOGSID_REMOVEFROMCONTAINER:
                     if (!check_ops_on_container_addr(cp, (KogsContainerOps*)pBaseObj, tx, errorStr))
-                        return log_and_return_error(eval, "invalid op with kogs in container: " + errorStr, tx);
+                        return log_and_return_error(eval, "invalid oper with kogs in container: " + errorStr, tx);
                     else
                         return true;			
                     break;
                 case KOGSID_ADDTOGAME:
                 case KOGSID_REMOVEFROMGAME:
                     if (!check_ops_on_game_addr(cp, (KogsGameOps*)pBaseObj, tx, errorStr))
-                        return log_and_return_error(eval, "invalid op with kogs in container: " + errorStr, tx);
+                        return log_and_return_error(eval, "invalid oper with game: " + errorStr, tx);
                     else
                         return true;			
                     break;
