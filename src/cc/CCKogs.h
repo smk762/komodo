@@ -1104,6 +1104,8 @@ public:
         struct KogsGameFinished *e;
         struct KogsAdvertising *a;
         struct KogsContainerOps *co;
+        struct KogsGameOps *go;
+        struct KogsAdOps *ao;
 
         switch (objectType)
         {
@@ -1152,6 +1154,15 @@ public:
         case KOGSID_REMOVEFROMCONTAINER:
             co = new KogsContainerOps(objectType);
             return (KogsBaseObject*)co;
+
+        case KOGSID_ADDTOGAME:
+        case KOGSID_REMOVEFROMGAME:
+            go = new KogsGameOps(objectType);
+            return (KogsBaseObject*)go; 
+
+        case KOGSID_STOPADVERTISING:
+            ao = new KogsAdOps(objectType);
+            return (KogsBaseObject*)ao;          
 
         default:
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "requested to create unsupported objectType=" << (int)objectType << std::endl);
