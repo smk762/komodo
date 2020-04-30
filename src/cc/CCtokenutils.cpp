@@ -282,7 +282,7 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
                 v0Parsed = true;
         }
         else if (funcId == 't') {
-            if (!tokenid.IsNull() && voutPubkeys.size() > 0)
+            if (!tokenid.IsNull() && voutPubkeys.size() >= 1 && voutPubkeys.size() <= 2)
                 v0Parsed = true;
         }
 
