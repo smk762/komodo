@@ -35,6 +35,7 @@ enum kogids : uint8_t {
     KOGSID_SLAMPARAMS = 'R',
     KOGSID_GAMEFINISHED = 'F',
     KOGSID_ADVERTISING = 'A',
+    KOGSID_STOPADVERTISING = 'E',
     KOGSID_ADDTOCONTAINER = 'H',
     KOGSID_REMOVEFROMCONTAINER = 'J',
     KOGSID_ADDTOGAME = 'X',
@@ -1037,6 +1038,52 @@ struct KogsGameOps : public KogsBaseObject {
     void Init(uint256 _gameid)
     {
         gameid = _gameid;
+    }
+};
+
+// object storing data for player advertising and stopping advertising
+struct KogsAdOps : public KogsBaseObject {
+
+    uint256 playerid;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {  // clear to zeros to indicate if could not read
+            evalcode = 0;
+            objectType = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectType);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
+        {
+            READWRITE(playerid);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    }
+
+    KogsAdOps(uint8_t _objectType) : KogsBaseObject()
+    {
+        nameId = "a_op";
+        descriptionId = "";
+        objectType = _objectType;
+    }
+
+    void Init(uint256 _playerid)
+    {
+        playerid = _playerid;
     }
 };
 

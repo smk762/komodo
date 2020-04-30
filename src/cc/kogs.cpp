@@ -1774,7 +1774,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
 
     LockUtxoInMemory lockutxos; // activate locking
 
-	// create copret with containerid
+	// create opret with containerid
 	KogsContainerOps containerOps(KOGSID_REMOVEFROMCONTAINER);
 	containerOps.Init(containerid);
  	KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
@@ -2167,11 +2167,23 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
     {
         mtx.vin.push_back(CTxIn(adtxid, advout));   // spend advertising marker:
         mtx.vout.push_back(CTxOut(KOGS_ADVERISING_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
-        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, CScript());
+
+        // create advertise ops opret with playerid
+        KogsContainerOps adOps(KOGSID_STOPADVERTISING);
+        adOps.Init(playerId);
+        KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
+
+        enc.vdata = adOps.Marshal();
+        enc.name = adOps.nameId;
+        enc.description = adOps.descriptionId;
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret();
+
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
         if (ResultHasTx(sigData))
             return sigData;
         else
-            CCerror = "can't finalize or sign removal tx";
+            CCerror = "can't finalize or sign stop ad tx";
     }
     else
         CCerror = "can't find normals for txfee";
@@ -2608,6 +2620,25 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 		playerids = pgame->playerids;
 		gameid = pPrevObj->creationtxid;
 		gameconfigid = pgame->gameconfigid;
+
+ 
+        // check all players in the first baton
+        for (auto const &playerid : playerids)  {
+            std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
+            if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)   {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect player=" << playerid.GetHex() << std::endl);
+                return false;
+            }
+                
+            uint256 adtxid;
+            int32_t advout;
+            std::vector<KogsAdvertising> adlist;
+            if (!FindAdvertisings(playerid, adtxid, advout, adlist)) {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "player did not advertise itself=" << playerid.GetHex() << std::endl);
+                return false;
+            }
+        }
+
 	}
 	else // slamdata
 	{
@@ -2658,8 +2689,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 	}
 	spGameConfig.reset((KogsGameConfig*)pGameConfig);
 
-    // TODO maybe check all players in the first baton
-	KogsBaseObject *pPlayer( LoadGameObject(playerids[nextturn]) );
+	KogsBaseObject *pPlayer = LoadGameObject(playerids[nextturn]);
 	if (pPlayer == nullptr || pPlayer->objectType != KOGSID_PLAYER)
 	{
 		LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load player with id=" << playerids[nextturn].GetHex() << std::endl);
@@ -3208,9 +3238,7 @@ static KogsBaseObject *get_last_baton(uint256 gameid)
 // check if adding removing containers to the game is allowed
 static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps *pGameOps, const CTransaction &tx, std::string &errorStr)
 {
-	// if kogs are added or removed to/from a container, check:
-	// this is my container
-	// container is not deposited to a game
+	
 	std::shared_ptr<KogsBaseObject> spObj( LoadGameObject(pGameOps->gameid) );
 	if (spObj == nullptr || spObj->objectType != KOGSID_GAME)
 		return errorStr = "could not load gameid", false;
@@ -3257,6 +3285,36 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 				return errorStr = "not your container to remove from game", false;
         }
 	}
+
+	LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated ok" << std::endl);
+	return true;
+}
+
+// check if advertising ops are valid
+static bool check_ad_ops_addr(struct CCcontract_info *cp, const KogsAdOps *pAdOps, const CTransaction &tx, std::string &errorStr)
+{
+	if (pAdOps->objectType != KOGSID_STOPADVERTISING)
+        return errorStr = "not stop ad object type", false;
+
+    int32_t ccvin = -1;
+    for (int32_t i = 0; i < tx.vin.size() ; i ++)
+        if (cp->ismyvin(tx.vin[i].scriptSig))
+            ccvin = i;
+    if (ccvin < 0)
+        return errorStr = "no cc vin", false;
+
+    // check correct advertising tx is spent
+    std::shared_ptr<KogsBaseObject> spPrevObj( LoadGameObject(tx.vin[ccvin].prevout.hash) );
+    if (spPrevObj == nullptr || spPrevObj->objectType != KOGSID_ADVERTISING)
+        return errorStr = "could parse ad object", false;
+
+    // check if spender has privkey to spend from ad tx
+    if (TotalPubkeyNormalInputs(tx, spPrevObj->encOrigPk) == 0)
+        return errorStr = "invalid private key to spend from player ad tx", false;
+
+    KogsAdvertising *pAd = (KogsAdvertising *)spPrevObj.get();
+    if (pAd->playerId != pAdOps->playerid)
+        return errorStr = "invalid playerid to stop player ad", false;
 
 	LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated ok" << std::endl);
 	return true;
@@ -3319,6 +3377,8 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                     break;
                 case KOGSID_ADVERTISING:
                     return log_and_return_error(eval, "invalid advertising object here", tx);
+                case KOGSID_STOPADVERTISING:
+                    return true;
                 case KOGSID_ADDTOCONTAINER:
                 case KOGSID_REMOVEFROMCONTAINER:
                     if (!check_ops_on_container_addr(cp, (KogsContainerOps*)pBaseObj, tx, errorStr))
