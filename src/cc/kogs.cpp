@@ -1528,7 +1528,7 @@ UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 
     
      // create opret with gameid
 	KogsGameOps gameOps(KOGSID_ADDTOGAME);
-	gameOps.Init(containerid);
+	gameOps.Init(gameid);
  	KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
 
     enc.vdata = gameOps.Marshal();
@@ -1598,7 +1598,7 @@ UniValue KogsClaimDepositedContainer(const CPubKey &remotepk, int64_t txfee, uin
     
             // create opret with gameid
             KogsGameOps gameOps(KOGSID_REMOVEFROMGAME);
-            gameOps.Init(containerid);
+            gameOps.Init(gameid);
             KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
 
             enc.vdata = gameOps.Marshal();
@@ -3025,10 +3025,85 @@ UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins)
     return result;
 }
 
-// consensus code
+// consensus code:
+
 static bool log_and_return_error(Eval* eval, std::string errorStr, const CTransaction &tx) {
 	LOGSTREAM("kogs", CCLOG_ERROR, stream << "KogsValidate() ValidationError: " << errorStr << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
 	return eval->Error(errorStr);
+}
+
+// get last baton or gamefinished object for gameid
+static KogsBaseObject *get_last_baton(uint256 gameid)
+{
+    uint256 txid = gameid;
+    int32_t nvout = 2;  // baton vout, ==2 for the initial game
+    uint256 batontxid;
+    int32_t vini, height;
+
+    KogsBaseObject *lastObj = nullptr;
+
+       // browse the sequence of slamparam and baton txns: 
+    while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
+    {
+        if (lastObj)
+            delete lastObj;
+        lastObj = LoadGameObject(batontxid);
+        if (lastObj == nullptr || (lastObj->objectType != KOGSID_BATON && lastObj->objectType != KOGSID_SLAMPARAMS && lastObj->objectType != KOGSID_GAMEFINISHED))
+        {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load baton for txid=" << batontxid.GetHex() << std::endl);
+            return nullptr;
+        }    
+        if (lastObj->objectType == KOGSID_BATON)
+        {
+            nvout = 0;  // baton tx's next baton vout
+        }
+        else if (lastObj->objectType == KOGSID_SLAMPARAMS)
+        {
+            nvout = 0;  // slamparams tx's next baton vout
+        }
+        else // KOGSID_GAMEFINISHED
+        { 
+            break;
+        }
+        txid = batontxid;        
+    }
+    return lastObj;
+}
+
+// check that tx spends correct 1of2 txid addr
+static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid)
+{
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+
+    CPubKey txidPk = CCtxidaddr_tweak(NULL, txid);
+
+    char txid1of2addr[KOMODO_ADDRESS_BUFSIZE];
+    GetTokensCCaddress1of2(cp, txid1of2addr, kogsPk, txidPk);
+
+    for (auto const &vin : tx.vin)  
+    {
+        if (cp->ismyvin(vin.scriptSig))     
+        {
+            if (check_signing_pubkey(vin.scriptSig) == kogsPk)  
+            {                
+                CTransaction vintx;
+                uint256 hashBlock;
+                if (myGetTransaction(vin.prevout.hash, vintx, hashBlock))   {
+                    char prevaddr[KOMODO_ADDRESS_BUFSIZE];
+                    Getscriptaddress(prevaddr, vintx.vout[vin.prevout.n].scriptPubKey);
+                    if (strcmp(prevaddr, txid1of2addr) != 0)
+                        return false;
+                }
+                else    {
+                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load prevtx for txid=" << txid.GetHex() << std::endl);
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
 }
 
 static bool check_match_object(struct CCcontract_info *cp, const KogsMatchObject *pObj, const CTransaction &tx, std::string &errorStr)
@@ -3055,15 +3130,13 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
     uint256 gameid;
     bool bGameFinished;
 
-    int32_t ccvin = -1;
-    for(int32_t i = 0; i < tx.vin.size(); i++)
-        if (cp->ismyvin(tx.vin[i].scriptSig))  {
-            ccvin = i;
+    // find first cc vin
+    int32_t ccvin;
+    for (ccvin = 0; ccvin < tx.vin.size(); ccvin ++)
+        if (cp->ismyvin(tx.vin[ccvin].scriptSig))   
             break;
-        }
-
-    if (ccvin < 0)
-        return errorStr = "no cc vins", false;
+    if (ccvin == tx.vin.size())
+        return errorStr = "no cc vin", false;
 
     std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(tx.vin[ccvin].prevout.hash)); 
     if (spPrevObj == nullptr)
@@ -3102,6 +3175,10 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
 
         if (*pgamefinished != testgamefinished)
             return errorStr = "could not validate game finished object", false;
+
+        // check source game 1of2 addr is correct:
+        if (!check_valid_1of2_spent(tx, gameid))
+            return errorStr = "bad 1of2 game addr spent", false;
 
         // check sent back cointainers if game finished
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
@@ -3176,7 +3253,7 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 				if (pks != destpks)		// check tokens are sent to the container 1of2 address
 					return errorStr = "dest pubkeys do not match container id", false;
 			}
-			else {
+			else if (pContOps->objectType == KOGSID_REMOVEFROMCONTAINER) {
 				if (pks.size() == 1)
 					mypks.insert(pks[0]); // collect token dest pubkeys
 			}
@@ -3190,7 +3267,12 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 			if (!IsNFTMine(t, pCont->encOrigPk))
 				return errorStr = "not your container to add tokens", false;
 	}
-	else {
+	else if (pContOps->objectType == KOGSID_REMOVEFROMCONTAINER) {
+
+        // check source container 1of2 addr is correct:
+        if (!check_valid_1of2_spent(tx, pContOps->containerid))
+            return errorStr = "bad 1of2 container addr spent", false;
+
 		// check all removed tokens go to the same pk
 		if (mypks.size() != 1)	
 			return errorStr = "should be only one dest pubkey for removing tokens", false;
@@ -3203,54 +3285,18 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 	return true;
 }
 
-static KogsBaseObject *get_last_baton(uint256 gameid)
-{
-    uint256 txid = gameid;
-    int32_t nvout = 2;  // baton vout, ==2 for the initial game
-    uint256 batontxid;
-    int32_t vini, height;
-
-    KogsBaseObject *lastObj = nullptr;
-
-       // browse the sequence of slamparam and baton txns: 
-    while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
-    {
-        if (lastObj)
-            delete lastObj;
-        lastObj = LoadGameObject(batontxid);
-        if (lastObj == nullptr || (lastObj->objectType != KOGSID_BATON && lastObj->objectType != KOGSID_SLAMPARAMS && lastObj->objectType != KOGSID_GAMEFINISHED))
-        {
-            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load baton for txid=" << batontxid.GetHex() << std::endl);
-            return nullptr;
-        }    
-        if (lastObj->objectType == KOGSID_BATON)
-        {
-            nvout = 0;  // baton tx's next baton vout
-        }
-        else if (lastObj->objectType == KOGSID_SLAMPARAMS)
-        {
-            nvout = 0;  // slamparams tx's next baton vout
-        }
-        else // KOGSID_GAMEFINISHED
-        { 
-            break;
-        }
-        txid = batontxid;        
-    }
-    return lastObj;
-}
 // check if adding removing containers to the game is allowed
 static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps *pGameOps, const CTransaction &tx, std::string &errorStr)
 {
-	
 	std::shared_ptr<KogsBaseObject> spObj( LoadGameObject(pGameOps->gameid) );
 	if (spObj == nullptr || spObj->objectType != KOGSID_GAME)
 		return errorStr = "could not load gameid", false;
 
 	KogsGame *pGame = (KogsGame *)spObj.get();
+    const CPubKey kogspk = GetUnspendable(cp, NULL);
 
     // pks to for address for container sent to or from gameid:
-	std::vector<CPubKey> destpks { GetUnspendable(cp, NULL), CCtxidaddr_tweak(NULL, pGameOps->gameid) };
+	std::vector<CPubKey> destpks { kogspk, CCtxidaddr_tweak(NULL, pGameOps->gameid) };
 	std::set<CPubKey> mypks;
 	std::vector<uint256> tokenids;
 
@@ -3273,9 +3319,13 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 		}
 	}
 
-	if (pGameOps->objectType == KOGSID_REMOVEFROMGAME)	{
-		// check that the sent tokens currently are on the container owner pk
+	if (pGameOps->objectType == KOGSID_REMOVEFROMGAME)	
+    {
+        // check source game 1of2 addr is correct:
+        if (!check_valid_1of2_spent(tx, pGameOps->gameid))
+            return errorStr = "bad 1of2 game addr spent", false;
 
+        // check game is not running yet or already
         std::shared_ptr<KogsBaseObject> spBaton( get_last_baton(pGameOps->gameid) );
         if (spBaton != nullptr /*game not running*/ && spBaton->objectType != KOGSID_GAMEFINISHED)
             return errorStr = "could not remove containers while game is running", false;
@@ -3300,11 +3350,12 @@ static bool check_ad_ops_addr(struct CCcontract_info *cp, const KogsAdOps *pAdOp
 	if (pAdOps->objectType != KOGSID_STOPADVERTISING)
         return errorStr = "not stop ad object type", false;
 
-    int32_t ccvin = -1;
-    for (int32_t i = 0; i < tx.vin.size() ; i ++)
-        if (cp->ismyvin(tx.vin[i].scriptSig))
-            ccvin = i;
-    if (ccvin < 0)
+    // find first ccvin:
+    int32_t ccvin;
+    for (ccvin = 0; ccvin < tx.vin.size(); ccvin ++)
+        if (cp->ismyvin(tx.vin[ccvin].scriptSig))   
+            break;
+    if (ccvin == tx.vin.size())
         return errorStr = "no cc vin", false;
 
     // check correct advertising tx is spent
