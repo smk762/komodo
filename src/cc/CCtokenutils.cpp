@@ -269,7 +269,7 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
     std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
     if ((funcId = tokensv0::DecodeTokenOpRet(scriptPubKey, evalCodeOld, tokenid, voutPubkeys, opretswithid)) != 0 && (funcId =='c' || !tokenid.IsNull())) // if 't' tokenid must be not null
     {
-        bool cParsed = false;
+        bool v0Parsed = false;
         if (funcId == 'c') {
             // additional check for 'c'
             std::vector<uint8_t> origpubkey; 
@@ -279,10 +279,14 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
 
             tokensv0::DecodeTokenCreateOpRet(scriptPubKey, origpubkey, name, description, opretswithid);
             if (origpubkey.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
-                cParsed = true;
+                v0Parsed = true;
+        }
+        else if (funcId == 't') {
+            if (!tokenid.IsNull() && voutPubkeys.size() > 0)
+                v0Parsed = true;
         }
 
-        if (funcId != 'c' || cParsed)
+        if (v0Parsed)
         {
             for (auto const & oi : opretswithid)
                 oprets.push_back(oi.second);
