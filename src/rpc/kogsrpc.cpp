@@ -1669,9 +1669,9 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
         UniValue transferred = tokentransfer(trparams, false, CPubKey());
 
         if (transferred["hex"].getValStr().empty()) {
-            std::cerr << "tokentransfer did not return hex tx" << std::endl;
+            std::cerr << "tokentransfer did not return hex tx, CCerror=" << CCerror << std::endl;
             result.pushKV("result", "error");
-            result.pushKV("error", "cant create tokentransfer tx, error=" + transferred["error"].getValStr());
+            result.pushKV("error", "cant create tokentransfer tx, error=" + transferred["error"].getValStr() + " CCerror=" + CCerror);
             //return result;
         }
 
