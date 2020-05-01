@@ -300,6 +300,7 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
 
     if (vopret.size() > 2)
     {
+        voutPubkeys.clear();
         evalCode = vopret[0];
         if (evalCode != EVAL_TOKENS) {
             LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "incorrect evalcode in tokens opret" << std::endl);
@@ -329,7 +330,6 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
                     }))
             {
                 tokenid = revuint256(tokenid);
-                voutPubkeys.clear();
                 if (voutPubkey1.IsValid())
                     voutPubkeys.push_back(voutPubkey1);
                 if (voutPubkey2.IsValid())
