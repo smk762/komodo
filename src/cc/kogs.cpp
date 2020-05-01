@@ -658,13 +658,31 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "not syspk creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
 			    return nullptr;  // invalid syspk creator
             }
-            
-            // for enclosures check that origpk really created the tx
-            if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
-                if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no normal inputs signed by creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
+
+            // for tokencreate check if valid token vout:
+        /*    if (pBaseObj->istoken && pBaseObj->funcid == 'c')    {
+                struct CCcontract_info *cpTokens, C; 
+                cpTokens = CCinit(&C, EVAL_TOKENS);
+                CAmount totalOutput = 0;
+                for (int32_t i = 0; i < tx.vout.size(); i ++)    {
+                    if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition()) {
+                        CAmount output;
+                        if ((output = IsTokensvout(true, true, cpTokens, NULL, tx, i, pBaseObj->creationtxid)) > 0)
+                            totalOutput += output;
+                    }
+                }
+                if (totalOutput != 1)   {
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "invalid tokencreate for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
                     return nullptr;
                 }
+            }            */
+
+            // for enclosures check that origpk really created the tx
+            if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
+                /*if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no normal inputs signed by creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
+                    return nullptr;
+                }*/
             }
 		    return pBaseObj;
         }
@@ -3379,7 +3397,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 {
 	std::string errorStr;
 
-    //return true;
+    return true;
 
 	if (tx.vout.size() == 0)
 		return log_and_return_error(eval, "no vouts", tx);
