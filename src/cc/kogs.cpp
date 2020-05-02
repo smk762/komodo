@@ -59,12 +59,10 @@ static bool CheckSysPubKey()
     CPubKey syspk = GetSystemPubKey();
     if (!syspk.IsValid() || syspk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
     {
-        CCerror = "invalid kogssyspk";
         return false;
     }
     if (mypk != syspk)
     {
-        CCerror = "operation disabled for your pubkey";
         return false;
     }
     return true;
@@ -1263,8 +1261,10 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
     std::vector<UniValue> results;
 
     // TODO: do we need to check remote pk or suppose we are always in local mode with sys pk in the wallet?
-    if (!CheckSysPubKey())
+    if (!CheckSysPubKey())  {
+        CCerror = "not sys pubkey used or sys pubkey not set";
         return NullResults;
+    }
     
     LockUtxoInMemory lockutxos;  //activate in-mem utxo locking
 
@@ -1304,8 +1304,10 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
 UniValue KogsCreatePack(const CPubKey &remotepk, const KogsPack &newpack)
 {
     // TODO: do we need to check remote pk or suppose we are always in local mode with sys pk in the wallet?
-    if (!CheckSysPubKey())
+    if (!CheckSysPubKey())  {
+        CCerror = "not sys pubkey used or sys pubkey not set";
         return NullUniValue;
+    }
 
     return CreateGameObjectNFT(remotepk, &newpack);
 }
@@ -2766,8 +2768,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         return;
     }
 
-    if (!CheckSysPubKey())   // only syspk can create miner txns
+    if (!CheckSysPubKey())   { // only syspk can create miner txns
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cannot create batons with not the sys pubkey or sys pubkey not set" << std::endl);
         return;
+    }
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
