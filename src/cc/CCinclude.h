@@ -995,6 +995,27 @@ bool IsRemoteRPCCall();
 /*! \endcond */
 
 /*! \cond INTERNAL */
+// multithreaded CCerror
+class CCerror {
+private:
+    static thread_local std::string th_cc_error;
+public:
+    void clear()
+    {
+        th_cc_error.clear();
+    }
+    void set(std::string &err)
+    {
+        th_cc_error = err;
+    }
+    std::string get()
+    {
+        return th_cc_error;
+    }
+};
+/*! \endcond */
+
+/*! \cond INTERNAL */
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
 /*! \endcond */
 
