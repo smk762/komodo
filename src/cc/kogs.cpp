@@ -13,11 +13,12 @@
 *                                                                            *
 ******************************************************************************/
 
-#include "CCKogs.h"
 #include <algorithm>    // shuffle
 #include <random>       // default_random_engine
 
-#include <rpc/server.h>
+#include "rpc/server.h"
+#include "komodo_defs.h"
+#include "CCKogs.h"
 
 #ifndef KOMODO_ADDRESS_BUFSIZE
 #define KOMODO_ADDRESS_BUFSIZE 64

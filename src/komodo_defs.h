@@ -387,6 +387,7 @@ extern char NOTARY_ADDRESSES[NUM_KMD_SEASONS][64][64];
 extern int32_t KOMODO_TESTNODE, KOMODO_SNAPSHOT_INTERVAL,IS_STAKED_NOTARY,STAKED_ERA;
 extern int32_t ASSETCHAINS_EARLYTXIDCONTRACT;
 extern int32_t ASSETCHAINS_STAKED_SPLIT_PERCENTAGE;
+extern uint8_t ASSETCHAINS_KOGSGAME;
 int tx_height( const uint256 &hash );
 extern std::vector<std::string> vWhiteListAddress;
 extern std::map <std::int8_t, int32_t> mapHeightEvalActivate;

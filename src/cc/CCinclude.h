@@ -984,14 +984,29 @@ public:
 };
 
 /*! \cond INTERNAL */
+// set if remote or local rpc call in thread context  
+class IsRemoteRPC {
+private:
+    static thread_local bool th_is_remote_rpc;
+public:
+    static void set(bool isRemote)
+    {
+        th_is_remote_rpc = isRemote;
+    }
+    static bool get()
+    {
+        return th_is_remote_rpc;
+    }
+};
+
 void SetRemoteRPCCall(bool isRemote);
 #define SET_MYPK_OR_REMOTE(mypk, remotepk) \
     if (remotepk.IsValid()) \
-        SetRemoteRPCCall(true), mypk = remotepk; \
+        IsRemoteRPC::set(true), mypk = remotepk; \
     else    \
-        SetRemoteRPCCall(false), mypk = pubkey2pk(Mypubkey()); 
+        IsRemoteRPC::set(false), mypk = pubkey2pk(Mypubkey()); 
 
-bool IsRemoteRPCCall();
+#define IS_REMOTE_RPC() IsRemoteRPC::get()
 /*! \endcond */
 
 /*! \cond INTERNAL */
@@ -1000,15 +1015,15 @@ class CCerror {
 private:
     static thread_local std::string th_cc_error;
 public:
-    void clear()
+    static void clear()
     {
         th_cc_error.clear();
     }
-    void set(std::string &err)
+    static void set(std::string &err)
     {
         th_cc_error = err;
     }
-    std::string get()
+    static std::string get()
     {
         return th_cc_error;
     }

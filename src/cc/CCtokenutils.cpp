@@ -17,6 +17,7 @@
 // make token cryptoconditions and vouts
 // This code was moved to a separate source file to enable linking libcommon.so (with importcoin.cpp which depends on some token functions)
 
+#include "komodo_defs.h"
 #include "CCtokens.h"
 #include "old/CCtokens_v0.h"
 
@@ -230,10 +231,14 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
     std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
     if ((funcid = tokensv0::DecodeTokenCreateOpRet(scriptPubKey, origpubkey, name, description, opretswithid)) != 0) // check pubkey is parsed okay
     {
+        // temp additional check not to mess with old-style funcids in v1 (for kogs test chains)
+        if (ASSETCHAINS_KOGSGAME && origpubkey.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) // TODO: remove
+        {
         for (auto const & oi : opretswithid)
             oprets.push_back(oi.second);
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcid << " name=" << name << std::endl);
         return funcid;
+        }
     }
     
     GetOpReturnData(scriptPubKey, vopret);
@@ -269,8 +274,12 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
     std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
     if ((funcId = tokensv0::DecodeTokenOpRet(scriptPubKey, evalCodeOld, tokenid, voutPubkeys, opretswithid)) != 0) 
     {
+        // temp additional check not to mess with old-style funcids in v1 (for kogs test chains)
+        if (ASSETCHAINS_KOGSGAME && voutPubkeys.size() >= 1 && voutPubkeys.size() <= 2) // TODO: remove
+        {
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcId << " tokenid=" << tokenid.GetHex() << std::endl);
         return funcId;
+        }
     }
 
     GetOpReturnData(scriptPubKey, vopret);
@@ -290,6 +299,11 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
 
         switch (funcId)
         {
+        case 'c':
+        // TODO: remove:
+        // temp allow old-style funcids
+            if (ASSETCHAINS_KOGSGAME == 0)
+                break;
         case 'C': 
             funcId = DecodeTokenCreateOpRetV1(scriptPubKey, vorigPubkey, dummyName, dummyDescription, oprets);
             if (funcId != 0)    {
@@ -298,6 +312,11 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
             }
             return funcId;  // should be converted to old-style funcid
 
+        case 't':
+                // TODO: remove:
+        // temp allow old-style funcids
+            if (ASSETCHAINS_KOGSGAME == 0)
+                break;
         case 'T':           
             if (E_UNMARSHAL(vopret, ss >> dummyEvalCode; ss >> dummyFuncId; ss >> version; ss >> tokenid; ss >> pkCount;
                     if (pkCount >= 1) ss >> voutPubkey1;

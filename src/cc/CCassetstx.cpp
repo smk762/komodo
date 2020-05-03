@@ -15,7 +15,7 @@
 
 #include "CCassets.h"
 #include "CCtokens.h"
-
+#include "komodo_defs.h"
 
 UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalCodeNFT)
 {
@@ -201,7 +201,7 @@ UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, u
         mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount, unspendableAssetsPubkey));
         mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, ASSETS_MARKER_AMOUNT, mypk));
 
-        UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), 0, cpAssets, mtx, mypk, txfee, 
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE_RPC(), 0, cpAssets, mtx, mypk, txfee, 
 			EncodeTokenOpRetV1(assetid, {},     // TODO: actually this tx is not 'tokens', maybe it is better not to have token opret here but only asset opret.
 				{ EncodeAssetOpRet('b', zeroid, unit_price, vuint8_t(mypk.begin(), mypk.end())) } ));   // But still such token opret should not make problems because no token eval in these vouts
         if (!ResultHasTx(sigData))
@@ -257,7 +257,7 @@ UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint2
                 // change to single-eval or non-fungible token vout (although for non-fungible token change currently is not possible)
                 mtx.vout.push_back(MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : EVAL_TOKENS, CCchange, mypk));	
 
-            UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpTokens, mtx, mypk, txfee, 
+            UniValue sigData = FinalizeCCTxExt(IS_REMOTE_RPC(), mask, cpTokens, mtx, mypk, txfee, 
                 EncodeTokenOpRetV1(assetid, { unspendableAssetsPubkey }, 
                     { EncodeAssetOpRet('s', zeroid, unit_price, vuint8_t(mypk.begin(), mypk.end()) ) } ));
             if (!ResultHasTx(sigData))
@@ -383,7 +383,7 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
             mtx.vout.push_back(CTxOut(bidamount, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
             mtx.vout.push_back(CTxOut(ASSETS_MARKER_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
 
-            UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
+            UniValue sigData = FinalizeCCTxExt(IS_REMOTE_RPC(), mask, cpAssets, mtx, mypk, txfee,
                 EncodeTokenOpRetV1(assetid, {},
                     { EncodeAssetOpRet('o', zeroid, 0, vuint8_t(mypk.begin(), mypk.end())) }));
             if (!ResultHasTx(sigData))
@@ -455,7 +455,7 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 a
             // add additional eval-tokens unspendable assets privkey:
             CCaddr2set(cpAssets, EVAL_TOKENS, unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
 
-            UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
+            UniValue sigData = FinalizeCCTxExt(IS_REMOTE_RPC(), mask, cpAssets, mtx, mypk, txfee,
                 EncodeTokenOpRetV1(assetid, { mypk },
                     { EncodeAssetOpRet('x', zeroid, 0, vuint8_t(mypk.begin(), mypk.end())) } ));
             if (!ResultHasTx(sigData))
@@ -493,7 +493,7 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
 	if (txfee == 0)
         txfee = 10000;
 
-    if (AddNormalinputs(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000, IsRemoteRPCCall()) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000, IS_REMOTE_RPC()) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
         if (myGetTransaction(bidtxid, vintx, hashBlock) != 0 && vintx.vout.size() > bidvout)
@@ -547,7 +547,7 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                 // add additional unspendable addr from Assets:
                 CCaddr2set(cpTokens, EVAL_ASSETS, unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
 
-                UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpTokens, mtx, mypk, txfee,
+                UniValue sigData = FinalizeCCTxExt(IS_REMOTE_RPC(), mask, cpTokens, mtx, mypk, txfee,
                     EncodeTokenOpRetV1(assetid, { pubkey2pk(origpubkey) },
                         { EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) }));
                 if (!ResultHasTx(sigData))
@@ -628,7 +628,7 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
         else
         {
             // Use only one AddNormalinputs() in each rpc call to allow payment if user has only single utxo with normal funds
-            inputs = AddNormalinputs(mtx, mypk, txfee + ASSETS_MARKER_AMOUNT + paid_nValue, 0x10000, IsRemoteRPCCall());  
+            inputs = AddNormalinputs(mtx, mypk, txfee + ASSETS_MARKER_AMOUNT + paid_nValue, 0x10000, IS_REMOTE_RPC());  
             mask = ~((1LL << mtx.vin.size()) - 1);
         }
         if (inputs > 0)
@@ -687,7 +687,7 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
 
             cpAssets->evalcodeNFT = evalCodeNFT;  // set nft eval for signing
 
-            UniValue sigData = FinalizeCCTxExt(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
+            UniValue sigData = FinalizeCCTxExt(IS_REMOTE_RPC(), mask, cpAssets, mtx, mypk, txfee,
 				EncodeTokenOpRetV1(assetid, { mypk }, 
                     { EncodeAssetOpRet(assetid2 != zeroid ? 'E' : 'S', assetid2, unit_price, origpubkey) } ));
             if (!ResultHasTx(sigData))

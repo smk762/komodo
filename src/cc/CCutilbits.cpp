@@ -138,16 +138,7 @@ void CCLogPrintF(const char *category, int level, const char *format, ...)
 }
 
 // thread val to set if remote call globally within rpc call
-thread_local bool is_remote_rpc_call;
-void SetRemoteRPCCall(bool isRemote)
-{
-    is_remote_rpc_call = isRemote;
-}
-
-bool IsRemoteRPCCall()
-{
-    return is_remote_rpc_call;
-}
+thread_local bool IsRemoteRPC::th_is_remote_rpc;
 
 // CCerror static member
 thread_local std::string CCerror::th_cc_error;
