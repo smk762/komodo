@@ -659,7 +659,8 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
             }
 
             // for tokencreate check if valid token vout:
-        /*    if (pBaseObj->istoken && pBaseObj->funcid == 'c')    {
+            /*
+            if (pBaseObj->istoken && pBaseObj->funcid == 'c')    {
                 struct CCcontract_info *cpTokens, C; 
                 cpTokens = CCinit(&C, EVAL_TOKENS);
                 CAmount totalOutput = 0;
@@ -674,15 +675,16 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "invalid tokencreate for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
                     return nullptr;
                 }
-            }            */
+            } 
+            */           
 
             // for enclosures check that origpk really created the tx
-            if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
-                /*if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
+            /*if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
+                if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no normal inputs signed by creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
                     return nullptr;
-                }*/
-            }
+                }
+            }*/
 		    return pBaseObj;
         }
     }
