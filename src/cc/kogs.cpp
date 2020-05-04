@@ -3258,15 +3258,6 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
 
 static bool check_slamdata(struct CCcontract_info *cp, const KogsBaseObject *pobj, const CTransaction &tx, std::string &errorStr)
 {
-	// get prev baton or game config
-    std::shared_ptr<KogsGameConfig> spGameConfig;
-    std::shared_ptr<KogsPlayer> spPlayer;
-    std::shared_ptr<KogsBaton> spPrevBaton;
-    KogsBaton testbaton;
-    KogsGameFinished testgamefinished;
-    uint256 gameid;
-    bool bGameFinished;
-
     // find first cc vin
     int32_t ccvin;
     for (ccvin = 0; ccvin < tx.vin.size(); ccvin ++)
