@@ -790,7 +790,8 @@ static void ListContainerTokenids(KogsContainer &container)
     CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, container.creationtxid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
 
-    SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    //SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
         uint256 dummytxid;
@@ -897,7 +898,8 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
-    SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    //SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         KogsBaseObject* pobj = LoadGameObject(it->first.txhash, it->first.index); // load and unmarshal gameobject for this txid
