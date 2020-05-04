@@ -899,7 +899,7 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
     //SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
-    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr (no mempool tx, as they are mined out of the initial order and validation might fail if there is dependencies on mempool txns)
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         KogsBaseObject* pobj = LoadGameObject(it->first.txhash, it->first.index); // load and unmarshal gameobject for this txid
@@ -3189,13 +3189,13 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
         return errorStr = "no cc vin", false;
 
     std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(tx.vin[ccvin].prevout.hash)); 
-    if (spPrevObj == nullptr)
-        return errorStr = "could not load prev object", false;
+    if (spPrevObj == nullptr || spPrevObj->objectType != KOGSID_GAME && spPrevObj->objectType != KOGSID_SLAMPARAMS)
+        return errorStr = "could not load prev object game or slamdata", false;
 
-    CTransaction batontx;
+    CTransaction prevtx;
     uint256 hashBlock;
-    if (!myGetTransaction(tx.vin[ccvin].prevout.hash, batontx, hashBlock) || batontx.vout.size() == 0 || batontx.vout[0].nValue != KOGS_BATON_AMOUNT)
-        return errorStr = "could not load baton tx or invalid baton amount", false;
+    if (!myGetTransaction(tx.vin[ccvin].prevout.hash, prevtx, hashBlock) || prevtx.vout[tx.vin[ccvin].prevout.n].nValue != KOGS_BATON_AMOUNT)
+        return errorStr = "could not load previous tx or invalid baton amount", false;
 
     KogsBaton *pbaton = pobj->objectType == KOGSID_BATON ? (KogsBaton*)pobj : nullptr;
     if (!KogsCreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, spPrevBaton, testbaton, pbaton, testgamefinished, bGameFinished))
