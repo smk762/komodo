@@ -895,27 +895,26 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
     }
 
     std::set<uint256> tokenids;
-    iter = std::find(paramkeys.begin(), paramkeys.end(), "tokenids");
-    if (iter != paramkeys.end()) {
-        
-        UniValue jsonArray = jsonParams[iter - paramkeys.begin()];
-        if (!jsonArray.isArray())
-            throw runtime_error("tokenids element is not an array\n");
-        if (jsonArray.size() == 0)
-            throw runtime_error("tokenids array is empty\n");
+  
+    UniValue jsonArray = jsonParams["tokenids"];
+    if (!jsonArray.isArray())
+        throw runtime_error("tokenids element is not an array\n");
+    if (jsonArray.size() == 0)
+        throw runtime_error("tokenids array is empty\n");
 
-        for (int i = 0; i < jsonArray.size(); i++)
-        {
-            uint256 tokenid = Parseuint256(jsonArray[i].get_str().c_str());
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << " test output tokenid=" << tokenid.GetHex() << std::endl);
-            if (tokenid.IsNull())
-                throw runtime_error(std::string("incorrect tokenid=") + jsonArray[i].get_str() + std::string("\n"));
-            
-            tokenids.insert(tokenid);
-        }
-        if (tokenids.size() != jsonArray.size())
-            throw runtime_error("duplicate tokenids in params\n");
+    for (int i = 0; i < jsonArray.size(); i++)
+    {
+        uint256 tokenid = Parseuint256(jsonArray[i].get_str().c_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << " test output tokenid=" << tokenid.GetHex() << std::endl);
+        if (tokenid.IsNull())
+            throw runtime_error(std::string("incorrect tokenid=") + jsonArray[i].get_str() + std::string("\n"));
+        
+        tokenids.insert(tokenid);
     }
+    if (tokenids.size() != jsonArray.size())
+        throw runtime_error("duplicate tokenids in params\n");
+    if (tokenids.size() == 0)
+        throw runtime_error("no tokenids in params\n");
 
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");

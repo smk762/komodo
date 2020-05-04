@@ -487,7 +487,7 @@ void NSPV_CCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_
 static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
 {
     // lock mempool
-    ENTER_CRITICAL_SECTION(cs_main);
+    //ENTER_CRITICAL_SECTION(cs_main);
     ENTER_CRITICAL_SECTION(mempool.cs);
 
     for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
@@ -533,8 +533,8 @@ static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAd
             }
         }
     }
-    LEAVE_CRITICAL_SECTION(cs_main);
     LEAVE_CRITICAL_SECTION(mempool.cs);
+    //LEAVE_CRITICAL_SECTION(cs_main);
 }
 
 void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool ccflag)
@@ -572,6 +572,7 @@ void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddress
         uint256 dummytxid;
         int32_t dummyvout;
         if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) {
+            std::cerr << __func__ << " erasing spent in mempool txid=" << it->first.txhash.GetHex() << " index=" << it->first.index << " spenttxid=" << dummytxid.GetHex() << std::endl;
             it = unspentOutputs.erase(it);
         }
         else

@@ -190,8 +190,12 @@ static bool IsNFTSpkMine(uint256 txid, const CScript &spk, const CPubKey &mypk, 
             uint256 tokenid;
             std::vector<CPubKey> pks;
             std::vector<vscript_t> oprets;
-            if (DecodeTokenOpRetV1(opret, tokenid, pks, oprets) != 0) {
-                tokenidOut = tokenid;
+            uint8_t funcid;
+            if ((funcid = DecodeTokenOpRetV1(opret, tokenid, pks, oprets)) != 0) {
+                if (funcid == 'c')
+                    tokenidOut = txid;
+                else
+                    tokenidOut = tokenid;
                 return true;
             }
         }
@@ -230,8 +234,11 @@ static bool IsNFTMine(uint256 reftokenid, const CPubKey &mypk)
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspents.begin(); it != unspents.end(); it++) 
     {
         uint256 tokenid;
-        if (IsNFTSpkMine(it->first.txhash, it->second.script, mypk, tokenid) && tokenid == reftokenid)
+        //std::cerr << __func__ << " checking txhash=" << it->first.txhash.GetHex() << " height=" <<  it->second.blockHeight << " reftokenid=" << reftokenid.GetHex() << std::endl;
+        if (IsNFTSpkMine(it->first.txhash, it->second.script, mypk, tokenid) && tokenid == reftokenid) {
+            //std::cerr << __func__ << " is mine=true" << std::endl;
             return true;
+        }
     }
     return false;
 }
@@ -373,7 +380,7 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
     if (needBaton)
         normals += KOGS_BATON_AMOUNT;
 
-    if (AddNormalinputs(mtx, mypk, normals, 0x10000, isRemote) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, normals, 0x10000) > 0)   // use remote version to add inputs from mypk
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
@@ -659,7 +666,6 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
             }
 
             // for tokencreate check if valid token vout:
-            /*
             if (pBaseObj->istoken && pBaseObj->funcid == 'c')    {
                 struct CCcontract_info *cpTokens, C; 
                 cpTokens = CCinit(&C, EVAL_TOKENS);
@@ -676,15 +682,14 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
                     return nullptr;
                 }
             } 
-            */           
 
             // for enclosures check that origpk really created the tx
-            /*if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
+            if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
                 if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no normal inputs signed by creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
                     return nullptr;
                 }
-            }*/
+            }
 		    return pBaseObj;
         }
     }
@@ -1794,10 +1799,10 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     uint8_t kogspriv[32];
     CPubKey kogsPk = GetUnspendable(cp, kogspriv);
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey createtxidPk = CCtxidaddr_tweak(txidaddr, containerid);
-    CC *probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
+    CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, containerid);
+    CC *probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, containertxidPk);
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, createtxidPk);
+    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
 
     LockUtxoInMemory lockutxos; // activate locking
 
@@ -1833,7 +1838,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
 
     for (const auto &tokenid : tokenids)
     {
-        UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, std::vector<CPubKey>{ mypk }, { std::make_pair(probeCond, kogspriv) }, 1, true);
+        UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, { mypk }, { std::make_pair(probeCond, kogspriv) }, 1, true);
         if (ResultIsError(addtxResult)) {
             CCerror = ResultGetError(addtxResult);
             return NullResults;
@@ -3252,7 +3257,7 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 
     // check if container not deposited
     if (!IsNFTMine(pCont->creationtxid, pCont->encOrigPk))
-        return errorStr = "not possible to add/remove kogs from deposited container", false;
+        return errorStr = "not possible to add/remove kogs to/from deposited container", false;
     // TODO: for other than 'play for keeps' modes it will be needed to remove lost kogs from a container deposited to a game
     // how to find which gameid is it deposited to? should use a separate funcid for this with that info
 
@@ -3260,37 +3265,43 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 	std::vector<CPubKey> destpks { GetUnspendable(cp, NULL), CCtxidaddr_tweak(NULL, pContOps->containerid) };
 	std::set<CPubKey> mypks;
 	std::vector<uint256> tokenids;
-    //struct CCcontract_info *cp, C;
-    //cp = CCinit(&C, EVAL_TOKENS);
 
 	for (auto const &vout : tx.vout)	{
-		uint256 tokenid;
-		std::vector<CPubKey> pks;
-		std::vector<vuint8_t> drops;
-		if (DecodeTokenOpRetV1(vout.scriptPubKey, tokenid, pks, drops) != 0)	{
+        if (vout.scriptPubKey.IsPayToCryptoCondition())
+        {
+            uint256 tokenid;
+            std::vector<CPubKey> pks;
+            std::vector<vuint8_t> blobs;
+            CScript drop;
+            if (MyGetCCopretV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	
+            {
+                // check this is valid kog/slammer sent:
+                std::shared_ptr<KogsBaseObject> spObj( LoadGameObject(tokenid) );  // TODO: maybe check this only on sending?
+                if (spObj == nullptr || !KogsIsMatchObject(spObj->objectType))
+                    return errorStr = "invalid NFT sent to container", false;
 
-            // check this is valid kog/slammer sent:
-            std::shared_ptr<KogsBaseObject> spObj( LoadGameObject(tokenid) );
-            if (spObj == nullptr || !KogsIsMatchObject(spObj->objectType))
-				return errorStr = "invalid NFT sent to container", false;
-
-			if (pContOps->objectType == KOGSID_ADDTOCONTAINER)	{
-				if (pks != destpks)		// check tokens are sent to the container 1of2 address
-					return errorStr = "dest pubkeys do not match container id", false;
-			}
-			else if (pContOps->objectType == KOGSID_REMOVEFROMCONTAINER) {
-				if (pks.size() == 1)
-					mypks.insert(pks[0]); // collect token dest pubkeys
-			}
-			tokenids.push_back(tokenid);
-		}
+                if (pContOps->objectType == KOGSID_ADDTOCONTAINER)	{
+                    if (pks != destpks)		// check tokens are sent to the container 1of2 address
+                        return errorStr = "dest pubkeys do not match container id", false;
+                }
+                else if (pContOps->objectType == KOGSID_REMOVEFROMCONTAINER) {
+                    if (pks.size() == 1)
+                        mypks.insert(pks[0]); // collect token dest pubkeys
+                }
+                tokenids.push_back(tokenid);
+            }
+        }
 	}
 
 	if (pContOps->objectType == KOGSID_ADDTOCONTAINER)	{
 		// check that the sent tokens currently are on the container owner pk
-		for(auto const &t : tokenids)	
-			if (!IsNFTMine(t, pCont->encOrigPk))
+		/*for(auto const &t : tokenids)	{
+            std::cerr << __func__ << " checking IsNFTMine tokenid=" << t.GetHex() << std::endl;
+            // does not work as the validated tx continues to stay in mempool, 
+            // maybe check with no mempool as we do not allow tokentransfer in mempool (should be mined) 
+			if (!IsNFTMine(t, pCont->encOrigPk))   
 				return errorStr = "not your container to add tokens", false;
+        }*/
 	}
 	else if (pContOps->objectType == KOGSID_REMOVEFROMCONTAINER) {
 
@@ -3300,7 +3311,7 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 
 		// check all removed tokens go to the same pk
 		if (mypks.size() != 1)	
-			return errorStr = "should be only one dest pubkey for removing tokens", false;
+			return errorStr = "should be exactly one dest pubkey to remove tokens", false;
 
 		if (!IsNFTMine(pContOps->containerid, *mypks.begin()))
 			return errorStr = "not your container to remove tokens", false;
@@ -3328,8 +3339,9 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 	for (auto const &vout : tx.vout)	{
 		uint256 tokenid;
 		std::vector<CPubKey> pks;
-		std::vector<vuint8_t> drops;
-		if (DecodeTokenOpRetV1(vout.scriptPubKey, tokenid, pks, drops) != 0)	{
+		std::vector<vuint8_t> blobs;
+        CScript drop;
+		if (MyGetCCopretV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	{
             if (spObj == nullptr || spObj->objectType != KOGSID_CONTAINER)
 				return errorStr = "invalid container sent to game", false;
 			if (pGameOps->objectType == KOGSID_ADDTOGAME)	{
@@ -3404,7 +3416,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 {
 	std::string errorStr;
 
-    return true;
+    //return true;
 
 	if (tx.vout.size() == 0)
 		return log_and_return_error(eval, "no vouts", tx);
