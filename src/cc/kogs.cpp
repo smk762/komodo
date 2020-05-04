@@ -406,7 +406,7 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
 
 // create baton tx to pass turn to the next player
 // called by a miner
-static void AddBatonVouts(CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk, CScript &opret)
+static void AddGameFinishedInOuts(CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk, CScript &opret)
 {
     const CAmount  txfee = 10000;
     //CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -2854,7 +2854,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
                     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
                     CScript opret;
-                    AddBatonVouts(mtx, cpTokens, it->first.txhash, it->first.index, &gamefinished, gametxidPk, opret);  // send game finished baton to unspendable addr
+                    AddGameFinishedInOuts(mtx, cpTokens, it->first.txhash, it->first.index, &gamefinished, gametxidPk, opret);  // send game finished baton to unspendable addr
 
                     if (AddTransferContainerVouts(mtx, cpTokens, gameid, spcontainers, transferContainerTxns))
                     {
@@ -3120,7 +3120,7 @@ static KogsBaseObject *get_last_baton(uint256 gameid)
 }
 
 // check that tx spends correct 1of2 txid addr
-static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid)
+static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t start, int32_t end)
 {
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -3131,17 +3131,18 @@ static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid)
     char txid1of2addr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress1of2(cp, txid1of2addr, kogsPk, txidPk);
 
-    for (auto const &vin : tx.vin)  
+    for (int32_t i = start; i <= end; i ++)  
     {
-        if (cp->ismyvin(vin.scriptSig))     
+        if (cp->ismyvin(tx.vin[i].scriptSig))     
         {
-            if (check_signing_pubkey(vin.scriptSig) == kogsPk)  
+            if (check_signing_pubkey(tx.vin[i].scriptSig) == kogsPk)  
             {                
                 CTransaction vintx;
                 uint256 hashBlock;
-                if (myGetTransaction(vin.prevout.hash, vintx, hashBlock))   {
+                if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))   {
                     char prevaddr[KOMODO_ADDRESS_BUFSIZE];
-                    Getscriptaddress(prevaddr, vintx.vout[vin.prevout.n].scriptPubKey);
+                    Getscriptaddress(prevaddr, vintx.vout[tx.vin[i].prevout.n].scriptPubKey);
+                    std::cerr << __func__ << " prevaddr=" << prevaddr << " txid1of2addr=" << txid1of2addr << std::endl;
                     if (strcmp(prevaddr, txid1of2addr) != 0)
                         return false;
                 }
@@ -3191,6 +3192,11 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
     if (spPrevObj == nullptr)
         return errorStr = "could not load prev object", false;
 
+    CTransaction batontx;
+    uint256 hashBlock;
+    if (!myGetTransaction(tx.vin[ccvin].prevout.hash, batontx, hashBlock) || batontx.vout.size() == 0 || batontx.vout[0].nValue != KOGS_BATON_AMOUNT)
+        return errorStr = "could not load baton tx or invalid baton amount", false;
+
     KogsBaton *pbaton = pobj->objectType == KOGSID_BATON ? (KogsBaton*)pobj : nullptr;
     if (!KogsCreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, spPrevBaton, testbaton, pbaton, testgamefinished, bGameFinished))
         return errorStr = "could not create test baton", false;
@@ -3221,12 +3227,15 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
         if (pobj->objectType != KOGSID_GAMEFINISHED)
             return errorStr = "incorrect object type, should be gamefinished", false;
         KogsGameFinished *pgamefinished = (KogsGameFinished *)pobj;
+        gameid = pgamefinished->gameid;
 
         if (*pgamefinished != testgamefinished)
             return errorStr = "could not validate game finished object", false;
 
+
+
         // check source game 1of2 addr is correct:
-        if (!check_valid_1of2_spent(tx, gameid))
+        if (!check_valid_1of2_spent(tx, gameid, ccvin+1, tx.vin.size()-1))
             return errorStr = "bad 1of2 game addr spent", false;
 
         // check sent back cointainers if game finished
@@ -3358,7 +3367,7 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 	else if (pContOps->objectType == KOGSID_REMOVEFROMCONTAINER) {
 
         // check source container 1of2 addr is correct:
-        if (!check_valid_1of2_spent(tx, pContOps->containerid))
+        if (!check_valid_1of2_spent(tx, pContOps->containerid, 0, tx.vin.size()-1))
             return errorStr = "bad 1of2 container addr spent", false;
 
 		// check all removed tokens go to the same pk
@@ -3373,7 +3382,7 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 	return true;
 }
 
-// check if adding removing containers to the game is allowed
+// check if adding or removing containers to/from the game is allowed
 static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps *pGameOps, const CTransaction &tx, std::string &errorStr)
 {
 	std::shared_ptr<KogsBaseObject> spObj( LoadGameObject(pGameOps->gameid) );
@@ -3412,7 +3421,7 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 	if (pGameOps->objectType == KOGSID_REMOVEFROMGAME)	
     {
         // check source game 1of2 addr is correct:
-        if (!check_valid_1of2_spent(tx, pGameOps->gameid))
+        if (!check_valid_1of2_spent(tx, pGameOps->gameid, 0, tx.vin.size()-1))
             return errorStr = "bad 1of2 game addr spent", false;
 
         // check game is not running yet or already
@@ -3522,7 +3531,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                 case KOGSID_GAMEFINISHED:
                 case KOGSID_BATON:
                     if (!check_baton(cp, pBaseObj, tx, errorStr))
-                        return log_and_return_error(eval, "invalid baton: " + errorStr, tx);
+                        return log_and_return_error(eval, "invalid baton or gamefinished: " + errorStr, tx);
                     else
                         return true;
                     break;
