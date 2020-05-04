@@ -36,7 +36,11 @@ static std::map<uint8_t, std::string> objectids = {
     { KOGSID_BATON , "KOGSID_BATON" },
     { KOGSID_SLAMPARAMS, "KOGSID_SLAMPARAMS" },
     { KOGSID_GAMEFINISHED, "KOGSID_GAMEFINISHED" },
-    { KOGSID_ADVERTISING, "KOGSID_ADVERTISING" }
+    { KOGSID_ADVERTISING, "KOGSID_ADVERTISING" },
+    { KOGSID_ADDTOCONTAINER, "KOGSID_ADDTOCONTAINER" },
+    { KOGSID_REMOVEFROMCONTAINER, "KOGSID_REMOVEFROMCONTAINER" },
+    { KOGSID_ADDTOGAME, "KOGSID_ADDTOGAME" },
+    { KOGSID_REMOVEFROMGAME, "KOGSID_REMOVEFROMGAME" }
 };
 
 
@@ -3464,6 +3468,8 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 	std::string errorStr;
 
     //return true;
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 176)
+        return true;
 
 	if (tx.vout.size() == 0)
 		return log_and_return_error(eval, "no vouts", tx);
