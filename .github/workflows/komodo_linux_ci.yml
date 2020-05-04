@@ -2,7 +2,7 @@ name: Komodo Linux CI
 
 on:
   pull_request:
-    types: [opened, edited, reopened]
+    types: [opened, synchronize, reopened]
   schedule:
     - cron: '0 0 * * 1'
 

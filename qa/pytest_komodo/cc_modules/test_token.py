@@ -53,11 +53,9 @@ def test_token(test_params):
 #        assert result == []
 
     # trying to create token with negative supply
-    try:
+    with pytest.raises(RPCError):
         result = rpc.tokencreate("NUKE", "-1987420", "no bueno supply")
         assert_error(result)
-    except RPCError as e:
-        assert "Amount out of range" in str(e)
 
     # creating token with name more than 32 chars
     result = rpc.tokencreate("NUKE123456789012345678901234567890", "1987420", "name too long")
@@ -115,11 +113,9 @@ def test_token(test_params):
     assert_error(result)
 
     # invalid price ask
-    try:
+    with pytest.raises(RPCError):
         result = rpc.tokenask("1", tokenid, "-1")
         assert_error(result)
-    except RPCError as e:
-        assert "Amount out of range" in str(e)
 
     # invalid price ask
     result = rpc.tokenask("1", tokenid, "0")
@@ -188,11 +184,9 @@ def test_token(test_params):
     assert_error(result)
 
     # invalid price bid
-    try:
+    with pytest.raises(RPCError):
         result = rpc.tokenbid("1", tokenid, "-1")
         assert_error(result)
-    except RPCError as e:
-        assert "Amount out of range" in str(e)
 
     # invalid price bid
     result = rpc.tokenbid("1", tokenid, "0")
@@ -214,11 +208,8 @@ def test_token(test_params):
     assert_error(result)
 
     # invalid bid fillunits
-    try:
-        result = rpc.tokenfillbid(tokenid, tokenbidid, "-777")
-        assert_error(result)
-    except RPCError as e:
-        assert "Amount out of range" in str(e)
+    result = rpc.tokenfillbid(tokenid, tokenbidid, "-777")
+    assert_error(result)
 
     # valid bid fillunits
     fillbid = rpc.tokenfillbid(tokenid, tokenbidid, "1000")
@@ -256,11 +247,8 @@ def test_token(test_params):
     assert_error(result)
 
     # invalid token transfer amount (have to add status to CC code!)
-    try:
-        result = rpc.tokentransfer(tokenid, randompubkey, "-1")
-        assert_error(result)
-    except RPCError as e:
-        assert "Amount out of range" in str(e)
+    result = rpc.tokentransfer(tokenid, randompubkey, "-1")
+    assert_error(result)
 
     # valid token transfer
     sendtokens = rpc.tokentransfer(tokenid, randompubkey, "1")
