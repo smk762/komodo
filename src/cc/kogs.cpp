@@ -819,7 +819,7 @@ static UniValue CreateSlamParamTx(const CPubKey &remotepk, uint256 prevtxid, int
 
     mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
 
-    if (AddNormalinputs(mtx, mypk, 3*txfee, 0x10000, isRemote) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, 3*txfee, 0x10000) > 0)  //use remote version to spend from mypk
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, GetUnspendable(cp, NULL))); // marker to find batons
 
@@ -1857,7 +1857,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     return results;
 }
 
-UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamParams)
+UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamParams)
 {
     std::shared_ptr<KogsBaseObject> spbaseobj( LoadGameObject(newSlamParams.gameid) );
     if (spbaseobj == nullptr || spbaseobj->objectType != KOGSID_GAME)
@@ -3256,6 +3256,48 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
 	return true;
 }
 
+static bool check_slamdata(struct CCcontract_info *cp, const KogsBaseObject *pobj, const CTransaction &tx, std::string &errorStr)
+{
+	// get prev baton or game config
+    std::shared_ptr<KogsGameConfig> spGameConfig;
+    std::shared_ptr<KogsPlayer> spPlayer;
+    std::shared_ptr<KogsBaton> spPrevBaton;
+    KogsBaton testbaton;
+    KogsGameFinished testgamefinished;
+    uint256 gameid;
+    bool bGameFinished;
+
+    // find first cc vin
+    int32_t ccvin;
+    for (ccvin = 0; ccvin < tx.vin.size(); ccvin ++)
+        if (cp->ismyvin(tx.vin[ccvin].scriptSig))   
+            break;
+    if (ccvin == tx.vin.size())
+        return errorStr = "no cc vin", false;
+
+    std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(tx.vin[ccvin].prevout.hash)); 
+    if (spPrevObj == nullptr || spPrevObj->objectType != KOGSID_BATON)
+        return errorStr = "could not load prev baton", false;
+
+    KogsSlamParams *pslam = (KogsSlamParams *)pobj;
+    if (pslam->armHeight < 0 || pslam->armHeight > 100 || pslam->armStrength < 0 || pslam->armStrength > 100)
+        return errorStr = "incorrect strength or height value", false;
+
+    std::shared_ptr<KogsBaseObject> spGame(LoadGameObject(pslam->gameid)); 
+    if (spGame == nullptr || spGame->objectType != KOGSID_GAME)
+        return errorStr = "could not load game", false;
+
+    std::shared_ptr<KogsBaseObject> spPlayer(LoadGameObject(pslam->playerid)); 
+    if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)
+        return errorStr = "could not load player", false;
+
+    if (pslam->encOrigPk != spPlayer->encOrigPk)
+        return errorStr = "not your playerid", false;
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated okay" << std::endl); 
+	return true;
+}
+
 // check if adding removing kogs to the container is allowed
 static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsContainerOps *pContOps, const CTransaction &tx, std::string &errorStr)
 {
@@ -3473,7 +3515,11 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                     // could only be in funcid 'c':
                     return log_and_return_error(eval, "invalid game object transfer", tx);
                 case KOGSID_SLAMPARAMS:
-                    return log_and_return_error(eval, "invalid slam params transfer", tx);
+                    if (!check_slamdata(cp, pBaseObj, tx, errorStr))
+                        return log_and_return_error(eval, "invalid slam data: " + errorStr, tx);
+                    else
+                        return true;
+                    break;                
                 case KOGSID_GAMEFINISHED:
                 case KOGSID_BATON:
                     if (!check_baton(cp, pBaseObj, tx, errorStr))
