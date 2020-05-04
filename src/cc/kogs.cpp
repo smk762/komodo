@@ -2393,6 +2393,8 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         KogsBaton *batonobj;
         KogsSlamParams *slamparamsobj;
         KogsAdvertising *adobj;
+        KogsContainerOps *coobj;
+        KogsGameOps *goobj;
 
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
@@ -2513,6 +2515,17 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         info.push_back(std::make_pair("playerid", adobj->playerId.GetHex()));
         break;
 
+    case KOGSID_ADDTOCONTAINER:
+    case KOGSID_REMOVEFROMCONTAINER:
+        coobj = (KogsContainerOps*)pobj;
+        info.push_back(std::make_pair("containerid", coobj->containerid.GetHex()));
+        break;
+
+    case KOGSID_ADDTOGAME:
+    case KOGSID_REMOVEFROMGAME:
+        goobj = (KogsGameOps*)pobj;
+        info.push_back(std::make_pair("gameid", goobj->gameid.GetHex()));
+        break;
     default:
         err.push_back(std::make_pair("result", "error"));
         err.push_back(std::make_pair("error", "unsupported objectType: " + std::string(1, (char)pobj->objectType)));
@@ -3276,8 +3289,8 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
             if (MyGetCCopretV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	
             {
                 // check this is valid kog/slammer sent:
-                std::shared_ptr<KogsBaseObject> spObj( LoadGameObject(tokenid) );  // TODO: maybe check this only on sending?
-                if (spObj == nullptr || !KogsIsMatchObject(spObj->objectType))
+                std::shared_ptr<KogsBaseObject> spMatchObj( LoadGameObject(tokenid) );  // TODO: maybe check this only on sending?
+                if (spMatchObj == nullptr || !KogsIsMatchObject(spMatchObj->objectType))
                     return errorStr = "invalid NFT sent to container", false;
 
                 if (pContOps->objectType == KOGSID_ADDTOCONTAINER)	{
@@ -3342,7 +3355,8 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 		std::vector<vuint8_t> blobs;
         CScript drop;
 		if (MyGetCCopretV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	{
-            if (spObj == nullptr || spObj->objectType != KOGSID_CONTAINER)
+            std::shared_ptr<KogsBaseObject> spContObj( LoadGameObject(tokenid) ); 
+            if (spContObj == nullptr || spContObj->objectType != KOGSID_CONTAINER)
 				return errorStr = "invalid container sent to game", false;
 			if (pGameOps->objectType == KOGSID_ADDTOGAME)	{
 				if (pks != destpks)		// check tokens are sent to the game 1of2 address

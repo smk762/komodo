@@ -1355,9 +1355,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
         playerid2 = Parseuint256(params[1].get_str().c_str());
 
     std::vector<uint256> creationids;
-    std::cerr << "CCerror before=" << CCerror << std::endl;
     KogsGameTxidList(remotepk, playerid1, playerid2, creationids);
-    std::cerr << "CCerror after=" << CCerror << std::endl;
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)

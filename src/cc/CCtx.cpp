@@ -572,7 +572,7 @@ void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddress
         uint256 dummytxid;
         int32_t dummyvout;
         if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) {
-            std::cerr << __func__ << " erasing spent in mempool txid=" << it->first.txhash.GetHex() << " index=" << it->first.index << " spenttxid=" << dummytxid.GetHex() << std::endl;
+            //std::cerr << __func__ << " erasing spent in mempool txid=" << it->first.txhash.GetHex() << " index=" << it->first.index << " spenttxid=" << dummytxid.GetHex() << std::endl;
             it = unspentOutputs.erase(it);
         }
         else
