@@ -685,10 +685,10 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 
             // for enclosures check that origpk really created the tx
             if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
-                if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
+            /*  if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no normal inputs signed by creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
                     return nullptr;
-                }
+                }*/
             }
 		    return pBaseObj;
         }
