@@ -3474,14 +3474,15 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
         if (check_globalpk_spendings(cp, tx, 0, tx.vin.size()-1))
             return errorStr = "invalid globalpk spendings", false;        // could not spend from the global address when adding containers
 
-        // get deposited containers (checking in mempool too)
-        std::vector<std::shared_ptr<KogsContainer>> spSentContainers;
-        KogsDepositedContainerListImpl(pGameOps->gameid, spSentContainers, true);        
-
+        // get gameconfig
         std::shared_ptr<KogsBaseObject> spConfig( LoadGameObject(pGame->gameconfigid) );
         if (spConfig == nullptr || spConfig->objectType != KOGSID_GAMECONFIG)
             return errorStr = "could not load gameconfig", false;
         KogsGameConfig *pConfig = (KogsGameConfig *)spConfig.get();
+
+        // get deposited containers (checking in mempool too)
+        std::vector<std::shared_ptr<KogsContainer>> spSentContainers;
+        KogsDepositedContainerListImpl(pGameOps->gameid, spSentContainers, true);     
 
         // check this pk already sent  tokens in container:
         for(auto const &containerid : containerids)	{
@@ -3490,7 +3491,10 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
             	return errorStr = "could not load container for tokenid", false;
 
             // check container is not deposited yet
-			if (std::find_if(spSentContainers.begin(), spSentContainers.end(), [&](const std::shared_ptr<KogsContainer> &spSent) { return spSent->encOrigPk == spCont->encOrigPk; }) != spSentContainers.end())  {
+			if (std::find_if(spSentContainers.begin(), spSentContainers.end(), 
+                [&](std::shared_ptr<KogsContainer> spSent) { 
+                    return spSent->encOrigPk == spCont->encOrigPk && spSent->creationtxid != spCont->creationtxid /*deposited container in the current tx is in mempool, skip it*/; 
+                }) != spSentContainers.end())  {
                 LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "container=" << spCont->creationtxid.GetHex() << " already deposited to game=" << pGameOps->gameid.GetHex() << std::endl);
 				return errorStr = "container already deposited to game", false;
             }
