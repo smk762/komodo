@@ -777,7 +777,7 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool on
 }
 
 // loads tokenids from 1of2 address (kogsPk, containertxidPk) and adds the tokenids to container object
-static void ListContainerTokenids(KogsContainer &container)
+static void ListContainerTokenids(uint256 containerid, std::vector<uint256> &tokenids)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
 
@@ -787,20 +787,20 @@ static void ListContainerTokenids(KogsContainer &container)
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey kogsPk = GetUnspendable(cp, NULL);
-    CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, container.creationtxid);
+    CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, containerid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
 
     //SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
-        uint256 dummytxid;
-        int32_t dummyvout;
+        //uint256 dummytxid;
+        //int32_t dummyvout;
         //if (!myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
         //{
         std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(it->first.txhash, it->first.index)); // load and unmarshal gameobject for this txid
         if (spobj != nullptr && KogsIsMatchObject(spobj->objectType))
-            container.tokenids.push_back(spobj->creationtxid);
+            tokenids.push_back(spobj->creationtxid);
         //}
     }
 }
@@ -885,7 +885,7 @@ static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertisi
 }
 
 // loads container ids deposited on gameid 1of2 addr
-static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shared_ptr<KogsContainer>> &containers)
+static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shared_ptr<KogsContainer>> &containers, bool checkMempool)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
 
@@ -898,8 +898,10 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
-    //SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
-    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr (no mempool tx, as they are mined out of the initial order and validation might fail if there is dependencies on mempool txns)
+    if (checkMempool)
+        SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    else
+        SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr (no mempool tx, as they are mined out of the initial order and validation might fail if there is dependencies on mempool txns)
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         KogsBaseObject* pobj = LoadGameObject(it->first.txhash, it->first.index); // load and unmarshal gameobject for this txid
@@ -1162,11 +1164,11 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
         playerids = prevbaton->playerids;
     }
 
-    KogsDepositedContainerListImpl(gameid, containers);
+    KogsDepositedContainerListImpl(gameid, containers, false);
 
     //find kog tokenids on container 1of2 address
     for (const auto &c : containers)
-        ListContainerTokenids(*c);
+        ListContainerTokenids(c->creationtxid, c->tokenids);
 
     // store containers' owner playerids
     std::set<uint256> owners;
@@ -1232,7 +1234,7 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
 void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids)
 {
     std::vector<std::shared_ptr<KogsContainer>> containers;
-    KogsDepositedContainerListImpl(gameid, containers);
+    KogsDepositedContainerListImpl(gameid, containers, false);
 
     for (const auto &c : containers)
         containerids.push_back(c->creationtxid);
@@ -1521,7 +1523,7 @@ UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 
         return NullUniValue;
     }
     KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
-    ListContainerTokenids(*pcontainer);
+    ListContainerTokenids(pcontainer->creationtxid, pcontainer->tokenids);
 
     // TODO: check if this player has already deposited a container. Seems the doc states only one container is possible
     if (pcontainer->tokenids.size() != pgameconfig->numKogsInContainer)     {
@@ -1554,7 +1556,7 @@ UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 
         return NullUniValue;
     }
 
-    UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, containerid, tokenaddr, std::vector<CPubKey>{ kogsPk, gametxidPk }, {nullptr, nullptr}, 1, true);
+    UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, containerid, tokenaddr, { kogsPk, gametxidPk }, {nullptr, nullptr}, 1, true);
     if (ResultIsError(addtxResult)) {
         CCerror = ResultGetError(addtxResult);
         return NullUniValue;
@@ -1624,7 +1626,7 @@ UniValue KogsClaimDepositedContainer(const CPubKey &remotepk, int64_t txfee, uin
                 return NullUniValue;
             }
 
-            UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, containerid, tokenaddr, std::vector<CPubKey>{ mypk }, { std::make_pair(probeCond, kogspriv) }, 1, true);
+            UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, containerid, tokenaddr, { mypk }, { std::make_pair(probeCond, kogspriv) }, 1, true);
             if (ResultIsError(addtxResult)) {
                 CCerror = ResultGetError(addtxResult);
                 return NullUniValue;
@@ -1770,7 +1772,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
     for (const auto &tokenid : tokenids)
     {
         //UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1, true); // amount = 1 always for NFTs
-        UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, std::vector<CPubKey>{ kogsPk, containertxidPk }, {nullptr, nullptr}, 1, true);
+        UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, { kogsPk, containertxidPk }, {nullptr, nullptr}, 1, true);
         if (ResultIsError(addtxResult)) {
             CCerror = ResultGetError(addtxResult);
             return NullResults;
@@ -2423,7 +2425,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
     case KOGSID_CONTAINER:
         containerobj = (KogsContainer*)pobj;
         info.push_back(std::make_pair("playerId", containerobj->playerid.GetHex()));
-        ListContainerTokenids(*containerobj);
+        ListContainerTokenids(containerobj->creationtxid, containerobj->tokenids);
         for (const auto &t : containerobj->tokenids)
         {
             infotokenids.push_back(t.GetHex());
@@ -2849,7 +2851,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     TokenBeginTransferTx(mtx, cpTokens, mypk, 10000);
                     std::vector<CTransaction> transferContainerTxns;
                     std::vector<std::shared_ptr<KogsContainer>> spcontainers;
-                    KogsDepositedContainerListImpl(gameid, spcontainers);
+                    KogsDepositedContainerListImpl(gameid, spcontainers, false);
                         
                     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
                     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
@@ -3081,6 +3083,15 @@ static bool log_and_return_error(Eval* eval, std::string errorStr, const CTransa
 	return eval->Error(errorStr);
 }
 
+static bool check_globalpk_spendings(struct CCcontract_info *cp, const CTransaction &tx, int32_t starti, int32_t endi)
+{
+    CPubKey kogspk = GetUnspendable(cp, NULL);
+    for(int32_t i = starti; i <= endi; i ++)
+        if (check_signing_pubkey(tx.vin[i].scriptSig) == kogspk)
+            return true;
+    return false;
+}
+
 // get last baton or gamefinished object for gameid
 static KogsBaseObject *get_last_baton(uint256 gameid)
 {
@@ -3156,6 +3167,7 @@ static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t
     return true;
 }
 
+// check kog or slammer
 static bool check_match_object(struct CCcontract_info *cp, const KogsMatchObject *pObj, const CTransaction &tx, std::string &errorStr)
 {
 	CPubKey kogsGlobalPk = GetUnspendable(cp, NULL);
@@ -3169,6 +3181,7 @@ static bool check_match_object(struct CCcontract_info *cp, const KogsMatchObject
 	return true;
 }
 
+// check baton or gamefinished object
 static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, const CTransaction &tx, std::string &errorStr)
 {
 	// get prev baton or game config
@@ -3195,13 +3208,14 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
     CTransaction prevtx;
     uint256 hashBlock;
     if (!myGetTransaction(tx.vin[ccvin].prevout.hash, prevtx, hashBlock) || prevtx.vout[tx.vin[ccvin].prevout.n].nValue != KOGS_BATON_AMOUNT)
-        return errorStr = "could not load previous tx or invalid baton amount", false;
+        return errorStr = "could not load previous game or slamdata tx or invalid baton amount", false;
 
     KogsBaton *pbaton = pobj->objectType == KOGSID_BATON ? (KogsBaton*)pobj : nullptr;
+    // create test baton object
     if (!KogsCreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, spPrevBaton, testbaton, pbaton, testgamefinished, bGameFinished))
         return errorStr = "could not create test baton", false;
 
-    // compare test and validated baton
+    // compare test and validated baton objects
     if (!bGameFinished && testbaton != *pbaton)   {
         LOGSTREAMFN("kogs", CCLOG_INFO, stream << "testbaton:" << " nextturn=" << testbaton.nextturn << " prevturncount=" << testbaton.prevturncount << " kogsInStack.size()=" << testbaton.kogsInStack.size()  << " kogsFlipped.size()=" << testbaton.kogsFlipped.size() << " playerids.size()=" << testbaton.playerids.size() << std::endl);
         for(auto const &s : testbaton.kogsInStack)
@@ -3232,19 +3246,18 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
         if (*pgamefinished != testgamefinished)
             return errorStr = "could not validate game finished object", false;
 
-
-
         // check source game 1of2 addr is correct:
         if (!check_valid_1of2_spent(tx, gameid, ccvin+1, tx.vin.size()-1))
             return errorStr = "bad 1of2 game addr spent", false;
 
         // check sent back cointainers if game finished
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
-        KogsDepositedContainerListImpl(gameid, spcontainers);
+        KogsDepositedContainerListImpl(gameid, spcontainers, false);
         std::set<uint256> gameConts;
         std::set<CPubKey> pks; 
         for(const auto &c : spcontainers)   {
             gameConts.insert(c->creationtxid);
+            // get container creator pubkeys
             pks.insert(c->encOrigPk);
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "added c->encOrigPk=" << HexStr(c->encOrigPk) << std::endl); 
         }
@@ -3254,6 +3267,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
         for(const auto &v : tx.vout) {
             uint256 tokenid;
             for(auto const &pk : pks)   {
+                // check container sent back to the owner
                 if (IsNFTSpkMine(tx.GetHash(), v.scriptPubKey, pk, tokenid))
                     sentConts.insert(tokenid);
             }
@@ -3265,6 +3279,12 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
                 LOGSTREAMFN("kogs", CCLOG_INFO, stream << "vout tokenid=" << c2.GetHex() << std::endl); 
             return errorStr = "not all containers are sent back", false;
         }
+    }
+    else
+    {
+        // for baton check no disallowed spendings from the global address:
+        if (check_globalpk_spendings(cp, tx, ccvin+1, tx.vin.size()-1))
+            return errorStr = "invalid globalpk spendings", false;
     }
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated okay" << std::endl); 
@@ -3300,6 +3320,9 @@ static bool check_slamdata(struct CCcontract_info *cp, const KogsBaseObject *pob
     if (pslam->encOrigPk != spPlayer->encOrigPk)
         return errorStr = "not your playerid", false;
 
+    if (check_globalpk_spendings(cp, tx, 0, tx.vin.size()-1))
+        return errorStr = "invalid globalpk spendings", false;  // slamdata could not spend from global addresses
+
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated okay" << std::endl); 
 	return true;
 }
@@ -3327,7 +3350,8 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 	std::set<CPubKey> mypks;
 	std::vector<uint256> tokenids;
 
-	for (auto const &vout : tx.vout)	{
+	for (auto const &vout : tx.vout)	
+    {
         if (vout.scriptPubKey.IsPayToCryptoCondition())
         {
             uint256 tokenid;
@@ -3358,11 +3382,14 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 		// check that the sent tokens currently are on the container owner pk
 		/*for(auto const &t : tokenids)	{
             std::cerr << __func__ << " checking IsNFTMine tokenid=" << t.GetHex() << std::endl;
-            // does not work as the validated tx continues to stay in mempool, 
+            ß// does not work as the currently validated tx continues to stay in mempool (and it has alredy spent the kog so it could not be checked as 'mine'), 
             // maybe check with no mempool as we do not allow tokentransfer in mempool (should be mined) 
 			if (!IsNFTMine(t, pCont->encOrigPk))   
 				return errorStr = "not your container to add tokens", false;
         }*/
+
+        if (check_globalpk_spendings(cp, tx, 0, tx.vin.size()-1))
+            return errorStr = "invalid globalpk spendings", false;
 	}
 	else if (pContOps->objectType == KOGSID_REMOVEFROMCONTAINER) {
 
@@ -3394,8 +3421,8 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 
     // pks to for address for container sent to or from gameid:
 	std::vector<CPubKey> destpks { kogspk, CCtxidaddr_tweak(NULL, pGameOps->gameid) };
-	std::set<CPubKey> mypks;
-	std::vector<uint256> tokenids;
+	std::map<uint256, CPubKey> tokenspks;
+	std::vector<uint256> containerids;
 
 	for (auto const &vout : tx.vout)	{
 		uint256 tokenid;
@@ -3412,39 +3439,77 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 			}
 			else {
 				if (pks.size() == 1)
-					mypks.insert(pks[0]); // collect token dest pubkeys
+					tokenspks[tokenid] = pks[0]; // collect token dest pubkeys, could be only single pk for each tokenid
 			}
-			tokenids.push_back(tokenid);
+			containerids.push_back(tokenid);
 		}
 	}
 
+    // check game is not running yet or already finished
+    std::shared_ptr<KogsBaseObject> spBaton( get_last_baton(pGameOps->gameid) );
+    if (spBaton != nullptr /*game not running*/ && spBaton->objectType != KOGSID_GAMEFINISHED)
+        return errorStr = "could not add or remove containers while game is running", false;
+
 	if (pGameOps->objectType == KOGSID_REMOVEFROMGAME)	
     {
-        // check source game 1of2 addr is correct:
+        // check source game 1of2 addr is correct and matched gameid:
         if (!check_valid_1of2_spent(tx, pGameOps->gameid, 0, tx.vin.size()-1))
             return errorStr = "bad 1of2 game addr spent", false;
 
-        // check game is not running yet or already
-        std::shared_ptr<KogsBaseObject> spBaton( get_last_baton(pGameOps->gameid) );
-        if (spBaton != nullptr /*game not running*/ && spBaton->objectType != KOGSID_GAMEFINISHED)
-            return errorStr = "could not remove containers while game is running", false;
-
-		for(auto const &t : tokenids)	{
-            std::shared_ptr<KogsBaseObject> spCont( LoadGameObject(t) );
-            if (spCont == nullptr)
+		for(auto const &tokenid : containerids)	{
+            std::shared_ptr<KogsBaseObject> spCont( LoadGameObject(tokenid) );
+            if (spCont == nullptr || spCont->objectType != KOGSID_CONTAINER)
             	return errorStr = "could not load container for tokenid", false;
 
-			if (std::find(mypks.begin(), mypks.end(), spCont->encOrigPk) != mypks.end())
+            // check container is sent back to its owner
+			if (tokenspks[tokenid] != spCont->encOrigPk)  {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't remove container from game=" << pGameOps->gameid.GetHex() << ": dest pubkey is not the owner pubkey for containerid=" << tokenid.GetHex() << std::endl);
 				return errorStr = "not your container to remove from game", false;
+            }
         }
 	}
+    else
+    {
+        // check that should not spendings with globalpk
+        if (check_globalpk_spendings(cp, tx, 0, tx.vin.size()-1))
+            return errorStr = "invalid globalpk spendings", false;        // could not spend from the global address when adding containers
 
+        // get deposited containers (checking in mempool too)
+        std::vector<std::shared_ptr<KogsContainer>> spSentContainers;
+        KogsDepositedContainerListImpl(pGameOps->gameid, spSentContainers, true);        
+
+        std::shared_ptr<KogsBaseObject> spConfig( LoadGameObject(pGame->gameconfigid) );
+        if (spConfig == nullptr || spConfig->objectType != KOGSID_GAMECONFIG)
+            return errorStr = "could not load gameconfig", false;
+        KogsGameConfig *pConfig = (KogsGameConfig *)spConfig.get();
+
+        // check this pk already sent  tokens in container:
+        for(auto const &containerid : containerids)	{
+            std::shared_ptr<KogsBaseObject> spCont( LoadGameObject(containerid) );
+            if (spCont == nullptr || spCont->objectType != KOGSID_CONTAINER)
+            	return errorStr = "could not load container for tokenid", false;
+
+            // check container is not deposited yet
+			if (std::find_if(spSentContainers.begin(), spSentContainers.end(), [&](const std::shared_ptr<KogsContainer> &spSent) { return spSent->encOrigPk == spCont->encOrigPk; }) != spSentContainers.end())  {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "container=" << spCont->creationtxid.GetHex() << " already deposited to game=" << pGameOps->gameid.GetHex() << std::endl);
+				return errorStr = "container already deposited to game", false;
+            }
+            std::vector<uint256> tokenids;
+            ListContainerTokenids(spCont->creationtxid, tokenids);  //get NFTs in container
+
+            // check number of kogs in the container == param in gameconfig
+            if (tokenids.size() != pConfig->numKogsInContainer) {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "container=" << spCont->creationtxid.GetHex() << " has invalid tokens number=" << tokenids.size() << " to deposit to game=" << pGameOps->gameid.GetHex() << std::endl);
+				return errorStr = "invalid tokens number in container to deposit", false;
+            }                
+        }      
+    }
 	LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated ok" << std::endl);
 	return true;
 }
 
 // check if advertising ops are valid
-static bool check_ad_ops_addr(struct CCcontract_info *cp, const KogsAdOps *pAdOps, const CTransaction &tx, std::string &errorStr)
+static bool check_advertising_ops(struct CCcontract_info *cp, const KogsAdOps *pAdOps, const CTransaction &tx, std::string &errorStr)
 {
 	if (pAdOps->objectType != KOGSID_STOPADVERTISING)
         return errorStr = "not stop ad object type", false;
@@ -3462,13 +3527,17 @@ static bool check_ad_ops_addr(struct CCcontract_info *cp, const KogsAdOps *pAdOp
     if (spPrevObj == nullptr || spPrevObj->objectType != KOGSID_ADVERTISING)
         return errorStr = "could parse ad object", false;
 
-    // check if spender has privkey to spend from ad tx
+    // check if spender has the ad tx owner privkey
     if (TotalPubkeyNormalInputs(tx, spPrevObj->encOrigPk) == 0)
         return errorStr = "invalid private key to spend from player ad tx", false;
 
     KogsAdvertising *pAd = (KogsAdvertising *)spPrevObj.get();
     if (pAd->playerId != pAdOps->playerid)
         return errorStr = "invalid playerid to stop player ad", false;
+
+    // check no more spendings from the global address
+    if (check_globalpk_spendings(cp, tx, ccvin+1, tx.vin.size()-1))
+        return errorStr = "invalid globalpk spendings", false;
 
 	LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated ok" << std::endl);
 	return true;
@@ -3506,10 +3575,11 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
             switch(pBaseObj->objectType)	{
                 case KOGSID_KOG:
                 case KOGSID_SLAMMER:
-                    if (!check_match_object(cp, (KogsMatchObject*)pBaseObj, tx, errorStr))
+                    return log_and_return_error(eval, "invalid kog or slammer here", tx);
+                    /*if (!check_match_object(cp, (KogsMatchObject*)pBaseObj, tx, errorStr))
                         return log_and_return_error(eval, "invalid kog or slammer op: " + errorStr, tx);
                     else
-                        return true;
+                        return true;*/
                 case KOGSID_PACK:
                     return log_and_return_error(eval, "invalid pack transfer", tx);
                 case KOGSID_CONTAINER:
@@ -3527,46 +3597,47 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                         return log_and_return_error(eval, "invalid slam data: " + errorStr, tx);
                     else
                         return true;
-                    break;                
                 case KOGSID_GAMEFINISHED:
                 case KOGSID_BATON:
                     if (!check_baton(cp, pBaseObj, tx, errorStr))
                         return log_and_return_error(eval, "invalid baton or gamefinished: " + errorStr, tx);
                     else
                         return true;
-                    break;
                 case KOGSID_ADVERTISING:
                     return log_and_return_error(eval, "invalid advertising object here", tx);
                 case KOGSID_STOPADVERTISING:
-                    return true;
+                    if (!check_advertising_ops(cp, (KogsAdOps*)pBaseObj, tx, errorStr))
+                        return log_and_return_error(eval, "invalid advertising oper: " + errorStr, tx);
+                    else
+                        return true;
                 case KOGSID_ADDTOCONTAINER:
                 case KOGSID_REMOVEFROMCONTAINER:
                     if (!check_ops_on_container_addr(cp, (KogsContainerOps*)pBaseObj, tx, errorStr))
                         return log_and_return_error(eval, "invalid oper with kogs in container: " + errorStr, tx);
                     else
                         return true;			
-                    break;
                 case KOGSID_ADDTOGAME:
                 case KOGSID_REMOVEFROMGAME:
                     if (!check_ops_on_game_addr(cp, (KogsGameOps*)pBaseObj, tx, errorStr))
                         return log_and_return_error(eval, "invalid oper with game: " + errorStr, tx);
                     else
                         return true;			
-                    break;
                 default:
-                    return log_and_return_error(eval, "invalid object type transfer", tx);
+                    return log_and_return_error(eval, "invalid object type", tx);
             }
         }
         else
             return log_and_return_error(eval, "invalid funcid", tx);
 	}
+    else
+    {
+        // allow token transfers:
 
-    // prohibit unchecked spendings with kogs global pubkey:
-    CPubKey kogspk = GetUnspendable(cp, NULL);
-    for(auto const &vin : tx.vin)
-        if (check_signing_pubkey(vin.scriptSig) == kogspk)
+        // prohibit unchecked spendings with kogs global pubkey:
+        if (check_globalpk_spendings(cp, tx, 0, tx.vin.size()-1))
             return log_and_return_error(eval, "unchecked spending with global pubkey", tx);
 
-	LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "total validated ok" << std::endl);
-    return true;  // allow simple token transfers
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "token transfer validated ok" << std::endl);
+        return true;  // allow simple token transfers
+    }	
 }
