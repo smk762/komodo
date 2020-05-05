@@ -3153,7 +3153,7 @@ static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t
                 if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))   {
                     char prevaddr[KOMODO_ADDRESS_BUFSIZE];
                     Getscriptaddress(prevaddr, vintx.vout[tx.vin[i].prevout.n].scriptPubKey);
-                    std::cerr << __func__ << " prevaddr=" << prevaddr << " txid1of2addr=" << txid1of2addr << std::endl;
+                    //std::cerr << __func__ << " prevaddr=" << prevaddr << " txid1of2addr=" << txid1of2addr << std::endl;
                     if (strcmp(prevaddr, txid1of2addr) != 0)
                         return false;
                 }
