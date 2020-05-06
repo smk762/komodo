@@ -84,7 +84,7 @@ struct KogsBaseObject {
     uint8_t funcid; // token or enclosure funcid
     uint256 creationtxid;
     bool istoken;
-    //CTransaction latesttx;
+    CTransaction latesttx;
     //CTxOut vout; // vout where the object is currently sent to
 
     // check basic data in opret (evalcode & version), return objectType
@@ -1221,11 +1221,11 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
 UniValue KogsCreatePack(const CPubKey &remotepk, const KogsPack &newpack);
 std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 packid, vuint8_t encryptkey, vuint8_t iv);
 std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContainer newcontainer, const std::set<uint256> &tokenids);
-UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid);
-UniValue KogsClaimDepositedContainer(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid);
+UniValue KogsDepositTokensToGame(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid, uint256 slammerid);
+UniValue KogsClaimDepositedToken(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 tokenid);
 std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 containerid, const std::set<uint256> &tokenids);
 std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid, const std::set<uint256> &tokenids);
-void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids);
+void KogsDepositedTokenList(uint256 gameid, std::vector<uint256> &tokenids, uint8_t objectType);
 UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newslamparams);
 UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout);
 UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid);

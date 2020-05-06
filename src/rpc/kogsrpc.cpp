@@ -697,7 +697,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
 
 
 // rpc kogsdepositcontainer impl
-UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+UniValue kogsdeposittokens(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
@@ -706,14 +706,15 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey&
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 2 || params.size() > 3))
+    if (fHelp || params.size() != 3)
     {
         throw runtime_error(
-            "kogsdepositcontainer gameid containerid\n"
-            "deposits container to the game address\n"
+            "kogsdeposittokens gameid containerid slammerid\n"
+            "deposits container and slammer to the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
-            "containerid - id of container creation transaction\n" "\n");
+            "containerid - id of container creation transaction\n"
+            "slammerid - id of slammer creation transaction\n" "\n");
     }
 
     uint256 gameid = Parseuint256(params[0].get_str().c_str());
@@ -724,11 +725,15 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey&
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
     
+    uint256 slammerid = Parseuint256(params[2].get_str().c_str());
+    if (slammerid.IsNull())
+        throw runtime_error("incorrect slammerid\n");
+
     // lock wallet if this is not a remote call
     EnsureWalletIsAvailable(false);
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
-    UniValue sigData = KogsDepositContainerV2(remotepk, 0, gameid, containerid);
+    UniValue sigData = KogsDepositTokensToGame(remotepk, 0, gameid, containerid, slammerid);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -736,8 +741,8 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey&
     return result;
 }
 
-// rpc kogsclaimdepositedcontainer impl
-UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+// rpc kogsclaimdepositedtoken impl
+UniValue kogsclaimdepositedtoken(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
@@ -749,11 +754,11 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const C
     if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsclaimdepositedcontainer gameid containerid\n"
-            "claims deposited container back from the game address\n"
+            "kogsclaimdepositedtoken gameid tokenid\n"
+            "claims deposited container or slammer back from the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
-            "containerid - id of container creation transaction\n" "\n");
+            "tokenid - id of container or slammer creation transaction\n" "\n");
     }
 
     uint256 gameid = Parseuint256(params[0].get_str().c_str());
@@ -768,7 +773,7 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const C
     EnsureWalletIsAvailable(false);
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
-    UniValue sigData = KogsClaimDepositedContainer(remotepk, 0, gameid, containerid);
+    UniValue sigData = KogsClaimDepositedToken(remotepk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -1247,7 +1252,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& re
     return result;
 }
 
-// rpc kogsdepositedcontainerlist impl (to return all container tokenids)
+// rpc kogsdepositedcontainerlist impl (to return all the container tokenids deposited to a game )
 UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
@@ -1265,7 +1270,36 @@ UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CP
         throw runtime_error("gameid incorrect\n");
 
     std::vector<uint256> tokenids;
-    KogsDepositedContainerList(gameid, tokenids);
+    KogsDepositedTokenList(gameid, tokenids, KOGSID_CONTAINER);
+    RETURN_IF_ERROR(CCerror);
+
+    for (const auto &t : tokenids)
+        resarray.push_back(t.GetHex());
+
+    result.push_back(std::make_pair("tokenids", resarray));
+    return result;
+}
+
+// rpc kogsdepositedslammerlist impl (to return all the slammer tokenids deposited to a game)
+UniValue kogsdepositedslammerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 1))
+    {
+        throw runtime_error(
+            "kogsdepositedslammerlist gameid\n"
+            "returns list of ids of slammers deposited on the game with this gameid\n" "\n");
+    }
+
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    if (gameid.IsNull())
+        throw runtime_error("gameid incorrect\n");
+
+    std::vector<uint256> tokenids;
+
+    KogsDepositedTokenList(gameid, tokenids, KOGSID_SLAMMER);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1746,15 +1780,15 @@ static const CRPCCommand commands[] =
   //  -------------- ------------------------  -----------------------  ----------
     { "kogs",         "kogscreategameconfig",   &kogscreategameconfig,    true },
     { "kogs",         "kogscreateplayer",       &kogscreateplayer,        true },
-    { "kogs",         "kogsstartgame",          &kogsstartgame,          true },
+    { "kogs",         "kogsstartgame",          &kogsstartgame,           true },
     { "kogs",         "kogscreatekogs",         &kogscreatekogs,          true },
     { "kogs",         "kogscreateslammers",     &kogscreateslammers,      true },
     { "kogs",         "kogscreatepack",         &kogscreatepack,          true },
     { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true },
     { "kogs",         "kogscreatecontainer",    &kogscreatecontainer,     true },
-    { "kogs",         "kogsdepositcontainer",   &kogsdepositcontainer,    true },
-    { "kogs",         "kogsclaimdepositedcontainer",   &kogsclaimdepositedcontainer,    true },
-    { "kogs",         "kogsaddkogstocontainer",   &kogsaddkogstocontainer,    true },
+    { "kogs",         "kogsdeposittokens",       &kogsdeposittokens,       true },
+    { "kogs",         "kogsclaimdepositedtoken",       &kogsclaimdepositedtoken,        true },
+    { "kogs",         "kogsaddkogstocontainer",        &kogsaddkogstocontainer,         true },
     { "kogs",         "kogsremovekogsfromcontainer",   &kogsremovekogsfromcontainer,    true },
     { "kogs",         "kogsaddress",            &kogsaddress,             true },
     { "kogs",         "kogsburntoken",          &kogsburntoken,           true },
@@ -1762,7 +1796,8 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogskoglist",            &kogskoglist,             true },
     { "kogs",         "kogsslammerlist",        &kogsslammerlist,         true },
     { "kogs",         "kogscontainerlist",      &kogscontainerlist,       true },
-    { "kogs",         "kogsdepositedcontainerlist",  &kogsdepositedcontainerlist,       true },
+    { "kogs",         "kogsdepositedcontainerlist",  &kogsdepositedcontainerlist,   true },
+    { "kogs",         "kogsdepositedslammerlist",  &kogsdepositedslammerlist,       true },
     { "kogs",         "kogsplayerlist",         &kogsplayerlist,          true },
     { "kogs",         "kogsgameconfiglist",     &kogsgameconfiglist,      true },
     { "kogs",         "kogsgamelist",           &kogsgamelist,            true },
