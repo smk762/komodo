@@ -2342,6 +2342,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     uint256 hashBlock;
     int32_t vini, height;
     bool isFinished = false;
+    uint256 winnerid;
     
 
     // browse the sequence of slamparam and baton txns: 
@@ -2392,6 +2393,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             kogsInStack = pGameFinished->kogsInStack;
             nextPlayerid = zeroid;
             nextTurn = -1;
+            winnerid = pGameFinished->winnerid;
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pGameFinished->kogsInStack=" << kogsInStack.size() << " pGameFinished->kogsFlipped=" << prevFlipped.size() << std::endl);
             break;
@@ -2434,6 +2436,8 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     info.push_back(std::make_pair("PreviousPlayerId", (prevTurn < 0 ? std::string("none") : prevPlayerid.GetHex())));
     info.push_back(std::make_pair("NextTurn", (nextTurn < 0 ? std::string("none") : std::to_string(nextTurn))));
     info.push_back(std::make_pair("NextPlayerId", (nextTurn < 0 ? std::string("none") : nextPlayerid.GetHex())));
+    if (isFinished) 
+        info.push_back(std::make_pair("WinnerId", winnerid.GetHex()));
 
     UniValue arrStack(UniValue::VARR);
     for (const auto &s : kogsInStack)

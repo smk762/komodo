@@ -696,7 +696,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
 }
 
 
-// rpc kogsdepositcontainer impl
+// rpc kogsdeposittokens impl
 UniValue kogsdeposittokens(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
