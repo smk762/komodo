@@ -2365,6 +2365,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     uint256 prevPlayerid = zeroid;
     uint256 nextPlayerid = zeroid;
     std::vector<uint256> kogsInStack;
+    std::vector<uint256> playerids;
     std::vector<std::pair<uint256, uint256>> prevFlipped;
     std::vector<uint256> batons;
     uint256 batontxid;
@@ -2409,6 +2410,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             kogsInStack = pbaton->kogsInStack;
             nextPlayerid = pbaton->playerids[nextTurn];
             nvout = 0;  // baton tx's next baton vout
+            playerids = pbaton->playerids;
         }
         else if (spobj->objectType == KOGSID_SLAMPARAMS)
         {
@@ -2477,6 +2479,11 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     for (const auto &b : batons)
         arrBatons.push_back(b.GetHex());
     info.push_back(std::make_pair("batons", arrBatons));
+
+    UniValue arrPlayers(UniValue::VARR);
+    for (const auto &p : playerids)
+        arrPlayers.push_back(p.GetHex());
+    info.push_back(std::make_pair("players", arrPlayers));
 
     //UniValue arrFlipped(UniValue::VARR);
     //for (auto f : prevFlipped)
