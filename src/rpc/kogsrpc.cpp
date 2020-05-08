@@ -90,7 +90,12 @@ UniValue kogsaddress(const UniValue& params, bool fHelp, const CPubKey& remotepk
     else
         vpubkey = Mypubkey();
 
-    return(CCaddress(cp, (char *)"Kogs", vpubkey));
+    UniValue result = CCaddress(cp, (char *)"Kogs", vpubkey);
+    CTxOut voutTokenKogs = MakeTokensCC1vout(EVAL_KOGS, 0, pubkey2pk(vpubkey));
+    char addr[KOMODO_ADDRESS_BUFSIZE];
+    Getscriptaddress(addr, voutTokenKogs.scriptPubKey);
+    result.push_back(std::make_pair("KogsTokensDualEvalAddress", addr));
+    return result;
 }
 
 // rpc kogscreategameconfig impl

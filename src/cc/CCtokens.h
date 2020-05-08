@@ -173,6 +173,8 @@ bool IsEqualVouts(const CTxOut &v1, const CTxOut &v2);
 bool IsEqualScriptPubKeys(const CScript &spk1, const CScript &spk2);
 
 bool TokensIsVer1Active(const Eval *eval);
+bool TokensExtractCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys); 
+
 
 UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& mypk); // rpc used in other ccs
 

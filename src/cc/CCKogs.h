@@ -84,7 +84,7 @@ struct KogsBaseObject {
     uint8_t funcid; // token or enclosure funcid
     uint256 creationtxid;
     bool istoken;
-    CTransaction latesttx;
+    CTransaction tx;
     //CTxOut vout; // vout where the object is currently sent to
 
     // check basic data in opret (evalcode & version), return objectType
@@ -505,7 +505,6 @@ struct KogsEnclosure {
                 //if (!ser_action.ForRead())  // if 'for write' ...
                 //    origpk = pubkey2pk(Mypubkey()); // ... then store mypk
                 READWRITE(origpk);
-
             }
             else if (funcId == 't')
             {

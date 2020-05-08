@@ -213,7 +213,7 @@ static bool IsNFTSpkMine(uint256 txid, const CScript &spk, const CPubKey &mypk, 
 }
 
 // check if token is on mypk
-static bool IsNFTMine(uint256 reftokenid, const CPubKey &mypk)
+static bool IsNFTMine(uint256 reftokenid, const CPubKey &mypk, bool mempool = true)
 {
 // bad: very slow:
 //    return GetTokenBalance(mypk, tokenid, true) > 0;
@@ -238,7 +238,10 @@ static bool IsNFTMine(uint256 reftokenid, const CPubKey &mypk)
 
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress(cpKogs, tokenaddr, mypk);    
-    SetCCunspentsWithMempool(unspents, tokenaddr, true); 
+    if (mempool)
+        SetCCunspentsWithMempool(unspents, tokenaddr, true); 
+    else
+        SetCCunspents(unspents, tokenaddr, true); 
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspents.begin(); it != unspents.end(); it++) 
     {
@@ -522,7 +525,6 @@ static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creati
                 createtx = tx;
                 creationtxid = createtx.GetHash();
             }
-
             if (!createtx.IsNull())
             {
                 if (DecodeTokenCreateOpRetV1(createtx.vout.back().scriptPubKey, vorigpubkey, name, description, oprets) != 0)
@@ -657,17 +659,18 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
 
 
 // load any kogs game object for any ot its txids
-static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
+static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout, bool mempool)
 {
     uint256 hashBlock;
     CTransaction tx;
 
-    if (myGetTransaction(txid, tx, hashBlock)/* && !hashBlock.IsNull()*/)  //use non-locking version, check not in mempool
+    if (myGetTransaction(txid, tx, hashBlock) && (mempool || !hashBlock.IsNull()))  //use non-locking version, check not in mempool
     {
         if (nvout == 10e8)
             nvout = tx.vout.size() - 1;
         KogsBaseObject *pBaseObj = DecodeGameObjectOpreturn(tx, nvout);   
-		if (pBaseObj) {
+		if (pBaseObj) 
+        {
             // check if only sys key allowed to create object
             if (KogsIsSysCreateObject(pBaseObj->objectType) && GetSystemPubKey() != pBaseObj->encOrigPk)    {
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "not syspk creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
@@ -699,19 +702,17 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
                     return nullptr;
                 }*/
             }
-            pBaseObj->latesttx = tx;
+            pBaseObj->tx = tx;
 		    return pBaseObj;
         }
     }
     return nullptr;
 }
 
-static struct KogsBaseObject *LoadGameObject(uint256 txid)
+static struct KogsBaseObject *LoadGameObject(uint256 txid, bool mempool = true)
 {
-    return LoadGameObject(txid, 10e8);  // 10e8 means use last vout opreturn
+    return LoadGameObject(txid, 10e8, mempool);  // 10e8 means use last vout opreturn
 }
-
-
 
 // game object checker if NFT is mine
 class IsNFTMineChecker : public KogsObjectFilterBase  {
@@ -806,11 +807,12 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
         //if (!myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
         //{
         std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(it->first.txhash, it->first.index)); // load and unmarshal gameobject for this txid
-        if (spobj != nullptr && /*KogsIsMatchObject(spobj->objectType)*/ spobj->objectType == KOGSID_KOG)   {
-            if (spobj->latesttx.vout.size() > 0)
+        if (spobj != nullptr && /*KogsIsMatchObject(spobj->objectType)*/ spobj->objectType == KOGSID_KOG)   
+        {
+            if (spobj->tx.vout.size() > 0)
             {
                 // check it was a valid deposit operation:
-                std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(spobj->latesttx, spobj->latesttx.vout.size()-1) );
+                std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(spobj->tx, spobj->tx.vout.size()-1) );
                 if (spOperObj->objectType == KOGSID_ADDTOCONTAINER ) {
                     tokenids.push_back(spobj->creationtxid);
                 }
@@ -900,7 +902,7 @@ static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertisi
 }
 
 // loads container and slammer ids deposited on gameid 1of2 addr
-static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<std::shared_ptr<KogsMatchObject>> &slammers, bool checkMempool)
+static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<std::shared_ptr<KogsMatchObject>> &slammers, bool mempool)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
 
@@ -913,7 +915,7 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
-    if (checkMempool)
+    if (mempool)
         SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     else
         SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr (no mempool tx, as they are mined out of the initial order and validation might fail if there is dependencies on mempool txns)
@@ -923,10 +925,11 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         KogsBaseObject* pobj = LoadGameObject(it->first.txhash, it->first.index); // load and unmarshal gameobject for this txid
-        if (pobj != nullptr && pobj->latesttx.vout.size() > 0)
+        if (pobj != nullptr && pobj->tx.vout.size() > 0)
         {
             // check it was a valid deposit operation:
-            std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pobj->latesttx, pobj->latesttx.vout.size()-1) );
+            // decode last vout opret where operaton objectType resides
+            std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pobj->tx, pobj->tx.vout.size()-1) );
             if (spOperObj != nullptr && spOperObj->objectType == KOGSID_ADDTOGAME ) 
             {
                 if (pobj->objectType == KOGSID_CONTAINER)
@@ -2670,16 +2673,21 @@ static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontra
     char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress1of2(cpKogs, tokensrcaddr, kogsPk, gametxidPk);  // get 1of2 address for game
 
-
-    // TODO: if 'play for keeps' mode then try to create tokens back tx
-
     // try to create send back containers vouts
     std::vector< std::pair<uint256, CPubKey>> tokenspks;
     tokenspks.reserve(containers.size() + slammers.size());
-    for (auto const &c : containers)
-        tokenspks.push_back(std::make_pair(c->creationtxid, c->encOrigPk));
-    for (auto const &s : slammers)
-        tokenspks.push_back(std::make_pair(s->creationtxid, s->encOrigPk));
+    for (auto const &c : containers)    {
+        std::vector<CPubKey> vpks;
+        TokensExtractCCVinPubkeys(c->tx, vpks);
+        if (vpks.size() > 0)
+            tokenspks.push_back(std::make_pair(c->creationtxid, vpks[0]));
+    }
+    for (auto const &s : slammers)  {
+        std::vector<CPubKey> vpks;
+        TokensExtractCCVinPubkeys(s->tx, vpks);
+        if (vpks.size() > 0)
+            tokenspks.push_back(std::make_pair(s->creationtxid, vpks[0]));
+    }
 
     for (const auto &tp : tokenspks)
     {
@@ -3354,38 +3362,60 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
         if (!check_valid_1of2_spent(tx, gameid, ccvin+1, tx.vin.size()-1))
             return errorStr = "bad 1of2 game addr spent", false;
 
-        // get cointainers and slammers on the game address and their creator pks:
+        // get pubkeys that have deposited containers and slammers to the game address:
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
         std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
         ListDepositedTokenids(gameid, spcontainers, spslammers, false);
-        std::set<uint256> tokenids;
-        std::map<uint256, CPubKey> tokenspks;
-
-        for(const auto &c : spcontainers)   {
-            tokenids.insert(c->creationtxid);
-            // get token creator pubkey
-            tokenspks[c->creationtxid] = (c->encOrigPk);
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "on game address added container owner c->encOrigPk=" << HexStr(c->encOrigPk) << std::endl); 
+        std::map<uint256, CPubKey> origpks;
+        for (auto const &c : spcontainers)    {
+            std::vector<CPubKey> vpks;
+            TokensExtractCCVinPubkeys(c->tx, vpks);
+            if (vpks.size() > 0)
+                origpks[c->creationtxid] = vpks[0];
         }
-        for(const auto &s : spslammers)   {
-            tokenids.insert(s->creationtxid);
-            // get token creator pubkey
-            tokenspks[s->creationtxid] = (s->encOrigPk);
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "on game address added slammer owner s->encOrigPk=" << HexStr(s->encOrigPk) << std::endl); 
+        for (auto const &s : spslammers)  {
+            std::vector<CPubKey> vpks;
+            TokensExtractCCVinPubkeys(s->tx, vpks);
+            if (vpks.size() > 0)
+                origpks[s->creationtxid] = vpks[0];
         }
 
+        std::map<uint256, CPubKey> destpks;
+        std::vector<uint256> tokenids;
         // get tokenids for containers and slammers that are sent back
-        std::set<uint256> checkedTokens;
-        for(const auto &v : tx.vout) {
-            for(auto const &tp : tokenspks)   {
-                // check the token is sent back to its owner pubkey
-                uint256 tokenid;
-                if (IsNFTSpkMine(tx.GetHash(), v.scriptPubKey, tp.second, tokenid) && tp.first == tokenid)
-                    checkedTokens.insert(tokenid);
+        for (auto const &vout : tx.vout)	{
+            uint256 tokenid;
+            std::vector<CPubKey> pks;
+            std::vector<vuint8_t> blobs;
+            CScript drop;
+            if (MyGetCCopretV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	
+            {
+                std::shared_ptr<KogsBaseObject> spTokenObj( LoadGameObject(tokenid) ); // 
+                if (spTokenObj == nullptr || spTokenObj->objectType != KOGSID_CONTAINER && spTokenObj->objectType != KOGSID_SLAMMER)
+                    return errorStr = "invalid container or slammer sent to game", false;
+                
+                if (pks.size() == 1)
+                    destpks[tokenid] = pks[0]; // collect token dest pubkeys, could be only single pk for each tokenid
+                else
+                    return errorStr = "incorrect dest pubkey vector size", false;
+                tokenids.push_back(tokenid);
             }
         }
 
-        if (checkedTokens.size() != spcontainers.size() + spslammers.size())    {
+		for(auto const &tokenid : tokenids)	
+        {
+            std::shared_ptr<KogsBaseObject> spToken( LoadGameObject(tokenid) );
+            if (spToken == nullptr || spToken->objectType != KOGSID_CONTAINER && spToken->objectType != KOGSID_SLAMMER)
+            	return errorStr = "could not load claimed token", false;
+
+            // check container is sent back to its sender
+			if (destpks[tokenid] != origpks[tokenid])  {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't send token back from game=" << gameid.GetHex() << ": dest pubkey is not the depositing pubkey for token=" << tokenid.GetHex() << std::endl);
+				return errorStr = "claimed token sent not to the owner", false;
+            }
+        }
+
+        /*if (checkedTokens.size() != spcontainers.size() + spslammers.size())    {
             std::ostringstream sc, ss, st;
             for (auto const &c : spcontainers)
                 sc << c->creationtxid.GetHex() << " ";
@@ -3397,7 +3427,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "game slammers=" << ss.str() << std::endl); 
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "checked sent back tokenids=" << st.str() << std::endl); 
             return errorStr = "not all game containers or slammers are sent back to their owners.", false;
-        }
+        }*/
     }
     else
     {
@@ -3539,8 +3569,8 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
     const CPubKey kogspk = GetUnspendable(cp, NULL);
 
     // pks to for address for token sent to or from gameid:
-	std::vector<CPubKey> destpks { kogspk, CCtxidaddr_tweak(NULL, pGameOps->gameid) };
-	std::map<uint256, CPubKey> tokenspks;
+	std::vector<CPubKey> gamedestpks { kogspk, CCtxidaddr_tweak(NULL, pGameOps->gameid) };
+	std::map<uint256, CPubKey> destpks;
 	std::vector<uint256> tokenids;
 
 	for (auto const &vout : tx.vout)	{
@@ -3548,20 +3578,20 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 		std::vector<CPubKey> pks;
 		std::vector<vuint8_t> blobs;
         CScript drop;
-		if (MyGetCCopretV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	{
-            std::shared_ptr<KogsBaseObject> spContObj( LoadGameObject(tokenid) ); 
-            if (spContObj == nullptr || spContObj->objectType != KOGSID_CONTAINER && spContObj->objectType != KOGSID_SLAMMER)
+		if (MyGetCCopretV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	
+        {
+            std::shared_ptr<KogsBaseObject> spTokenObj( LoadGameObject(tokenid) ); // 
+            if (spTokenObj == nullptr || spTokenObj->objectType != KOGSID_CONTAINER && spTokenObj->objectType != KOGSID_SLAMMER)
 				return errorStr = "invalid container or slammer sent to game", false;
 			if (pGameOps->objectType == KOGSID_ADDTOGAME)	{
-				if (pks != destpks)		// check tokens are sent to the game 1of2 address
+				if (pks != gamedestpks)		// check tokens are sent to the game 1of2 address
 					return errorStr = "dest pubkeys do not match game id", false;
 			}
 			else { // if (pGameOps->objectType == KOGSID_REMOVEFROMGAME) 
 				if (pks.size() == 1)
-					tokenspks[tokenid] = pks[0]; // collect token dest pubkeys, could be only single pk for each tokenid
+					destpks[tokenid] = pks[0]; // collect token dest pubkeys, could be only single pk for each tokenid
                 else
                     return errorStr = "incorrect dest pubkey vector size", false;
-
 			}
 			tokenids.push_back(tokenid);
 		}
@@ -3578,6 +3608,24 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
         if (!check_valid_1of2_spent(tx, pGameOps->gameid, 0, tx.vin.size()-1))
             return errorStr = "bad 1of2 game addr spent", false;
 
+        // get pubkeys that deposited containers and slammers to the game address:
+        std::vector<std::shared_ptr<KogsContainer>> spcontainers;
+        std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
+        ListDepositedTokenids(pGameOps->gameid, spcontainers, spslammers, false);
+        std::map<uint256, CPubKey> origpks;
+        for (auto const &c : spcontainers)    {
+            std::vector<CPubKey> vpks;
+            TokensExtractCCVinPubkeys(c->tx, vpks);
+            if (vpks.size() > 0)
+                origpks[c->creationtxid] = vpks[0];
+        }
+        for (auto const &s : spslammers)  {
+            std::vector<CPubKey> vpks;
+            TokensExtractCCVinPubkeys(s->tx, vpks);
+            if (vpks.size() > 0)
+                origpks[s->creationtxid] = vpks[0];
+        }
+        
 		for(auto const &tokenid : tokenids)	
         {
             std::shared_ptr<KogsBaseObject> spToken( LoadGameObject(tokenid) );
@@ -3585,12 +3633,12 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
             	return errorStr = "could not load claimed token", false;
 
             // check the claimer has privkey for the claimed token
-            if (TotalPubkeyNormalInputs(tx, spToken->encOrigPk) == 0)
+            if (TotalPubkeyNormalInputs(tx, destpks[tokenid]) == 0)
             	return errorStr = "not the owner claims the token", false;
 
-            // check container is sent back to its owner
-			if (tokenspks[tokenid] != spToken->encOrigPk)  {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't claim token from game=" << pGameOps->gameid.GetHex() << ": dest pubkey is not the owner pubkey for containerid=" << tokenid.GetHex() << std::endl);
+            // check container is sent back to its sender
+			if (destpks[tokenid] != origpks[tokenid])  {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't claim token from game=" << pGameOps->gameid.GetHex() << ": dest pubkey is not the depositing pubkey for token=" << tokenid.GetHex() << std::endl);
 				return errorStr = "claimed token sent not to the owner", false;
             }
         }

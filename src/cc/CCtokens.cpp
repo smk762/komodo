@@ -25,8 +25,8 @@
 // helper funcs:
 
 // extract cc token vins' pubkeys:
-static bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys) {
-
+bool TokensExtractCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys) 
+{
 	bool found = false;
 	CPubKey pubkey;
 	struct CCcontract_info *cpTokens, tokensC;
@@ -673,7 +673,7 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
 
                 // maybe it is single-eval or dual/three-eval token change?
                 std::vector<CPubKey> vinPubkeys, vinPubkeysUnfiltered;
-                ExtractTokensCCVinPubkeys(tx, vinPubkeysUnfiltered);
+                TokensExtractCCVinPubkeys(tx, vinPubkeysUnfiltered);
                 FilterOutTokensUnspendablePk(vinPubkeysUnfiltered, vinPubkeys);  // cannot send tokens to token unspendable cc addr (only marker is allowed there)
 
                 for(std::vector<CPubKey>::iterator it = vinPubkeys.begin(); it != vinPubkeys.end(); it++) {
