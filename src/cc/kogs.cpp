@@ -123,50 +123,56 @@ static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
 }
 
 // get previous token tx
-static bool GetNFTPrevVout(const CTransaction &tokentx, CTransaction &prevtxout, int32_t &nvout, std::vector<CPubKey> &vpks)
+static bool GetNFTPrevVout(const CTransaction &tokentx, const uint256 reftokenid, CTransaction &prevtxout, int32_t &nvout, std::vector<CPubKey> &vpks)
 {
     uint8_t evalcode;
     uint256 tokenid;
     std::vector<CPubKey> pks;
     std::vector<vscript_t> oprets;
 
-    if (tokentx.vout.size() > 0 && DecodeTokenOpRetV1(tokentx.vout.back().scriptPubKey, tokenid, pks, oprets) != 0)
+    if (tokentx.vout.size() > 0 /* && DecodeTokenOpRetV1(tokentx.vout.back().scriptPubKey, tokenid, pks, oprets) != 0*/)
     {
         struct CCcontract_info *cpTokens, C;
         cpTokens = CCinit(&C, EVAL_TOKENS);
 
-        for (auto vin : tokentx.vin)
+        for (auto const &vin : tokentx.vin)
         {
             if (cpTokens->ismyvin(vin.scriptSig))
             {
-                uint256 hashBlock, tokenIdOpret;
+                uint256 hashBlock;
                 uint8_t version;
-                vscript_t opret;
-                std::vector<vscript_t> oprets;
+                CScript opret;
+                vscript_t vopret;
+                std::vector<vscript_t> drops;
                 CTransaction prevtx;
 
                 // get spent token tx
-                if (GetTransaction(vin.prevout.hash, prevtx, hashBlock, true) &&
-                    prevtx.vout.size() > 1 &&
-                    DecodeTokenOpRetV1(prevtx.vout.back().scriptPubKey, tokenIdOpret, pks, oprets) != 0)
+                if (myGetTransaction(vin.prevout.hash, prevtx, hashBlock))
                 {
-                    for (int32_t v = 0; v < prevtx.vout.size(); v++)
+                    CScript opret;
+                    uint256 tokenid;
+                    if (!MyGetCCopretV2(prevtx.vout[vin.prevout.n].scriptPubKey, opret))
+                        opret = prevtx.vout.back().scriptPubKey;
+                    DecodeTokenOpRetV1(opret, tokenid, pks, drops);
+                    if (tokenid == reftokenid)
                     {
-                        if (IsTokensvout(false, true, cpTokens, NULL, prevtx, v, tokenid))  // if true token vout
-                        {
-                            prevtxout = prevtx;
-                            nvout = v;
-                            vpks = pks; // validation pubkeys
-                            return true;
-                        }
+                //for (int32_t v = 0; v < prevtx.vout.size(); v++)
+                //{
+                    //if (IsTokensvout(true, true, cpTokens, NULL, prevtx, v, tokenid) > 0 && reftokenid == tokenid)  // if true token vout
+                    //{
+                        prevtxout = prevtx;
+                        nvout = vin.prevout.n;
+                        vpks = pks; // validation pubkeys
+                        return true;
+                    //}
                     }
+                //}
+                //}
+                //else
+                //{
+                //    CCerror = "can't load or decode prev token tx";
+                //    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load prev token tx txid=" << tokenid.GetHex() << std::endl);
                 }
-                else
-                {
-                    CCerror = "can't load or decode prev token tx";
-                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load prev token tx txid=" << tokenid.GetHex() << std::endl);
-                }
-                break;
             }
         }
     }
@@ -1695,62 +1701,80 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, int64_t txfee, uint256
     bool isRemote = IS_REMOTE(remotepk);
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
-    if (spnftobj->encOrigPk == mypk)  // We do not allow to transfer container to other users, so only primary origPk is considered as user pk
+    //if (spnftobj->encOrigPk == mypk)  // We do not allow to transfer container to other users, so only primary origPk is considered as user pk
+    //{
+    if (GetNFTUnspentTx(tokenid, lasttx))
     {
-        if (GetNFTUnspentTx(spnftobj->creationtxid, lasttx))
-        {
-            // send container back to the sender:
-            struct CCcontract_info *cp, C;
-            cp = CCinit(&C, EVAL_KOGS);
-            uint8_t kogspriv[32];
-            CPubKey kogsPk = GetUnspendable(cp, kogspriv);
+        std::vector<CPubKey> vpks0, vpks, vpks1;
+        CTransaction prevtxout;
+        int32_t nvout;
 
-            char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-            CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
+        TokensExtractCCVinPubkeys(lasttx, vpks1);
+        GetNFTPrevVout(lasttx, tokenid, prevtxout, nvout, vpks0);
+        TokensExtractCCVinPubkeys(prevtxout, vpks);
 
-            char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-            GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
-
-            CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
-
-            // UniValue sigData = TokenTransferExt(remotepk, 0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1, true); // amount = 1 always for NFTs
-
-            CMutableTransaction mtx;
-            struct CCcontract_info *cpTokens, CTokens;
-            cpTokens = CCinit(&CTokens, EVAL_TOKENS);
-            UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 10000);
-            if (ResultIsError(beginResult)) {
-                CCerror = ResultGetError(beginResult);
-                return NullUniValue;
-            }
-
-            UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, { mypk }, { std::make_pair(probeCond, kogspriv) }, 1, true);
-            if (ResultIsError(addtxResult)) {
-                CCerror = ResultGetError(addtxResult);
-                return NullUniValue;
-            }
-    
-            // create opret with gameid
-            KogsGameOps gameOps(KOGSID_REMOVEFROMGAME);
-            gameOps.Init(gameid);
-            KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
-
-            enc.vdata = gameOps.Marshal();
-            enc.name = gameOps.nameId;
-            enc.description = gameOps.descriptionId;
-            CScript opret;
-            opret << OP_RETURN << enc.EncodeOpret();
-            UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, remotepk, 10000, opret);
-    
-            cc_free(probeCond); // free probe cc
-            return sigData;
+//std::cerr << __func__ << " vpks0.size=" << vpks0.size() << " vpks1.size=" << vpks1.size() << " vpks.size=" << vpks.size() << std::endl;
+        if (vpks0.size() != 1)    {
+            CCerror = "could not get cc vin pubkey";
+            return NullUniValue;
         }
-        else
-            CCerror = "cant get last tx for container";
+        if (mypk != vpks0[0]) {
+            CCerror = "not your pubkey deposited token";
+            return NullUniValue;
+        }
+        
+        // send container back to the sender:
+        struct CCcontract_info *cp, C;
+        cp = CCinit(&C, EVAL_KOGS);
+        uint8_t kogspriv[32];
+        CPubKey kogsPk = GetUnspendable(cp, kogspriv);
 
+        char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+        CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
+
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
+
+        CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
+
+        // UniValue sigData = TokenTransferExt(remotepk, 0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1, true); // amount = 1 always for NFTs
+
+        CMutableTransaction mtx;
+        struct CCcontract_info *cpTokens, CTokens;
+        cpTokens = CCinit(&CTokens, EVAL_TOKENS);
+        UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 10000);
+        if (ResultIsError(beginResult)) {
+            CCerror = ResultGetError(beginResult);
+            return NullUniValue;
+        }
+
+        UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, { mypk }, { std::make_pair(probeCond, kogspriv) }, 1, true);
+        if (ResultIsError(addtxResult)) {
+            CCerror = ResultGetError(addtxResult);
+            return NullUniValue;
+        }
+
+        // create opret with gameid
+        KogsGameOps gameOps(KOGSID_REMOVEFROMGAME);
+        gameOps.Init(gameid);
+        KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
+
+        enc.vdata = gameOps.Marshal();
+        enc.name = gameOps.nameId;
+        enc.description = gameOps.descriptionId;
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret();
+        UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, remotepk, 10000, opret);
+
+        cc_free(probeCond); // free probe cc
+        return sigData;
     }
     else
-        CCerror = "not my container";
+        CCerror = "cant get last tx for container";
+
+    //}
+    //else
+    //    CCerror = "not my container";
 
     return NullUniValue;
 }
@@ -2115,7 +2139,7 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
         int32_t nvout;
         std::vector<CPubKey> pks;
 
-        if (GetNFTPrevVout(burntx, prevtx, nvout, pks))     // find who burned the pack and send to him the tokens from the pack
+        if (GetNFTPrevVout(burntx, packid, prevtx, nvout, pks))     // find who burned the pack and send to him the tokens from the pack
         {
             // load pack:
             std::shared_ptr<KogsBaseObject> sppackbaseobj( LoadGameObject(packid) );
