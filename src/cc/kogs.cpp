@@ -659,12 +659,12 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
 
 
 // load any kogs game object for any ot its txids
-static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout, bool mempool)
+static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 {
     uint256 hashBlock;
     CTransaction tx;
 
-    if (myGetTransaction(txid, tx, hashBlock) && (mempool || !hashBlock.IsNull()))  //use non-locking version, check not in mempool
+    if (myGetTransaction(txid, tx, hashBlock) /*&& (mempool || !hashBlock.IsNull())*/)  //use non-locking version, check not in mempool
     {
         if (nvout == 10e8)
             nvout = tx.vout.size() - 1;
@@ -709,9 +709,9 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout, bool m
     return nullptr;
 }
 
-static struct KogsBaseObject *LoadGameObject(uint256 txid, bool mempool = true)
+static struct KogsBaseObject *LoadGameObject(uint256 txid)
 {
-    return LoadGameObject(txid, 10e8, mempool);  // 10e8 means use last vout opreturn
+    return LoadGameObject(txid, 10e8);  // 10e8 means use last vout opreturn
 }
 
 // game object checker if NFT is mine
@@ -807,11 +807,12 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
         //if (!myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
         //{
         std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(it->first.txhash, it->first.index)); // load and unmarshal gameobject for this txid
+
         if (spobj != nullptr && /*KogsIsMatchObject(spobj->objectType)*/ spobj->objectType == KOGSID_KOG)   
         {
             if (spobj->tx.vout.size() > 0)
             {
-                // check it was a valid deposit operation:
+                // check it was a valid add kog to container operation:
                 std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(spobj->tx, spobj->tx.vout.size()-1) );
                 if (spOperObj->objectType == KOGSID_ADDTOCONTAINER ) {
                     tokenids.push_back(spobj->creationtxid);
@@ -1843,17 +1844,6 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
 
     LockUtxoInMemory lockutxos; // activate locking
 
-	// create copret with containerid
-	KogsContainerOps containerOps(KOGSID_ADDTOCONTAINER);
-	containerOps.Init(containerid);
- 	KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
-
-    enc.vdata = containerOps.Marshal();
-    enc.name = containerOps.nameId;
-    enc.description = containerOps.descriptionId;
-	CScript opret;
-    opret << OP_RETURN << enc.EncodeOpret();
-
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
@@ -1875,6 +1865,18 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
             return NullResults;
         }
     }
+
+    // create copret with containerid
+	KogsContainerOps containerOps(KOGSID_ADDTOCONTAINER);
+	containerOps.Init(containerid);
+ 	KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
+
+    enc.vdata = containerOps.Marshal();
+    enc.name = containerOps.nameId;
+    enc.description = containerOps.descriptionId;
+	CScript opret;
+    opret << OP_RETURN << enc.EncodeOpret();
+
     UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, remotepk, 10000, opret);
     if (ResultHasTx(sigData))   {
         result.push_back(sigData);
@@ -2673,7 +2675,7 @@ static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontra
     char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress1of2(cpKogs, tokensrcaddr, kogsPk, gametxidPk);  // get 1of2 address for game
 
-    // try to create send back containers vouts
+    // iterate over containers and slammers non-mempool tx and extract senders pubkeys from cc vins
     std::vector< std::pair<uint256, CPubKey>> tokenspks;
     tokenspks.reserve(containers.size() + slammers.size());
     for (auto const &c : containers)    {
@@ -2699,6 +2701,7 @@ static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontra
             uint8_t kogspriv[32];
             GetUnspendable(cpKogs, kogspriv);
 
+            // token transfer vout
             UniValue addResult = TokenAddTransferVout(mtx, cpTokens, CPubKey()/*to indicate use localpk*/, tp.first, tokensrcaddr,  std::vector<CPubKey>{ tp.second }, {probeCond, kogspriv}, 1, true); // amount = 1 always for NFTs
             cc_free(probeCond);
 
