@@ -2091,6 +2091,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         {
             if ( flag != 0 )
                 KOMODO_CONNECTING = -1;
+            std::cerr << __func__ << " AcceptToMemoryPool tx failed" << std::end;
             return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", hash.ToString());
         }
         if ( flag != 0 )
