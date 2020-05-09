@@ -2916,6 +2916,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 		gamefinished.gameid = gameid;
 		gamefinished.winnerid = GetWinner(spPrevBaton.get());
 		gamefinished.isError = false;
+        return true;
 	}
 
 	bool bBatonCreated = KogsManageStack(*spGameConfig.get(), (KogsSlamParams *)pPrevObj, spPrevBaton.get(), newbaton, ptestbaton);
