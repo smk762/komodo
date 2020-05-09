@@ -549,6 +549,7 @@ struct KogsEnclosure {
                     return false;
                 }
 
+                /*
                 if (KogsBaseObject::IsSpendable(objectType))
                 {
                     // go for the opret data from the last/unspent tx 't'
@@ -583,6 +584,7 @@ struct KogsEnclosure {
                         }
                     }
                 }
+                */
             }
         }
         else

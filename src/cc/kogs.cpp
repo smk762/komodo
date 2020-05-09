@@ -712,6 +712,9 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 		    return pBaseObj;
         }
     }
+    else
+        std::cerr << __func__ <<  " myGetTransaction failed for=" << txid.GetHex() << std::endl;
+
     return nullptr;
 }
 
@@ -931,12 +934,18 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
     slammers.clear();
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
+        //std::cerr << __func__ <<  " found utxo it->first.txhash=" << it->first.txhash.GetHex() << " index=" << it->first.index << std::endl;
         KogsBaseObject* pobj = LoadGameObject(it->first.txhash, it->first.index); // load and unmarshal gameobject for this txid
         if (pobj != nullptr && pobj->tx.vout.size() > 0)
         {
+            //std::cerr << __func__ <<  " objectType=" << (int)pobj->objectType << " creationtxid=" << pobj->creationtxid.GetHex() << std::endl;
             // check it was a valid deposit operation:
             // decode last vout opret where operaton objectType resides
             std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pobj->tx, pobj->tx.vout.size()-1) );
+            //if (spOperObj != nullptr )
+            //    std::cerr << __func__ <<  " spOperObj objectType=" << (int)spOperObj->objectType << " creationtxid=" << spOperObj->creationtxid.GetHex() << std::endl;
+            //else
+            //    std::cerr << __func__ <<  " spOperObj=null" << std::endl;
             if (spOperObj != nullptr && spOperObj->objectType == KOGSID_ADDTOGAME ) 
             {
                 if (pobj->objectType == KOGSID_CONTAINER)
@@ -951,6 +960,8 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
                 }
             }
         }
+        else
+            std::cerr << __func__ <<  " LoadGameObject failed for=" << it->first.txhash.GetHex() << std::endl;
     }
 }
 
@@ -2916,7 +2927,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 		gamefinished.gameid = gameid;
 		gamefinished.winnerid = GetWinner(spPrevBaton.get());
 		gamefinished.isError = false;
-        return true;
+        //return true;
 	}
 
 	bool bBatonCreated = KogsManageStack(*spGameConfig.get(), (KogsSlamParams *)pPrevObj, spPrevBaton.get(), newbaton, ptestbaton);
@@ -2927,7 +2938,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 	return true;
 }
 
-// create baton or gamefnished object
+// create baton or gamefinished tx
 void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &minersTransactions)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
@@ -3442,7 +3453,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
 
             // check container is sent back to its sender
 			if (destpks[tokenid] != origpks[tokenid])  {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't send token back from game=" << gameid.GetHex() << ": dest pubkey is not the depositing pubkey for token=" << tokenid.GetHex() << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't send token back from game=" << gameid.GetHex() << ": dest pubkey=" << HexStr(destpks[tokenid]) << " is not the depositing pubkey=" << HexStr(origpks[tokenid])<< " for token=" << tokenid.GetHex() << std::endl);
 				return errorStr = "claimed token sent not to the owner", false;
             }
         }
