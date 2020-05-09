@@ -3013,11 +3013,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         }
                         else
                             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error finalizing tx for gameid=" << gameid.GetHex() << " error=" << ResultGetError(finalizeResult) << std::endl);
-
                     }
                     else
                         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error adding transfer container vouts for gameid=" << gameid.GetHex() << std::endl);
-
                 }
                 else
                 {
