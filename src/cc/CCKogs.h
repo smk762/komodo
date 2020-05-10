@@ -794,6 +794,7 @@ struct KogsGameFinished : public KogsBaseObject {
     uint256 winnerid;
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
+    int32_t randomHeightRange, randomStrengthRange;
     uint32_t isError;
 
     ADD_SERIALIZE_METHODS;
@@ -815,6 +816,8 @@ struct KogsGameFinished : public KogsBaseObject {
             READWRITE(winnerid);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
+            READWRITE(randomHeightRange);
+            READWRITE(randomStrengthRange);
             READWRITE(isError);
         }
         else
@@ -839,7 +842,7 @@ struct KogsGameFinished : public KogsBaseObject {
     {
         std::cerr << "this.gameid=" << gameid.GetHex() << " gamefinished.gameid=" << gamefinished.gameid.GetHex() << std::endl;
         std::cerr << "this.winnerid=" << winnerid.GetHex() << " gamefinished.winnerid=" << gamefinished.winnerid.GetHex() << std::endl;
-        
+
         std::cerr << "this.kogsFlipped:";
         for(auto const &k : kogsFlipped)
             std::cerr << "first=" << k.first.GetHex() << " second=" << k.second.GetHex() << " ";
