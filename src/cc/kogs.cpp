@@ -3368,6 +3368,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
 
     KogsBaton *pbaton = pobj->objectType == KOGSID_BATON ? (KogsBaton*)pobj : nullptr;
     // create test baton object
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating test baton for gameid=" << gameid.GetHex() << std::endl);
     if (!KogsCreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, spPrevBaton, testbaton, pbaton, testgamefinished, bGameFinished))
         return errorStr = "could not create test baton", false;
 
