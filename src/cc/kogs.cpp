@@ -2918,23 +2918,24 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 	newbaton.gameid = gameid;
 	newbaton.gameconfigid = gameconfigid;
 
-	if (IsGameFinished(*spGameConfig.get(), &newbaton))
-    {  
-        // create gamefinished object:
-		bGameFinished = true;
-	 	gamefinished.kogsInStack = spPrevBaton->kogsInStack;
-		gamefinished.kogsFlipped = spPrevBaton->kogsFlipped;
-		gamefinished.gameid = gameid;
-		gamefinished.winnerid = GetWinner(spPrevBaton.get());
-		gamefinished.isError = false;
-        //return true;
-	}
-
 	bool bBatonCreated = KogsManageStack(*spGameConfig.get(), (KogsSlamParams *)pPrevObj, spPrevBaton.get(), newbaton, ptestbaton);
 	if (!bBatonCreated) {
 		LOGSTREAMFN("kogs", CCLOG_INFO, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
 		return false;
 	}
+
+    if (IsGameFinished(*spGameConfig.get(), &newbaton))
+    {  
+        // create gamefinished object:
+		bGameFinished = true;
+	 	gamefinished.kogsInStack = newbaton.kogsInStack;
+		gamefinished.kogsFlipped = newbaton.kogsFlipped;
+		gamefinished.gameid = gameid;
+		gamefinished.winnerid = GetWinner(&newbaton);
+		gamefinished.isError = false;
+        //return true;
+	}
+
 	return true;
 }
 
