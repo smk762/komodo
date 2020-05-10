@@ -3788,7 +3788,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 	std::string errorStr;
 
     //return true;
-    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 176)
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 350)
         return true;
 
 	if (tx.vout.size() == 0)
