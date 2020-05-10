@@ -837,6 +837,29 @@ struct KogsGameFinished : public KogsBaseObject {
 
     bool operator!=(const KogsGameFinished &gamefinished)   
     {
+        std::cerr << "this.gameid=" << gameid.GetHex() << " gamefinished.gameid=" << gamefinished.gameid.GetHex() << std::endl;
+        std::cerr << "this.winnerid=" << winnerid.GetHex() << " gamefinished.winnerid=" << gamefinished.winnerid.GetHex() << std::endl;
+        
+        std::cerr << "this.kogsFlipped:";
+        for(auto const &k : kogsFlipped)
+            std::cerr << "first=" << k.first.GetHex() << " second=" << k.second.GetHex() << " ";
+        std::cerr << std::endl;
+
+        std::cerr << "gamefinished.kogsFlipped:";
+        for(auto const &k : gamefinished.kogsFlipped)
+            std::cerr << "first=" << k.first.GetHex() << " second=" << k.second.GetHex() << " ";
+        std::cerr << std::endl;
+
+        std::cerr << "this.kogsInStack:";
+        for(auto const &k : kogsInStack)
+            std::cerr << k.GetHex() << " ";
+        std::cerr << std::endl;
+
+        std::cerr << "gamefinished.kogsInStack:";
+        for(auto const &k : gamefinished.kogsInStack)
+            std::cerr << k.GetHex() << " ";
+        std::cerr << std::endl;
+
         if (gamefinished.gameid == gameid && 
             gamefinished.winnerid == winnerid &&
             gamefinished.kogsFlipped == kogsFlipped)
