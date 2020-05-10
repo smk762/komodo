@@ -479,7 +479,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
 
-    if (AddNormalinputs(mtx, minerpk, txfee, 0x10000, false) > 0)
+    if (AddNormalinputsRemote(mtx, minerpk, txfee, 0x10000) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now

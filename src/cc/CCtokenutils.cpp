@@ -302,8 +302,10 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
         case 'c':
         // TODO: remove:
         // temp allow old-style funcids
-            if (ASSETCHAINS_KOGSGAME == 0)
+            if (ASSETCHAINS_KOGSGAME == 0)  {
+                std::cerr << __func__ << " illegal funcid=" << (int)funcId << std::endl;
                 break;
+            }
         case 'C': 
             funcId = DecodeTokenCreateOpRetV1(scriptPubKey, vorigPubkey, dummyName, dummyDescription, oprets);
             if (funcId != 0)    {
@@ -315,8 +317,10 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
         case 't':
                 // TODO: remove:
         // temp allow old-style funcids
-            if (ASSETCHAINS_KOGSGAME == 0)
+            if (ASSETCHAINS_KOGSGAME == 0)  {
+                std::cerr << __func__ << " illegal funcid=" << (int)funcId << std::endl;
                 break;
+            }
         case 'T':           
             if (E_UNMARSHAL(vopret, ss >> dummyEvalCode; ss >> dummyFuncId; ss >> version; ss >> tokenid; ss >> pkCount;
                     if (pkCount >= 1) ss >> voutPubkey1;
