@@ -3841,9 +3841,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     ConnectNotarisations(block, pindex->GetHeight()); // MoMoM notarisation DB.
 
-    if (fTxIndex)
-        if (!pblocktree->WriteTxIndex(vPos))
+    if (fTxIndex)   {
+        std::cerr << __func__ << " about to write txindex for vPos.size=" << vPos.size() << std::endl;
+        if (!pblocktree->WriteTxIndex(vPos))    {
+            std::cerr << __func__ << " failed to write txindex" << std::endl;
             return AbortNode(state, "Failed to write transaction index");
+        }
+    }
     if (fAddressIndex) {
         if (!pblocktree->WriteAddressIndex(addressIndex)) {
             return AbortNode(state, "Failed to write address index");
@@ -5826,6 +5830,7 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
 
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex * const pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
 {
+    std::cerr << __func__ << " started for block=" << block.GetHash().GetHex() << std::endl;
     AssertLockHeld(cs_main);
     assert(pindexPrev == chainActive.Tip());
 
@@ -5838,23 +5843,23 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev))
     {
-        //fprintf(stderr,"TestBlockValidity failure A checkPOW.%d\n",fCheckPOW);
+        fprintf(stderr,"TestBlockValidity failure A checkPOW.%d\n",fCheckPOW);
         return false;
     }
     int32_t futureblock;
     if (!CheckBlock(&futureblock,indexDummy.GetHeight(),0,block, state, verifier, fCheckPOW, fCheckMerkleRoot))
     {
-        //fprintf(stderr,"TestBlockValidity failure B checkPOW.%d\n",fCheckPOW);
+        fprintf(stderr,"TestBlockValidity failure B checkPOW.%d\n",fCheckPOW);
         return false;
     }
     if (!ContextualCheckBlock(0,block, state, pindexPrev))
     {
-        //fprintf(stderr,"TestBlockValidity failure C checkPOW.%d\n",fCheckPOW);
+        fprintf(stderr,"TestBlockValidity failure C checkPOW.%d\n",fCheckPOW);
         return false;
     }
     if (!ConnectBlock(block, state, &indexDummy, viewNew, true,fCheckPOW))
     {
-        //fprintf(stderr,"TestBlockValidity failure D checkPOW.%d\n",fCheckPOW);
+        fprintf(stderr,"TestBlockValidity failure D checkPOW.%d\n",fCheckPOW);
         return false;
     }
     assert(state.IsValid());

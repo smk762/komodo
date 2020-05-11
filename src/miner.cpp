@@ -2030,6 +2030,7 @@ void static BitcoinMiner()
                                 return(false);
                         }
                         uint256 tmp = B.GetHash();
+                        std::cerr << __func__ << " ";
                         fprintf(stderr,"[%s:%d] mined block ",ASSETCHAINS_SYMBOL,Mining_height);
                         int32_t z; for (z=31; z>=0; z--)
                             fprintf(stderr,"%02x",((uint8_t *)&tmp)[z]);
@@ -2039,9 +2040,10 @@ void static BitcoinMiner()
                     if ( !TestBlockValidity(state,B, chainActive.LastTip(), true, false))
                     {
                         h = UintToArith256(B.GetHash());
-                        //for (z=31; z>=0; z--)
-                        //    fprintf(stderr,"%02x",((uint8_t *)&h)[z]);
-                        //fprintf(stderr," Invalid block mined, try again\n");
+                        std::cerr << __func__ << " ";
+                        for (z=31; z>=0; z--)
+                            fprintf(stderr,"%02x",((uint8_t *)&h)[z]);
+                        fprintf(stderr," Invalid block mined, try again\n");
                         gotinvalid = 1;
                         return(false);
                     }
