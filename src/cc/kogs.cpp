@@ -2240,7 +2240,7 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 
     cp = CCinit(&C, EVAL_TOKENS);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
     {
         if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1, true) > 0)
         {
@@ -2288,7 +2288,7 @@ UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
 
     cp = CCinit(&C, EVAL_KOGS);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
     {
         mtx.vin.push_back(CTxIn(txid, nvout));
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
@@ -2343,7 +2343,7 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
 
     cp = CCinit(&C, EVAL_KOGS);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
     {
         mtx.vin.push_back(CTxIn(adtxid, advout));   // spend advertising marker:
         mtx.vout.push_back(CTxOut(KOGS_ADVERISING_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
