@@ -355,6 +355,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             }
         }
         std::cerr << __func__ << " txToRemove.size=" << txToRemove.size() << std::endl;
+        if (txToRemove.size() > 0) std::cerr << __func__ << " txToRemove[0]=" << txToRemove.front().GetHex() << std::endl;
         while (!txToRemove.empty())
         {
             uint256 hash = txToRemove.front();

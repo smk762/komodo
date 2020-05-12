@@ -5268,7 +5268,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                 // here we remove any txs in the temp mempool that were included in the block.
                 std::cerr << __func__ << " before tmpmempool.remove tx=" << tx.GetHash().GetHex() << std::endl;
                 tmpmempool.remove(tx, removed, false);
-                std::cerr << __func__ << " before tmpmempool.removed size=" << removed.size() << std::endl;
+                std::cerr << __func__ << " after tmpmempool.removed size=" << removed.size() << std::endl;
             }
             //fprintf(stderr, "removed.%ld\n",removed.size());
             if ( rejects == 0 || rejects == lastrejects )
@@ -5331,6 +5331,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         }
         //fprintf(stderr, "finished adding back. mempoolsize.%ld\n",mempool.size());
         // empty the temp mempool for next time.
+        std::cerr << __func__ << " tmpmempool.clear()" << std::endl;
         tmpmempool.clear();
     }
     return true;
