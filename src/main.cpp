@@ -5220,7 +5220,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
     if ( ASSETCHAINS_CC != 0 && !fCheckPOW )
         return true;
 
-    if (false && ASSETCHAINS_CC != 0 ) // CC contracts might refer to transactions in the current block, from a CC spend within the same block and out of order
+    if ( ASSETCHAINS_CC != 0 ) // CC contracts might refer to transactions in the current block, from a CC spend within the same block and out of order
     {
         int32_t i,j,rejects=0,lastrejects=0;
         //fprintf(stderr,"put block's tx into mempool\n");
@@ -5266,8 +5266,9 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                     } else rejects++;
                 }
                 // here we remove any txs in the temp mempool that were included in the block.
-                std::cerr << __func__ << " before tmpmempool.remove" << std::endl;
+                std::cerr << __func__ << " before tmpmempool.remove tx=" << tx.GetHash().GetHex() << std::endl;
                 tmpmempool.remove(tx, removed, false);
+                std::cerr << __func__ << " before tmpmempool.removed size=" << removed.size() << std::endl;
             }
             //fprintf(stderr, "removed.%ld\n",removed.size());
             if ( rejects == 0 || rejects == lastrejects )
@@ -5317,7 +5318,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         SyncWithWallets(*ptx, &block);
     }
 
-    if (false && ASSETCHAINS_CC != 0 )
+    if ( ASSETCHAINS_CC != 0 )
     {
         LOCK2(cs_main,mempool.cs);
         // here we add back all txs from the temp mempool to the main mempool.

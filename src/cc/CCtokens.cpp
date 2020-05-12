@@ -1237,7 +1237,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, in
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
-    UniValue sigData = TokenTransferExt(CPubKey(), txfee, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total);
+    UniValue sigData = TokenTransferExt(CPubKey(), txfee, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total, true);
     return ResultGetTx(sigData);
 }
 

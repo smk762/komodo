@@ -354,12 +354,15 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 txToRemove.push_back(it->second.ptx->GetHash());
             }
         }
+        std::cerr << __func__ << " txToRemove.size=" << txToRemove.size() << std::endl;
         while (!txToRemove.empty())
         {
             uint256 hash = txToRemove.front();
             txToRemove.pop_front();
-            if (!mapTx.count(hash))
+            if (!mapTx.count(hash))  {
+                std::cerr << __func__ << " mapTx.count(hash)=false" << std::endl;
                 continue;
+            }
             const CTransaction& tx = mapTx.find(hash)->GetTx();
             if (fRecursive) {
                 for (unsigned int i = 0; i < tx.vout.size(); i++) {
