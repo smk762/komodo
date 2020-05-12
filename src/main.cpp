@@ -5275,7 +5275,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                     fprintf(stderr,"lastrejects.%d -> all tx in mempool\n",lastrejects);
                 break;
             }
-            //fprintf(stderr,"addtomempool ht.%d for CC checking: n.%d rejects.%d last.%d\n",height,(int32_t)block.vtx.size(),rejects,lastrejects);
+            fprintf(stderr,"addtomempool ht.%d for CC checking: n.%d rejects.%d last.%d\n",height,(int32_t)block.vtx.size(),rejects,lastrejects);
             lastrejects = rejects;
             rejects = 0;
         }
@@ -5324,6 +5324,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         {
             const CTransaction &tx = e.GetTx();
             const uint256 &hash = tx.GetHash();
+            std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
             mempool.addUnchecked(hash,e,true);
         }
         //fprintf(stderr, "finished adding back. mempoolsize.%ld\n",mempool.size());
