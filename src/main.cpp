@@ -5256,6 +5256,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                 std::cerr << __func__ << " before myAddtomempool tx=" << Tx.GetHash().GetHex() << std::endl;
                 if ( myAddtomempool(Tx, &state, true) == false ) // happens with out of order tx in block on resync
                 {
+                    std::cerr << __func__ << " Rejected by mempool, reason=" << state.GetRejectReason() << std::endl;
                     //LogPrintf("Rejected by mempool, reason: .%s.\n", state.GetRejectReason().c_str());
                     // take advantage of other checks, but if we were only rejected because it is a valid staking
                     // transaction, sync with wallets and don't mark as a reject

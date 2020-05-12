@@ -336,7 +336,7 @@ bool CTxMemPool::removeSpentIndex(const uint256 txhash)
 
 void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& removed, bool fRecursive)
 {
-    std::cerr << __func__ << " enterred" << std::endl;
+    //std::cerr << __func__ << " enterred" << std::endl;
     // Remove transaction from memory pool
     {
         LOCK(cs);
@@ -354,8 +354,8 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 txToRemove.push_back(it->second.ptx->GetHash());
             }
         }
-        std::cerr << __func__ << " txToRemove.size=" << txToRemove.size() << std::endl;
-        if (txToRemove.size() > 0) std::cerr << __func__ << " txToRemove[0]=" << txToRemove.front().GetHex() << std::endl;
+        //std::cerr << __func__ << " txToRemove.size=" << txToRemove.size() << std::endl;
+        //if (txToRemove.size() > 0) std::cerr << __func__ << " txToRemove[0]=" << txToRemove.front().GetHex() << std::endl;
         while (!txToRemove.empty())
         {
             uint256 hash = txToRemove.front();
