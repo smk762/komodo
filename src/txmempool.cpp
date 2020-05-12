@@ -361,7 +361,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             uint256 hash = txToRemove.front();
             txToRemove.pop_front();
             if (!mapTx.count(hash))  {
-                std::cerr << __func__ << " mapTx.count(hash)=false" << std::endl;
+                std::cerr << __func__ << " mapTx.count(hash)=false" << " mapTx.size=" << mapTx.size() << std::endl;
                 continue;
             }
             const CTransaction& tx = mapTx.find(hash)->GetTx();
@@ -545,7 +545,7 @@ void CTxMemPool::removeExpired(unsigned int nBlockHeight)
 void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
                                 std::list<CTransaction>& conflicts, bool fCurrentEstimate)
 {
-    std::cerr << __func__ << " enterred" << std::endl;
+    //std::cerr << __func__ << " enterred" << std::endl;
     LOCK(cs);
     std::vector<CTxMemPoolEntry> entries;
     BOOST_FOREACH(const CTransaction& tx, vtx)
@@ -560,11 +560,11 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     {
         std::list<CTransaction> dummy;
         remove(tx, dummy, false);
-        std::cerr << __func__ << " removed=" << tx.GetHash().GetHex() << std::endl;
+        //std::cerr << __func__ << " removed=" << tx.GetHash().GetHex() << std::endl;
         removeConflicts(tx, conflicts);
-        std::cerr << __func__ << " removed conflicts=";
-        for(auto const &tx : conflicts) std::cerr << tx.GetHash().GetHex();
-        std::cerr << std::endl;
+        //std::cerr << __func__ << " removed conflicts=";
+        //for(auto const &tx : conflicts) std::cerr << tx.GetHash().GetHex();
+        //std::cerr << std::endl;
 
         ClearPrioritisation(tx.GetHash());
     }
