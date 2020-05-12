@@ -5220,7 +5220,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
     if ( ASSETCHAINS_CC != 0 && !fCheckPOW )
         return true;
 
-    if ( ASSETCHAINS_CC != 0 ) // CC contracts might refer to transactions in the current block, from a CC spend within the same block and out of order
+    if (false && ASSETCHAINS_CC != 0 ) // CC contracts might refer to transactions in the current block, from a CC spend within the same block and out of order
     {
         int32_t i,j,rejects=0,lastrejects=0;
         //fprintf(stderr,"put block's tx into mempool\n");
@@ -5317,7 +5317,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         SyncWithWallets(*ptx, &block);
     }
 
-    if ( ASSETCHAINS_CC != 0 )
+    if (false && ASSETCHAINS_CC != 0 )
     {
         LOCK2(cs_main,mempool.cs);
         // here we add back all txs from the temp mempool to the main mempool.
