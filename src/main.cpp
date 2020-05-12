@@ -5237,6 +5237,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         }
         BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
             list<CTransaction> removed;
+            std::cerr << __func__ << " before mempool.remove" << std::endl;
             mempool.remove(tx, removed, false);
         }
         // add all the txs in the block to the empty mempool.
@@ -5251,6 +5252,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                 if ( tx.IsCoinBase() || !tx.vjoinsplit.empty() || !tx.vShieldedSpend.empty() || (i == block.vtx.size()-1 && komodo_isPoS((CBlock *)&block,height,0) != 0) )
                     continue;
                 Tx = tx;
+                std::cerr << __func__ << " before myAddtomempool tx=" << Tx.GetHash().GetHex() << std::endl;
                 if ( myAddtomempool(Tx, &state, true) == false ) // happens with out of order tx in block on resync
                 {
                     //LogPrintf("Rejected by mempool, reason: .%s.\n", state.GetRejectReason().c_str());
@@ -5263,6 +5265,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                     } else rejects++;
                 }
                 // here we remove any txs in the temp mempool that were included in the block.
+                std::cerr << __func__ << " before tmpmempool.remove" << std::endl;
                 tmpmempool.remove(tx, removed, false);
             }
             //fprintf(stderr, "removed.%ld\n",removed.size());

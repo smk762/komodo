@@ -336,6 +336,7 @@ bool CTxMemPool::removeSpentIndex(const uint256 txhash)
 
 void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& removed, bool fRecursive)
 {
+    std::cerr << __func__ << " enterred" << std::endl;
     // Remove transaction from memory pool
     {
         LOCK(cs);
@@ -383,6 +384,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             totalTxSize -= mapTx.find(hash)->GetTxSize();
             cachedInnerUsage -= mapTx.find(hash)->DynamicMemoryUsage();
             mapTx.erase(hash);
+            std::cerr << __func__ << " removed=" << hash.GetHex() << std::endl;
             nTransactionsUpdated++;
             minerPolicyEstimator->removeTx(hash);
             removeAddressIndex(hash);
