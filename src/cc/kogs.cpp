@@ -960,8 +960,8 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
                 }
             }
         }
-        else
-            std::cerr << __func__ <<  " LoadGameObject failed for=" << it->first.txhash.GetHex() << std::endl;
+        // else
+        //    std::cerr << __func__ <<  " LoadGameObject failed for=" << it->first.txhash.GetHex() << std::endl;
     }
 }
 

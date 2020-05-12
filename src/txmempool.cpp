@@ -539,6 +539,7 @@ void CTxMemPool::removeExpired(unsigned int nBlockHeight)
 void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
                                 std::list<CTransaction>& conflicts, bool fCurrentEstimate)
 {
+    std::cerr << __func__ << " enterred" << std::endl;
     LOCK(cs);
     std::vector<CTxMemPoolEntry> entries;
     BOOST_FOREACH(const CTransaction& tx, vtx)
@@ -553,7 +554,12 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     {
         std::list<CTransaction> dummy;
         remove(tx, dummy, false);
+        std:cerr << __func__ << " removed=" << tx.GetHash().GetHex() << std::endl;
         removeConflicts(tx, conflicts);
+        std:cerr << __func__ << " removed conflicts=";
+        for(auto const &tx : conflicts) std::cerr << tx.GetHash().GetHex();
+        std::cerr << std::endl;
+
         ClearPrioritisation(tx.GetHash());
     }
     // After the txs in the new block have been removed from the mempool, update policy estimates
