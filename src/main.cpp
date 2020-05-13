@@ -5714,6 +5714,8 @@ bool AcceptBlock(int32_t *futureblockp,CBlock& block, CValidationState& state, C
         if (fTooFarAhead) return true;      // Block height is too high
     }
 
+    std::cerr << __func__ << " enterred for block=" << block.GetHash().GetHex() << std::endl;
+
     // See method docstring for why this is always disabled
     auto verifier = libzcash::ProofVerifier::Disabled();
     bool fContextualCheckBlock = ContextualCheckBlock(0,block, state, pindex->pprev);
@@ -8092,6 +8094,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // Such an unrequested block may still be processed, subject to the
         // conditions in AcceptBlock().
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
+        std::cerr << __func__ << " about to call ProcessNewBlock for=" << block.GetHash().GetHex() << std::endl;
         ProcessNewBlock(0,0,state, pfrom, &block, forceProcessing, NULL);
         int nDoS;
         if (state.IsInvalid(nDoS)) {
