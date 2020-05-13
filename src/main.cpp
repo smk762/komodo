@@ -4289,6 +4289,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
+
+        // save mempool state and clear it, for asset chains:
+        CMempoolStateSaver mempoolState;
+        mempoolState.SaveAndClear(ASSETCHAINS_CC != 0);
+
         bool rv = ConnectBlock(*pblock, state, pindexNew, view, false, true);
         KOMODO_CONNECTING = -1;
         GetMainSignals().BlockChecked(*pblock, state);
@@ -4309,6 +4314,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         LogPrint("bench", "  - Connect total: %.2fms [%.2fs]\n", (nTime3 - nTime2) * 0.001, nTimeConnectTotal * 0.000001);
         if ( KOMODO_NSPV_FULLNODE )
             assert(view.Flush());
+
+        mempoolState.FixState(); // fix current mempool state by preventing the destructor from getting back to the saved state   
     }
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint("bench", "  - Flush: %.2fms [%.2fs]\n", (nTime4 - nTime3) * 0.001, nTimeFlush * 0.000001);
@@ -5063,6 +5070,81 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
     return true;
 }
 
+class CMempoolStateSaver 
+{
+
+public: 
+    CMempoolStateSaver() : isAssetChain(false) {}
+    void SaveAndClear(bool _isAssetChain) 
+    {
+        isAssetChain = _isAssetChain;
+        if (isAssetChain)
+        {
+            // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
+            LOCK2(cs_main, mempool.cs);
+            //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
+            BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+                const CTransaction &tx = e.GetTx();
+                const uint256 &hash = tx.GetHash();
+                if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+                    tmpmempool.addUnchecked(hash, e, true);
+                    std::cerr << __func__ << " tmpmempool.addUnchecked=" << hash.GetHex() << std::endl;
+                }
+            }
+            BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool) {
+                list<CTransaction> removed;
+                //std::cerr << __func__ << " before mempool.remove" << std::endl;
+                mempool.remove(e.GetTx(), removed, false);
+            }
+        }
+    }
+
+    // fix mempool state by clearing tmpmempool, so it would not return to the real mempool
+    void FixState() 
+    {
+        if (isAssetChain)
+            tmpmempool.clear();
+    }
+
+    // auto restore the saved state
+    ~CMempoolStateSaver()
+    {
+        if (isAssetChain)
+        {
+            if (tmpmempool.size() > 0)
+            {
+                LOCK2(cs_main, mempool.cs);
+
+                //clear current mempool
+                list<CTransaction> transactionsToRemove;
+                BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+                    const CTransaction &tx = e.GetTx();
+                    if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+                        transactionsToRemove.push_back(tx);
+                    }                
+                }
+
+                BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+                    list<CTransaction> removed;
+                    mempool.remove(tx, removed, false);
+                    std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex() << std::endl;
+                }            
+
+                // return the saved txns to mempool
+                BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx) {
+                    const CTransaction &tx = e.GetTx();
+                    const uint256 &hash = tx.GetHash();
+                    mempool.addUnchecked(hash, e, true);
+                    std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
+                }
+                tmpmempool.clear();
+            }
+        }
+    }
+private:
+    bool isAssetChain;
+};
+
 bool CheckBlockHeader(int32_t *futureblockp,int32_t height,CBlockIndex *pindex, const CBlockHeader& blockhdr, CValidationState& state, bool fCheckPOW)
 {
     // Check timestamp
@@ -5225,8 +5307,9 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         int32_t i,j,rejects=0,lastrejects=0;
         //fprintf(stderr,"put block's tx into mempool\n");
         // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
-        LOCK2(cs_main,mempool.cs);
+        LOCK2(cs_main, mempool.cs);
         //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
+        /* we already did this in CMempoolStateSaver
         list<CTransaction> transactionsToRemove;
         BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
             const CTransaction &tx = e.GetTx();
@@ -5235,14 +5318,14 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                 transactionsToRemove.push_back(tx);
                 tmpmempool.addUnchecked(hash,e,true);
                 std::cerr << __func__ << " tmpmempool.addUnchecked=" << hash.GetHex() << std::endl;
-
             }
         }
         BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
             list<CTransaction> removed;
             //std::cerr << __func__ << " before mempool.remove" << std::endl;
             mempool.remove(tx, removed, false);
-        }
+        } */
+
         // add all the txs in the block to the empty mempool.
         // CC validation shouldnt (cant) depend on the state of mempool!
         while ( 1 )
@@ -5268,11 +5351,15 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                         ptx = &sTx;
                     } else rejects++;
                 }
+
+                //std::cerr << __func__ << " before tmpmempool.remove tx=" << tx.GetHash().GetHex() << std::endl;
+                // std::cerr << __func__ << " tmpmempool.mapTx.size=" << tmpmempool.mapTx.size() << std::endl;
+
                 // here we remove any txs in the temp mempool that were included in the block.
-                std::cerr << __func__ << " before tmpmempool.remove tx=" << tx.GetHash().GetHex() << std::endl;
-                std::cerr << __func__ << " tmpmempool.mapTx.size=" << tmpmempool.mapTx.size() << std::endl;
-                tmpmempool.remove(tx, removed, false);
-                std::cerr << __func__ << " after tmpmempool.removed size=" << removed.size() << std::endl;
+                // (we do not do this anymore as tmpmempool is used for saving the mempool state
+                // and if a block tx was in tmpmempool it would just try to add it to the mempool second time, no problem with this
+                // tmpmempool.remove(tx, removed, false);
+                // std::cerr << __func__ << " after tmpmempool.removed size=" << removed.size() << std::endl;
             }
             //fprintf(stderr, "removed.%ld\n",removed.size());
             if ( rejects == 0 || rejects == lastrejects )
@@ -5851,6 +5938,11 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     indexDummy.SetHeight(pindexPrev->GetHeight() + 1);
     // JoinSplit proofs are verified in ConnectBlock
     auto verifier = libzcash::ProofVerifier::Disabled();
+
+    // save mempool state and clear it, for asset chains:
+    CMempoolStateSaver mempoolState;
+    mempoolState.SaveAndClear(ASSETCHAINS_CC != 0);
+
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev))
     {
@@ -5876,6 +5968,8 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     assert(state.IsValid());
     if ( futureblock != 0 )
         return(false);
+
+    mempoolState.FixState(); // fix current mempool state by preventing the destructor from getting back to the saved state   
     return true;
 }
 
