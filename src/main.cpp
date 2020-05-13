@@ -4257,6 +4257,90 @@ static int64_t nTimeFlush = 0;
 static int64_t nTimeChainState = 0;
 static int64_t nTimePostConnect = 0;
 
+// class to save mempool state to a temp mempool object
+// and auto restore it (in destructor)
+// this is used for assets chains where we need to restore mempool form the txns of a validated block 
+// and restore the previous mempool state if block is failed 
+class CMempoolStateSaver 
+{
+public: 
+    CMempoolStateSaver() : isAssetChain(false) {}
+    void SaveAndClear(bool _isAssetChain) 
+    {
+        isAssetChain = _isAssetChain;
+        if (isAssetChain)
+        {
+            // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
+            LOCK2(cs_main, mempool.cs);
+            //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
+            BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+                const CTransaction &tx = e.GetTx();
+                const uint256 &hash = tx.GetHash();
+                if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+                    tmpmempool.addUnchecked(hash, e, true);
+                    std::cerr << __func__ << " tmpmempool.addUnchecked=" << hash.GetHex() << std::endl;
+                }
+            }
+            BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx) {
+                list<CTransaction> removed;
+                //std::cerr << __func__ << " before mempool.remove" << std::endl;
+                mempool.remove(e.GetTx(), removed, false);
+            }
+        }
+    }
+
+    // fix mempool state by clearing tmpmempool, so it would not return to the real mempool
+    void FixState() 
+    {
+        if (isAssetChain)
+            tmpmempool.clear();
+    }
+
+    // auto restore the saved state
+    void RestoreState()
+    {
+        if (isAssetChain)
+        {
+            if (tmpmempool.size() > 0)
+            {
+                LOCK2(cs_main, mempool.cs);
+
+                // clear current mempool:
+
+                list<CTransaction> transactionsToRemove;
+                BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+                    const CTransaction &tx = e.GetTx();
+                    if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+                        transactionsToRemove.push_back(tx);
+                    }                
+                }
+                BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+                    list<CTransaction> removed;
+                    mempool.remove(tx, removed, false);
+                    std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex() << std::endl;
+                }            
+
+                // return the saved txns to mempool:
+
+                BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx) {
+                    const CTransaction &tx = e.GetTx();
+                    const uint256 &hash = tx.GetHash();
+                    mempool.addUnchecked(hash, e, true);
+                    std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
+                }
+                tmpmempool.clear();
+            }
+        }
+    }
+
+    ~CMempoolStateSaver()
+    {
+        RestoreState();
+    }
+private:
+    bool isAssetChain;
+};
+
 /**
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
@@ -5070,80 +5154,6 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
     return true;
 }
 
-class CMempoolStateSaver 
-{
-
-public: 
-    CMempoolStateSaver() : isAssetChain(false) {}
-    void SaveAndClear(bool _isAssetChain) 
-    {
-        isAssetChain = _isAssetChain;
-        if (isAssetChain)
-        {
-            // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
-            LOCK2(cs_main, mempool.cs);
-            //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
-            BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
-                const CTransaction &tx = e.GetTx();
-                const uint256 &hash = tx.GetHash();
-                if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
-                    tmpmempool.addUnchecked(hash, e, true);
-                    std::cerr << __func__ << " tmpmempool.addUnchecked=" << hash.GetHex() << std::endl;
-                }
-            }
-            BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool) {
-                list<CTransaction> removed;
-                //std::cerr << __func__ << " before mempool.remove" << std::endl;
-                mempool.remove(e.GetTx(), removed, false);
-            }
-        }
-    }
-
-    // fix mempool state by clearing tmpmempool, so it would not return to the real mempool
-    void FixState() 
-    {
-        if (isAssetChain)
-            tmpmempool.clear();
-    }
-
-    // auto restore the saved state
-    ~CMempoolStateSaver()
-    {
-        if (isAssetChain)
-        {
-            if (tmpmempool.size() > 0)
-            {
-                LOCK2(cs_main, mempool.cs);
-
-                //clear current mempool
-                list<CTransaction> transactionsToRemove;
-                BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
-                    const CTransaction &tx = e.GetTx();
-                    if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
-                        transactionsToRemove.push_back(tx);
-                    }                
-                }
-
-                BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-                    list<CTransaction> removed;
-                    mempool.remove(tx, removed, false);
-                    std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex() << std::endl;
-                }            
-
-                // return the saved txns to mempool
-                BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx) {
-                    const CTransaction &tx = e.GetTx();
-                    const uint256 &hash = tx.GetHash();
-                    mempool.addUnchecked(hash, e, true);
-                    std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
-                }
-                tmpmempool.clear();
-            }
-        }
-    }
-private:
-    bool isAssetChain;
-};
 
 bool CheckBlockHeader(int32_t *futureblockp,int32_t height,CBlockIndex *pindex, const CBlockHeader& blockhdr, CValidationState& state, bool fCheckPOW)
 {
@@ -5969,7 +5979,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     if ( futureblock != 0 )
         return(false);
 
-    mempoolState.FixState(); // fix current mempool state by preventing the destructor from getting back to the saved state   
+    mempoolState.RestoreState(); // restore the mempool state for testing block validity  
     return true;
 }
 
