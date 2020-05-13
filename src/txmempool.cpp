@@ -361,7 +361,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             uint256 hash = txToRemove.front();
             txToRemove.pop_front();
             if (!mapTx.count(hash))  {
-                //std::cerr << __func__ << " mapTx.count(hash)=false" << " mapTx.size=" << mapTx.size() << std::endl;
+                std::cerr << __func__ << " mapTx.count(hash)=false for=" << hash.GetHex() << " mapTx.size=" << mapTx.size() << std::endl;
                 continue;
             }
             const CTransaction& tx = mapTx.find(hash)->GetTx();
@@ -388,7 +388,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             totalTxSize -= mapTx.find(hash)->GetTxSize();
             cachedInnerUsage -= mapTx.find(hash)->DynamicMemoryUsage();
             mapTx.erase(hash);
-            //std::cerr << __func__ << " removed=" << hash.GetHex() << std::endl;
+            std::cerr << __func__ << " removed=" << hash.GetHex() << std::endl;
             nTransactionsUpdated++;
             minerPolicyEstimator->removeTx(hash);
             removeAddressIndex(hash);
@@ -559,8 +559,9 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     BOOST_FOREACH(const CTransaction& tx, vtx)
     {
         std::list<CTransaction> dummy;
-        //std::cerr << __func__ << " removing tx=" << tx.GetHash().GetHex() << std::endl;
+        std::cerr << __func__ << " removing tx=" << tx.GetHash().GetHex() << std::endl;
         remove(tx, dummy, false);
+        std::cerr << __func__ << " removed=" << dummy.size() << std::endl;
         removeConflicts(tx, conflicts);
         //std::cerr << __func__ << " removed conflicts=";
         //for(auto const &tx : conflicts) std::cerr << tx.GetHash().GetHex();
