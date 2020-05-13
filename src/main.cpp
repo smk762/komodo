@@ -4283,8 +4283,8 @@ public:
             }
             BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx) {
                 list<CTransaction> removed;
-                //std::cerr << __func__ << " before mempool.remove" << std::endl;
                 mempool.remove(e.GetTx(), removed, false);
+                std::cerr << __func__ << " mempool.removed=" << e.GetTx().GetHash().GetHex() << " " << removed.size() << std::endl;
             }
         }
     }
@@ -4319,7 +4319,7 @@ public:
                 BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
                     list<CTransaction> removed;
                     mempool.remove(tx, removed, false);
-                    std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex() << std::endl;
+                    std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex()  << " " << removed.size() << std::endl;
                 }            
 
                 // return the saved txns to mempool:

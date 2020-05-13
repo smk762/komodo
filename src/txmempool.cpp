@@ -559,9 +559,8 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     BOOST_FOREACH(const CTransaction& tx, vtx)
     {
         std::list<CTransaction> dummy;
-        //std::cerr << __func__ << " removing tx=" << tx.GetHash().GetHex() << std::endl;
         remove(tx, dummy, false);
-        //std::cerr << __func__ << " removed=" << dummy.size() << std::endl;
+        std::cerr << __func__ << " removed=" << tx.GetHash().GetHex() << " " << dummy.size() << std::endl;
         removeConflicts(tx, conflicts);
         //std::cerr << __func__ << " removed conflicts=";
         //for(auto const &tx : conflicts) std::cerr << tx.GetHash().GetHex();
