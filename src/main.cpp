@@ -5429,8 +5429,8 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         }
         //fprintf(stderr, "finished adding back. mempoolsize.%ld\n",mempool.size());
         // empty the temp mempool for next time.
-        std::cerr << __func__ << " tmpmempool.clear()" << std::endl;
-        tmpmempool.clear();
+        // std::cerr << __func__ << " tmpmempool.clear()" << std::endl;
+        // tmpmempool.clear(); // will be cleared in CMempoolStateSaver
     }
     return true;
 }
