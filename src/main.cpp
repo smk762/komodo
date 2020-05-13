@@ -4264,7 +4264,7 @@ static int64_t nTimePostConnect = 0;
 class CMempoolStateSaver 
 {
 public: 
-    CMempoolStateSaver() : isAssetChain(false) {}
+    CMempoolStateSaver() : isAssetChain(false), requireRestore(true) {}
     void SaveAndClear(bool _isAssetChain) 
     {
         isAssetChain = _isAssetChain;
@@ -4292,8 +4292,10 @@ public:
     // fix mempool state by clearing tmpmempool, so it would not return to the real mempool
     void FixState() 
     {
-        if (isAssetChain)
+        if (isAssetChain)   {
             tmpmempool.clear();
+            requireRestore = false;
+        }
     }
 
     // auto restore the saved state
@@ -4301,32 +4303,35 @@ public:
     {
         if (isAssetChain)
         {
-            LOCK2(cs_main, mempool.cs);
+            if (requireRestore)
+            {
+                LOCK2(cs_main, mempool.cs);
 
-            // clear current mempool:
+                // clear current mempool:
 
-            list<CTransaction> transactionsToRemove;
-            BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
-                const CTransaction &tx = e.GetTx();
-                if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
-                    transactionsToRemove.push_back(tx);
-                }                
+                list<CTransaction> transactionsToRemove;
+                BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+                    const CTransaction &tx = e.GetTx();
+                    if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+                        transactionsToRemove.push_back(tx);
+                    }                
+                }
+                BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+                    list<CTransaction> removed;
+                    mempool.remove(tx, removed, false);
+                    std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex() << std::endl;
+                }            
+
+                // return the saved txns to mempool:
+
+                BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx) {
+                    const CTransaction &tx = e.GetTx();
+                    const uint256 &hash = tx.GetHash();
+                    mempool.addUnchecked(hash, e, true);
+                    std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
+                }
+                tmpmempool.clear();
             }
-            BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-                list<CTransaction> removed;
-                mempool.remove(tx, removed, false);
-                std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex() << std::endl;
-            }            
-
-            // return the saved txns to mempool:
-
-            BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx) {
-                const CTransaction &tx = e.GetTx();
-                const uint256 &hash = tx.GetHash();
-                mempool.addUnchecked(hash, e, true);
-                std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
-            }
-            tmpmempool.clear();
         }
     }
 
@@ -4336,6 +4341,7 @@ public:
     }
 private:
     bool isAssetChain;
+    bool requireRestore;
 };
 
 /**
