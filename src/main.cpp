@@ -4376,6 +4376,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
+        std::cerr << __func__ << " about to connect block=" << pblock->GetHash().GetHex() << std::endl;
 
         // save mempool state and clear it, for asset chains:
         CMempoolStateSaver mempoolState;
