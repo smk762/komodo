@@ -4264,7 +4264,7 @@ static int64_t nTimePostConnect = 0;
 class CMempoolStateSaver 
 {
 public: 
-    CMempoolStateSaver() : isAssetChain(false), preventRestore(false), savedMempool(::minRelayTxFee) {}
+    CMempoolStateSaver(const std::string & _caller) : isAssetChain(false), preventRestore(false), savedMempool(::minRelayTxFee), caller(_caller) {}
     void SaveAndClear(bool _isAssetChain) 
     {
         isAssetChain = _isAssetChain;
@@ -4273,6 +4273,7 @@ public:
             // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
             LOCK2(cs_main, mempool.cs);
             //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
+            std::cerr __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
             BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
                 const CTransaction &tx = e.GetTx();
                 const uint256 &hash = tx.GetHash();
@@ -4296,6 +4297,7 @@ public:
         if (isAssetChain)   {
             savedMempool.clear();
             preventRestore = true;
+            std::cerr __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
         }
     } 
 
@@ -4309,6 +4311,7 @@ private:
                 LOCK2(cs_main, mempool.cs);
 
                 // clear current mempool:
+                std::cerr __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
 
                 list<CTransaction> transactionsToRemove;
                 BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
@@ -4346,6 +4349,7 @@ private:
     bool isAssetChain;
     bool preventRestore;
     CTxMemPool savedMempool;
+    std::string caller;
 };
 
 /**
@@ -4382,7 +4386,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         CCoinsViewCache view(pcoinsTip);
 
         // save mempool state and clear it, for asset chains:
-        CMempoolStateSaver mempoolState;
+        CMempoolStateSaver mempoolState(__func__);
         mempoolState.SaveAndClear(ASSETCHAINS_CC != 0);  
         // The mempool will be restored to the initial state when mempoolState exits its scope (if any errors)
 
@@ -5357,10 +5361,12 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                 if ( tx.IsCoinBase() || !tx.vjoinsplit.empty() || !tx.vShieldedSpend.empty() || (i == block.vtx.size()-1 && komodo_isPoS((CBlock *)&block,height,0) != 0) )
                     continue;
                 Tx = tx;
-                //std::cerr << __func__ << " before myAddtomempool tx=" << Tx.GetHash().GetHex() << std::endl;
+                
                 if ( myAddtomempool(Tx, &state, true) == false ) // happens with out of order tx in block on resync
                 {
                     //std::cerr << __func__ << " Rejected by mempool, reason=" << state.GetRejectReason() << std::endl;
+                    std::cerr << __func__ << " myAddtomempool failed tx=" << Tx.GetHash().GetHex() << " thread=" << boost::this_thread::get_id() << std::endl;
+
                     //LogPrintf("Rejected by mempool, reason: .%s.\n", state.GetRejectReason().c_str());
                     // take advantage of other checks, but if we were only rejected because it is a valid staking
                     // transaction, sync with wallets and don't mark as a reject
@@ -5370,6 +5376,8 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                         ptx = &sTx;
                     } else rejects++;
                 }
+                else
+                    std::cerr << __func__ << " myAddtomempool okay tx=" << Tx.GetHash().GetHex() << " thread=" << boost::this_thread::get_id() << std::endl;
 
                 //std::cerr << __func__ << " before tmpmempool.remove tx=" << tx.GetHash().GetHex() << std::endl;
                 // std::cerr << __func__ << " tmpmempool.mapTx.size=" << tmpmempool.mapTx.size() << std::endl;
@@ -5904,7 +5912,7 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
         LOCK(cs_main);
 
         // save mempool state and clear it, for asset chains:
-        CMempoolStateSaver mempoolState;
+        CMempoolStateSaver mempoolState(__func__);
         mempoolState.SaveAndClear(ASSETCHAINS_CC != 0);  // The mempool will be restored to the initial state when mempoolState exits its scope
         // this mempol state should be restored after the exist of this block as there is no block connect done yet 
 
@@ -5968,7 +5976,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     auto verifier = libzcash::ProofVerifier::Disabled();
 
     // save mempool state and clear it, for asset chains:
-    CMempoolStateSaver mempoolState;
+    CMempoolStateSaver mempoolState(__func__);
     mempoolState.SaveAndClear(ASSETCHAINS_CC != 0); // the mempool state will be restored when mempoolState exits its scope
 
     // NOTE: CheckBlockHeader is called by CheckBlock

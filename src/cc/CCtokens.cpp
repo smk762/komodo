@@ -962,6 +962,10 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
     if (strcmp(ASSETCHAINS_SYMBOL, "ROGUE") == 0 && chainActive.Height() <= 12500)
         return true;
 
+    // TODO: remove
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 300)
+        return true;
+
     // check boundaries:
     if (tx.vout.size() < 1)
         return eval->Invalid("no vouts");
