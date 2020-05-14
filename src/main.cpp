@@ -4273,7 +4273,7 @@ public:
             // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
             LOCK2(cs_main, mempool.cs);
             //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
-            std::cerr __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
+            std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
             BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
                 const CTransaction &tx = e.GetTx();
                 const uint256 &hash = tx.GetHash();
@@ -4297,7 +4297,7 @@ public:
         if (isAssetChain)   {
             savedMempool.clear();
             preventRestore = true;
-            std::cerr __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
+            std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
         }
     } 
 
@@ -4311,7 +4311,7 @@ private:
                 LOCK2(cs_main, mempool.cs);
 
                 // clear current mempool:
-                std::cerr __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
+                std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
 
                 list<CTransaction> transactionsToRemove;
                 BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
