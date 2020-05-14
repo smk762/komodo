@@ -4264,7 +4264,7 @@ static int64_t nTimePostConnect = 0;
 class CMempoolStateSaver 
 {
 public: 
-    CMempoolStateSaver() : isAssetChain(false), preventRestore(false) {}
+    CMempoolStateSaver() : isAssetChain(false), preventRestore(false), savedMempool(::minRelayTxFee) {}
     void SaveAndClear(bool _isAssetChain) 
     {
         isAssetChain = _isAssetChain;
