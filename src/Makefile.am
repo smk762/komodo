@@ -309,7 +309,7 @@ libbitcoin_server_a_SOURCES = \
   cc/marmara.cpp \
   cc/payments.cpp \
   cc/gateways.cpp \
-  cc/channels.cpp \
+  cc/channelsV2.cpp \
   cc/auction.cpp \
   cc/betprotocol.cpp \
   chain.cpp \
