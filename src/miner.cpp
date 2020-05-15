@@ -537,14 +537,14 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                 }
 
                 if ((nTxOpretSize > 256) && (feeRate < opretMinFeeRate)) fSpamTx = true;
-                // std::cerr << tx.GetHash().ToString() << " nTxSize." << nTxSize << " nTxOpretSize." << nTxOpretSize << " feeRate." << feeRate.ToString() << " opretMinFeeRate." << opretMinFeeRate.ToString() << " fSpamTx." << fSpamTx << std::endl;
+                std::cerr << __func__ << " " << tx.GetHash().ToString() << " nTxSize." << nTxSize << " nTxOpretSize." << nTxOpretSize << " feeRate." << feeRate.ToString() << " opretMinFeeRate." << opretMinFeeRate.ToString() << " fSpamTx." << fSpamTx << std::endl;
                 if (fSpamTx) continue;
-                // std::cerr << tx.GetHash().ToString() << " vecPriority.size() = " << vecPriority.size() << std::endl;
+                std::cerr << __func__ << " " << tx.GetHash().ToString() << " vecPriority.size() = " << vecPriority.size() << std::endl;
             }
 
             if (nBlockSize + nTxSize >= nBlockMaxSize-512) // room for extra autotx
             {
-                //fprintf(stderr,"nBlockSize %d + %d nTxSize >= %d nBlockMaxSize\n",(int32_t)nBlockSize,(int32_t)nTxSize,(int32_t)nBlockMaxSize);
+                fprintf(stderr,"%s nBlockSize %d + %d nTxSize >= %d nBlockMaxSize, skipping tx\n", __func__, (int32_t)nBlockSize,(int32_t)nTxSize,(int32_t)nBlockMaxSize);
                 continue;
             }
 
@@ -552,7 +552,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             unsigned int nTxSigOps = GetLegacySigOpCount(tx);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS-1)
             {
-                //fprintf(stderr,"A nBlockSigOps %d + %d nTxSigOps >= %d MAX_BLOCK_SIGOPS-1\n",(int32_t)nBlockSigOps,(int32_t)nTxSigOps,(int32_t)MAX_BLOCK_SIGOPS);
+                fprintf(stderr,"%s A nBlockSigOps %d + %d nTxSigOps >= %d MAX_BLOCK_SIGOPS-1, skipping tx\n", __func__, (int32_t)nBlockSigOps,(int32_t)nTxSigOps,(int32_t)MAX_BLOCK_SIGOPS);
                 continue;
             }
             // Skip free transactions if we're past the minimum block size:
@@ -562,7 +562,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);  // ApplyDeltas will not find miner's transactions
             if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
             {
-                //fprintf(stderr,"fee rate skip\n");
+                fprintf(stderr,"%s fee rate skip tx\n", __func__);
                 continue;
             }
             // Prioritise by fee once past the priority size or we run out of high-priority
@@ -577,7 +577,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
 
             if (!view.HaveInputs(tx))
             {
-                //fprintf(stderr,"dont have inputs\n");
+                fprintf(stderr,"%s dont have inputs, skipping tx\n", __func__);
                 continue;
             }
             CAmount nTxFees = view.GetValueIn(chainActive.LastTip()->GetHeight(),&interest,tx,chainActive.LastTip()->nTime)-tx.GetValueOut();
@@ -585,7 +585,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS-1)
             {
-                //fprintf(stderr,"B nBlockSigOps %d + %d nTxSigOps >= %d MAX_BLOCK_SIGOPS-1\n",(int32_t)nBlockSigOps,(int32_t)nTxSigOps,(int32_t)MAX_BLOCK_SIGOPS);
+                fprintf(stderr,"%s B nBlockSigOps %d + %d nTxSigOps >= %d MAX_BLOCK_SIGOPS-1, skipping tx\n", __func__, (int32_t)nBlockSigOps,(int32_t)nTxSigOps,(int32_t)MAX_BLOCK_SIGOPS);
                 continue;
             }
             // Note that flags: we don't want to set mempool/IsStandard()
@@ -595,7 +595,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             PrecomputedTransactionData txdata(tx);
             if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId))
             {
-                //fprintf(stderr,"context failure\n");
+                fprintf(stderr,"%s context failure, skipping tx\n", __func__);
                 continue;
             }
             UpdateCoins(tx, view, nHeight);
