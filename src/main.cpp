@@ -4279,7 +4279,7 @@ public:
                 const uint256 &hash = tx.GetHash();
                 if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
                     savedMempool.addUnchecked(hash, e, true);
-                    std::cerr << __func__ << " savedMempool.addUnchecked=" << hash.GetHex() << std::endl;
+                    // std::cerr << __func__ << " savedMempool.addUnchecked=" << hash.GetHex() << std::endl;
                 }
             }
             /*BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
@@ -4323,7 +4323,7 @@ private:
                 BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
                     list<CTransaction> removed;
                     mempool.remove(tx, removed, false);
-                    std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex()  << " " << removed.size() << std::endl;
+                    //std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex()  << " " << removed.size() << std::endl;
                 }            
 
                 // return the saved txns to mempool:
@@ -4332,7 +4332,7 @@ private:
                     const CTransaction &tx = e.GetTx();
                     const uint256 &hash = tx.GetHash();
                     mempool.addUnchecked(hash, e, true);
-                    std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
+                    //std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
                 }
                 savedMempool.clear();
             }
@@ -5376,8 +5376,8 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                         ptx = &sTx;
                     } else rejects++;
                 }
-                else
-                    std::cerr << __func__ << " myAddtomempool okay tx=" << Tx.GetHash().GetHex() << " thread=" << boost::this_thread::get_id() << std::endl;
+                //else
+                //    std::cerr << __func__ << " myAddtomempool okay tx=" << Tx.GetHash().GetHex() << " thread=" << boost::this_thread::get_id() << std::endl;
 
                 //std::cerr << __func__ << " before tmpmempool.remove tx=" << tx.GetHash().GetHex() << std::endl;
                 // std::cerr << __func__ << " tmpmempool.mapTx.size=" << tmpmempool.mapTx.size() << std::endl;
