@@ -4426,6 +4426,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Writing chainstate: %.2fms [%.2fs]\n", (nTime5 - nTime4) * 0.001, nTimeChainState * 0.000001);
     // Remove conflicting transactions from the mempool.
     list<CTransaction> txConflicted;
+    std::cerr << __func__ << " about to removeForBlock, thread=" << boost::this_thread::get_id() << std::endl;
     mempool.removeForBlock(pblock->vtx, pindexNew->GetHeight(), txConflicted, !IsInitialBlockDownload());
 
     // Remove transactions that expire at new block height from mempool
@@ -4698,6 +4699,7 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
     }
 
     if (fBlocksDisconnected) {
+        std::cerr << __func__ << " " << __LINE__ << " about to removeForReorg, thread=" << boost::this_thread::get_id() << std::endl;
         mempool.removeForReorg(pcoinsTip, chainActive.Tip()->GetHeight() + 1, STANDARD_LOCKTIME_VERIFY_FLAGS);
     }
     mempool.removeWithoutBranchId(
@@ -4787,6 +4789,7 @@ bool InvalidateBlock(CValidationState& state, CBlockIndex *pindex) {
         // ActivateBestChain considers blocks already in chainActive
         // unconditionally valid already, so force disconnect away from it.
         if (!DisconnectTip(state)) {
+            std::cerr << __func__ << " " << __LINE__ << " about to removeForReorg and removeWithoutBranchId, thread=" << boost::this_thread::get_id() << std::endl;
             mempool.removeForReorg(pcoinsTip, chainActive.Tip()->GetHeight() + 1, STANDARD_LOCKTIME_VERIFY_FLAGS);
             mempool.removeWithoutBranchId(
                                           CurrentEpochBranchId(chainActive.Tip()->GetHeight() + 1, Params().GetConsensus()));
@@ -4806,6 +4809,7 @@ bool InvalidateBlock(CValidationState& state, CBlockIndex *pindex) {
     }
 
     InvalidChainFound(pindex);
+    std::cerr << __func__ << " " << __LINE__ << " about to removeForReorg and removeWithoutBranchId, thread=" << boost::this_thread::get_id() << std::endl;
     mempool.removeForReorg(pcoinsTip, chainActive.Tip()->GetHeight() + 1, STANDARD_LOCKTIME_VERIFY_FLAGS);
     mempool.removeWithoutBranchId(
                                   CurrentEpochBranchId(chainActive.Tip()->GetHeight() + 1, Params().GetConsensus()));
