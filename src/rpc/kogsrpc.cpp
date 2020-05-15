@@ -1635,6 +1635,10 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
     }
 
     UniValue crresult = kogscreatekogs(crparams, fHelp, remotepk);
+    RETURN_IF_ERROR(CCerror);
+    if (crresult.isNull())  
+        throw runtime_error("nfts not created");
+
     CPubKey mypk = pubkey2pk(Mypubkey());
 
     if (!crresult["hextxns"].getValues().empty())
@@ -1705,11 +1709,14 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
         trparams.push_back("1");
 
         UniValue transferred = tokentransfer(trparams, false, CPubKey());
+        RETURN_IF_ERROR(CCerror);
+        if (transferred.isNull())  
+            throw runtime_error("nfts not created");
 
         if (transferred["hex"].getValStr().empty()) {
             std::cerr << "tokentransfer did not return hex tx, CCerror=" << CCerror << std::endl;
             result.pushKV("result", "error");
-            result.pushKV("error", "cant create tokentransfer tx, error=" + transferred["error"].getValStr() + " CCerror=" + CCerror);
+            result.pushKV("error", "cant create tokentransfer tx, CCerror=" + transferred["error"].getValStr() + " CCerror=" + CCerror);
             //return result;
         }
 
