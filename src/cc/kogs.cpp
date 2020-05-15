@@ -489,7 +489,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
         std::string hextx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
         if (hextx.empty())
         {
-            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
             return CTransaction(); // empty tx
         }
         else
@@ -2809,7 +2809,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 		return false; 
     
 	if (pPrevObj->objectType != KOGSID_GAME && pPrevObj->objectType != KOGSID_SLAMPARAMS)	{
-        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "invalid previous object, creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "invalid previous object, creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
 		return false; 
 	}
 
@@ -2825,7 +2825,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 		KogsGame *pgame = (KogsGame *)pPrevObj;
 		if (pgame->playerids.size() < 2)
 		{
-			LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "playerids.size incorrect=" << pgame->playerids.size() << " pPrevObj creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
+			LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "playerids.size incorrect=" << pgame->playerids.size() << " pPrevObj creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
 			return false;
 		}
 		// randomly select whose turn is the first:
@@ -2841,7 +2841,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
         for (auto const &playerid : playerids)  {
             std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
             if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)   {
-                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect player=" << playerid.GetHex() << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "incorrect player=" << playerid.GetHex() << std::endl);
                 return false;
             }
                 
@@ -2849,7 +2849,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
             int32_t advout;
             std::vector<KogsAdvertising> adlist;
             if (!FindAdvertisings(playerid, adtxid, advout, adlist)) {
-                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "player did not advertise itself=" << playerid.GetHex() << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player did not advertise itself=" << playerid.GetHex() << std::endl);
                 return false;
             }
         }
@@ -2885,13 +2885,13 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 			}
 			else
 			{
-				LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "slam params vin0 is not the baton, slamparams txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
+				LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "slam params vin0 is not the baton, slamparams txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
 				return false;
 			}
 		}
 		else
 		{
-			LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load slamparams tx for txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
+			LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not load slamparams tx for txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
 			return false;
 		}
 	}
@@ -2899,7 +2899,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 	KogsBaseObject *pGameConfig = LoadGameObject(gameconfigid);
 	if (pGameConfig ==nullptr || pGameConfig->objectType != KOGSID_GAMECONFIG)
 	{
-		LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load gameconfig with id=" << gameconfigid.GetHex() << std::endl);
+		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load gameconfig with id=" << gameconfigid.GetHex() << std::endl);
 		return false;
 	}
 	spGameConfig.reset((KogsGameConfig*)pGameConfig);
@@ -2907,7 +2907,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 	KogsBaseObject *pPlayer = LoadGameObject(playerids[nextturn]);
 	if (pPlayer == nullptr || pPlayer->objectType != KOGSID_PLAYER)
 	{
-		LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load player with id=" << playerids[nextturn].GetHex() << std::endl);
+		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load player with id=" << playerids[nextturn].GetHex() << std::endl);
 		return false;
 	}
 	spPlayer.reset((KogsPlayer*)pPlayer);
@@ -2926,7 +2926,7 @@ bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_p
 
 	bool bBatonCreated = KogsManageStack(*spGameConfig.get(), (KogsSlamParams *)pPrevObj, spPrevBaton.get(), newbaton, pInitBaton);
 	if (!bBatonCreated) {
-		LOGSTREAMFN("kogs", CCLOG_INFO, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
+		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
 		return false;
 	}
 
