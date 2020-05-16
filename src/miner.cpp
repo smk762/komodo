@@ -2047,8 +2047,8 @@ void static BitcoinMiner()
                         //std::cerr << __func__ << " ";
                         //for (z=31; z>=0; z--)
                         //    fprintf(stderr,"%02x",((uint8_t *)&h)[z]);
-                        fprintf(stderr,"%s Invalid block mined, try again, reason %s\n", B.GetHash().GetHex(), state.GetRejectReason().c_str());
-                        // LogPrintf("%s Invalid block mined, try again, reason %s\n", B.GetHash().GetHex(), state.GetRejectReason().c_str());
+                        fprintf(stderr,"%s Invalid block mined, try again, reason %s\n", B.GetHash().GetHex().c_str(), state.GetRejectReason().c_str());
+                        // LogPrintf("%s Invalid block mined, try again, reason %s\n", B.GetHash().GetHex().c_str(), state.GetRejectReason().c_str());
                         gotinvalid = 1;
                         return(false);
                     }
