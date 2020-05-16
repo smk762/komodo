@@ -4280,7 +4280,7 @@ public:
                 const uint256 &hash = tx.GetHash();
                 if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
                     savedMempool.addUnchecked(hash, e, true);
-                    // std::cerr << __func__ << " savedMempool.addUnchecked=" << hash.GetHex() << std::endl;
+                    std::cerr << __func__ << " savedMempool.addUnchecked=" << hash.GetHex() << std::endl;
                 }
             }
             /*BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
@@ -4333,7 +4333,7 @@ private:
                     const CTransaction &tx = e.GetTx();
                     const uint256 &hash = tx.GetHash();
                     mempool.addUnchecked(hash, e, true);
-                    //std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
+                    std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
                 }
                 savedMempool.clear();
             }
