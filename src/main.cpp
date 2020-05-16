@@ -4264,14 +4264,15 @@ static int64_t nTimePostConnect = 0;
 class CMempoolStateSaver 
 {
 public: 
-    CMempoolStateSaver(const std::string & _caller) : isAssetChain(false), preventRestore(false), savedMempool(::minRelayTxFee), caller(_caller) {}
-    void SaveAndClear(bool _isAssetChain) 
+    CMempoolStateSaver(const std::string & _caller) : isAssetChain(false), preventRestore(false), caller(_caller), savedMempool(::minRelayTxFee) {}
+    void Save(bool _isAssetChain) 
     {
         isAssetChain = _isAssetChain;
         if (isAssetChain)
         {
             // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
             LOCK2(cs_main, mempool.cs);
+
             //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
             std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
             BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
@@ -4302,7 +4303,7 @@ public:
     } 
 
 private:
-    void RestoreState()
+    void _RestoreState()
     {
         if (isAssetChain)
         {
@@ -4342,7 +4343,7 @@ public:
     // auto restore the saved state
     ~CMempoolStateSaver()
     {
-        RestoreState();
+        _RestoreState();
     }
 
 private:
@@ -4351,6 +4352,7 @@ private:
     CTxMemPool savedMempool;
     std::string caller;
 };
+
 
 /**
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
@@ -4387,7 +4389,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
 
         // save mempool state and clear it, for asset chains:
         CMempoolStateSaver mempoolState(__func__);
-        mempoolState.SaveAndClear(ASSETCHAINS_CC != 0);  
+        mempoolState.Save(ASSETCHAINS_CC != 0);  
         // The mempool will be restored to the initial state when mempoolState exits its scope (if any errors)
 
         std::cerr << __func__ << " about to connect block=" << pblock->GetHash().GetHex() << std::endl;
@@ -5917,7 +5919,7 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
 
         // save mempool state and clear it, for asset chains:
         CMempoolStateSaver mempoolState(__func__);
-        mempoolState.SaveAndClear(ASSETCHAINS_CC != 0);  // The mempool will be restored to the initial state when mempoolState exits its scope
+        mempoolState.Save(ASSETCHAINS_CC != 0);  // The mempool will be restored to the initial state when mempoolState exits its scope
         // this mempol state should be restored after the exist of this block as there is no block connect done yet 
 
         if ( chainActive.LastTip() != 0 )
@@ -5969,7 +5971,9 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex * const pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     std::cerr << __func__ << " started for block=" << block.GetHash().GetHex() << std::endl;
-    AssertLockHeld(cs_main);
+    // AssertLockHeld(cs_main);  <-- asserts if DEBUG_LOCKORDER is set
+    LOCK(cs_main);   // TestBlockValidity sometimes is called with no lock of cs_main, but we need this lock to restore the mempool state
+
     assert(pindexPrev == chainActive.Tip());
 
     CCoinsViewCache viewNew(pcoinsTip);
@@ -5981,7 +5985,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
 
     // save mempool state and clear it, for asset chains:
     CMempoolStateSaver mempoolState(__func__);
-    mempoolState.SaveAndClear(ASSETCHAINS_CC != 0); // the mempool state will be restored when mempoolState exits its scope
+    mempoolState.Save(ASSETCHAINS_CC != 0); // the mempool state will be restored when mempoolState exits its scope
 
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev))
@@ -6006,7 +6010,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
     }
     assert(state.IsValid());
-    if ( futureblock != 0 )
+    if (futureblock != 0)
         return(false);
 
     // no need mempoolState.preventRestore() here as this is for testing  
