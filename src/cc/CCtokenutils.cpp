@@ -232,13 +232,13 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
     if ((funcid = tokensv0::DecodeTokenCreateOpRet(scriptPubKey, origpubkey, name, description, opretswithid)) != 0) // check pubkey is parsed okay
     {
         // temp additional check not to mess with old-style funcids in v1 (for kogs test chains)
-        if (ASSETCHAINS_KOGSGAME && origpubkey.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) // TODO: remove
-        {
+        //if (ASSETCHAINS_KOGSGAME && origpubkey.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) // TODO: remove
+        //{
         for (auto const & oi : opretswithid)
             oprets.push_back(oi.second);
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcid << " name=" << name << std::endl);
         return funcid;
-        }
+        //}
     }
     
     GetOpReturnData(scriptPubKey, vopret);
@@ -302,10 +302,10 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
         case 'c':
         // TODO: remove:
         // temp allow old-style funcids
-            if (ASSETCHAINS_KOGSGAME == 0)  {
-                std::cerr << __func__ << " illegal funcid=" << (int)funcId << std::endl;
-                break;
-            }
+        //    if (ASSETCHAINS_KOGSGAME == 0)  {
+        //        std::cerr << __func__ << " illegal funcid=" << (int)funcId << std::endl;
+        //        break;
+        //    }
         case 'C': 
             funcId = DecodeTokenCreateOpRetV1(scriptPubKey, vorigPubkey, dummyName, dummyDescription, oprets);
             if (funcId != 0)    {
@@ -317,10 +317,10 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
         case 't':
                 // TODO: remove:
         // temp allow old-style funcids
-            if (ASSETCHAINS_KOGSGAME == 0)  {
-                std::cerr << __func__ << " illegal funcid=" << (int)funcId << std::endl;
-                break;
-            }
+        //    if (ASSETCHAINS_KOGSGAME == 0)  {
+        //        std::cerr << __func__ << " illegal funcid=" << (int)funcId << std::endl;
+        //        break;
+        //   }
         case 'T':           
             if (E_UNMARSHAL(vopret, ss >> dummyEvalCode; ss >> dummyFuncId; ss >> version; ss >> tokenid; ss >> pkCount;
                     if (pkCount >= 1) ss >> voutPubkey1;

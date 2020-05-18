@@ -154,6 +154,9 @@ static bool AssetsValidateInternal(struct CCcontract_info *cpAssets, Eval* eval,
     
     if (strcmp(ASSETCHAINS_SYMBOL, "MGNX") == 0 && chainActive.Height() <= 210190)
         return true;
+
+    if (strcmp(ASSETCHAINS_SYMBOL, "RFOXLIKE") == 0 && chainActive.Height() <= 84638)
+        return true;
         
 	if (numvouts == 0)
 		return eval->Invalid("AssetValidate: no vouts");
