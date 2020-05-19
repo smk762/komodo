@@ -965,8 +965,8 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
     // TODO: remove
     if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 300)
         return true;
-    if (strcmp(ASSETCHAINS_SYMBOL, "RFOXLIKE") == 0 && chainActive.Height() <= 84638)
-        return true;
+    //if (strcmp(ASSETCHAINS_SYMBOL, "RFOXLIKE") == 0 && chainActive.Height() <= 84638)
+    //    return true;
 
     // check boundaries:
     if (tx.vout.size() < 1)
