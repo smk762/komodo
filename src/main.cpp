@@ -2126,7 +2126,30 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTxMemPoolEntry entry(tx, 0, GetTime(), 0, chainActive.Height(), mempool.HasNoInputsOf(tx), false, consensusBranchId);
     //fprintf(stderr, "adding %s to mempool from block %d\n",tx.GetHash().ToString().c_str(),chainActive.GetHeight());
+    
+    CCoinsView dummy;
+    CCoinsViewCache view(&dummy);
+
     pool.addUnchecked(tx.GetHash(), entry, false);
+    {
+        LOCK(pool.cs);
+
+        CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
+        view.SetBackend(viewMemPool);
+
+        if (!tx.IsCoinImport())
+        {
+            // Add memory address index
+            if (fAddressIndex) {
+                pool.addAddressIndex(entry, view);
+            }
+
+            // Add memory spent index
+            if (fSpentIndex) {
+                pool.addSpentIndex(entry, view);
+            }
+        }
+    }
     return true;
 }
 
@@ -4274,13 +4297,13 @@ public:
             LOCK2(cs_main, mempool.cs);
 
             //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
-            std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
+            //std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
             BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
                 const CTransaction &tx = e.GetTx();
                 const uint256 &hash = tx.GetHash();
                 if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
                     savedMempool.addUnchecked(hash, e, true);
-                    std::cerr << __func__ << " savedMempool.addUnchecked=" << hash.GetHex() << std::endl;
+                    //std::cerr << __func__ << " savedMempool.addUnchecked=" << hash.GetHex() << std::endl;
                 }
             }
             /*BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
@@ -4298,7 +4321,7 @@ public:
         if (isAssetChain)   {
             savedMempool.clear();
             preventRestore = true;
-            std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
+            //std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
         }
     } 
 
@@ -4312,7 +4335,7 @@ private:
                 LOCK2(cs_main, mempool.cs);
 
                 // clear current mempool:
-                std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
+                // std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
 
                 list<CTransaction> transactionsToRemove;
                 BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
@@ -4329,13 +4352,31 @@ private:
 
                 // return the saved txns to mempool:
 
-                BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
-                    const CTransaction &tx = e.GetTx();
-                    const uint256 &hash = tx.GetHash();
-                    mempool.addUnchecked(hash, e, true);
-                    std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
+                CCoinsView dummy;
+                CCoinsViewCache view(&dummy);
+                {
+                    CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
+                    view.SetBackend(viewMemPool);
+
+                    BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
+                        const CTransaction &tx = e.GetTx();
+                        const uint256 &hash = tx.GetHash();
+                        mempool.addUnchecked(hash, e, true);
+                        if (!tx.IsCoinImport())
+                        {
+                            // Add memory address index
+                            if (fAddressIndex) {
+                                mempool.addAddressIndex(e, view);
+                            }
+
+                            // Add memory spent index
+                            if (fSpentIndex) {
+                                mempool.addSpentIndex(e, view);
+                            }
+                        }
+                    }
+                    savedMempool.clear();
                 }
-                savedMempool.clear();
             }
         }
     }
