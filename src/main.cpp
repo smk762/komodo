@@ -2130,13 +2130,10 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
     CCoinsView dummy;
     CCoinsViewCache view(&dummy);
 
+    LOCK(pool.cs);
+
     pool.addUnchecked(tx.GetHash(), entry, false);
     {
-        LOCK(pool.cs);
-
-        CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
-        view.SetBackend(viewMemPool);
-
         if (!tx.IsCoinImport())
         {
             // Add memory address index
@@ -4355,9 +4352,6 @@ private:
                 CCoinsView dummy;
                 CCoinsViewCache view(&dummy);
                 {
-                    CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
-                    view.SetBackend(viewMemPool);
-
                     BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
                         const CTransaction &tx = e.GetTx();
                         const uint256 &hash = tx.GetHash();
