@@ -1666,7 +1666,7 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
             }
             catch (UniValue error)
             {
-                std::cerr << "cant send kog tx to chain, univalue error=" << error.getValStr() << std::endl;
+                std::cerr << "cant send kog tx to chain, univalue error=" << error["message"].getValStr() << std::endl;
                 result.pushKV("result", "error");
                 result.pushKV("error", "cant send kog tx");
                 return result;
@@ -1736,7 +1736,7 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
         }
         catch (UniValue error)
         {
-            std::cerr << "cant send transfer tx to chain, univalue error=" << error.getValStr() << std::endl;
+            std::cerr << "cant send transfer tx to chain, univalue error=" << error["message"].getValStr() << std::endl;
             result.pushKV("result", "error");
             result.pushKV("error", "cant send tokentransfer tx");
             //return result;

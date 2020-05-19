@@ -2127,14 +2127,14 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
     CTxMemPoolEntry entry(tx, 0, GetTime(), 0, chainActive.Height(), mempool.HasNoInputsOf(tx), false, consensusBranchId);
     //fprintf(stderr, "adding %s to mempool from block %d\n",tx.GetHash().ToString().c_str(),chainActive.GetHeight());
     
-    CCoinsView dummy;
-    CCoinsViewCache view(&dummy);
+    //CCoinsView dummy;
+    //CCoinsViewCache view(&dummy);
 
-    LOCK(pool.cs);
+    //LOCK(pool.cs);
 
     pool.addUnchecked(tx.GetHash(), entry, false);
     {
-        if (!tx.IsCoinImport())
+        /*if (!tx.IsCoinImport() && !fImporting && !fReindex)
         {
             // Add memory address index
             if (fAddressIndex) {
@@ -2145,7 +2145,7 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
             if (fSpentIndex) {
                 pool.addSpentIndex(entry, view);
             }
-        }
+        }*/
     }
     return true;
 }
@@ -4349,14 +4349,14 @@ private:
 
                 // return the saved txns to mempool:
 
-                CCoinsView dummy;
-                CCoinsViewCache view(&dummy);
+                //CCoinsView dummy;
+                //CCoinsViewCache view(&dummy);
                 {
                     BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
                         const CTransaction &tx = e.GetTx();
                         const uint256 &hash = tx.GetHash();
                         mempool.addUnchecked(hash, e, true);
-                        if (!tx.IsCoinImport())
+                        /*if (!tx.IsCoinImport() && !fImporting && !fReindex)
                         {
                             // Add memory address index
                             if (fAddressIndex) {
@@ -4367,7 +4367,7 @@ private:
                             if (fSpentIndex) {
                                 mempool.addSpentIndex(e, view);
                             }
-                        }
+                        }*/
                     }
                     savedMempool.clear();
                 }
