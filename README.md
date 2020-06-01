@@ -68,7 +68,6 @@ OS : Ubuntu 16.04 LTS x86_64
 	make
 	sudo make install
 	sudo ldconfig
-	
 ```
 #### 3. kısım - Change swap size on to 4GB (Ubuntu) 
 	
@@ -104,7 +103,6 @@ OS : Ubuntu 16.04 LTS x86_64
 	cd komodo
 	./zcutil/fetch-params.sh
 	./zcutil/build.sh -j$(nproc)
-
 ```
 
 ### Bu sıralamadan sonra her şey normal çalışır vaziyette olacaktır. Chain'i sorunsuz vaziyette kullanabilirsiniz.
@@ -289,7 +287,6 @@ OS : Ubuntu 16.04 LTS x86_64
 	make
 	sudo make install
 	sudo ldconfig
-	
 ```
 #### 3. step - Change swap size on to 4GB (Ubuntu) 
 	
@@ -325,7 +322,6 @@ OS : Ubuntu 16.04 LTS x86_64
 	cd komodo
 	./zcutil/fetch-params.sh
 	./zcutil/build.sh -j$(nproc)
-
 ```
 *** Note: The installation process takes 20 to 45 minutes.
 
@@ -408,7 +404,6 @@ You can run it by using following command. text your pubkey to the area "-pubkey
 -genproclimit=-1 Şayet -1 (If you make -1, all processor (cpu) use.)
 -genproclimit=1  Şayet 1  (If you make 1, single processor use.)
 -genproclimit=0  Şayet 0  (if you make 0, it run at Staking mode and you can do staking by using active coin.)
-
 ```
 
 #### Not : Note: these are what to do in cases of server shutdown,  crashed, reset
