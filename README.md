@@ -181,7 +181,6 @@ Aşağıki komutu kullanarak çalıştırabilirsiniz. aşağıda ki "-pubkey=pub
 -genproclimit=-1 Şayet -1 (yaparsanız tüm işlemci (CPU) günü kullanır.)
 -genproclimit=1  Şayet 1  (yaparsanız tek işlemci kullanır.)
 -genproclimit=0  Şayet 0  (yaparsanız Staking modunda çalışır ve Aktif coini kullanarak Staking yaparsınız.)
-
 ```
 
 #### Not : Sunucu kapanma durumunda yapılacaklar. 
