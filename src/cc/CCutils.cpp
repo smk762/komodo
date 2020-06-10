@@ -18,6 +18,7 @@
  */
 
 #include "CCinclude.h"
+#include "CCtokens.h"
 #include "komodo_structs.h"
 #include "key_io.h"
 
@@ -379,7 +380,7 @@ bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk)
 	destaddr[0] = 0;
 	if (pk.size() == 0)
 		pk = GetUnspendable(cp, 0);
-	return(_GetTokensCCaddress(destaddr, cp->evalcode, cp->additionalTokensEvalcode2, pk));
+	return(_GetTokensCCaddress(destaddr, cp->evalcode, cp->evalcodeNFT, pk));
 }
 
 
@@ -399,7 +400,7 @@ bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey 
 {
 	CC *payoutCond;
 	destaddr[0] = 0;
-	if ((payoutCond = MakeTokensCCcond1of2(cp->evalcode, cp->additionalTokensEvalcode2, pk, pk2)) != 0)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
+	if ((payoutCond = MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, pk, pk2)) != 0)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
 	{
 		Getscriptaddress(destaddr, CCPubKey(payoutCond));
 		cc_free(payoutCond);
@@ -407,6 +408,7 @@ bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey 
 	return(destaddr[0] != 0);
 }
 
+// validate cc or normal vout address and value
 bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue)
 {
     char destaddr[64];
@@ -488,20 +490,23 @@ bool Myprivkey(uint8_t myprivkey[])
     char coinaddr[64],checkaddr[64]; std::string strAddress; char *dest; int32_t i,n; CBitcoinAddress address; CKeyID keyID; CKey vchSecret; uint8_t buf33[33];
     if ( KOMODO_NSPV_SUPERLITE )
     {
-        if ( NSPV_logintime == 0 || time(NULL) > NSPV_logintime+NSPV_AUTOLOGOUT )
+        if ( NSPV_logintime != 0 && time(NULL) <= NSPV_logintime+NSPV_AUTOLOGOUT )
+        {
+            vchSecret = DecodeSecret(NSPV_wifstr);
+            memcpy(myprivkey,vchSecret.begin(),32);
+            //for (i=0; i<32; i++)
+            //    fprintf(stderr,"%02x",myprivkey[i]);
+            //fprintf(stderr," myprivkey %s\n",NSPV_wifstr);
+            memset((uint8_t *)vchSecret.begin(),0,32);
+            return true;
+        }
+        else if ( KOMODO_DEX_P2P == 0 )
         {
             fprintf(stderr,"need to be logged in to get myprivkey\n");
             return false;
         }
-        vchSecret = DecodeSecret(NSPV_wifstr);
-        memcpy(myprivkey,vchSecret.begin(),32);
-        //for (i=0; i<32; i++)
-        //    fprintf(stderr,"%02x",myprivkey[i]);
-        //fprintf(stderr," myprivkey %s\n",NSPV_wifstr);
-        memset((uint8_t *)vchSecret.begin(),0,32);
-        return true;
     }
-    if ( Getscriptaddress(coinaddr,CScript() << Mypubkey() << OP_CHECKSIG) != 0 )
+    if ( pwalletMain != 0 && Getscriptaddress(coinaddr,CScript() << Mypubkey() << OP_CHECKSIG) != 0 )
     {
         n = (int32_t)strlen(coinaddr);
         strAddress.resize(n+1);
@@ -529,9 +534,22 @@ bool Myprivkey(uint8_t myprivkey[])
                     else printf("mismatched privkey -> addr %s vs %s\n",checkaddr,coinaddr);
                 }
                 return(false);
-            }
+            } else fprintf(stderr,"(%p) cant find (%s) privkey\n",pwalletMain,coinaddr);
 #endif
+        } else fprintf(stderr,"cant find (%s) in wallet\n",coinaddr);
+    }
+    if ( KOMODO_DEX_P2P != 0 )
+    {
+        static int32_t onetimeflag; static uint8_t sessionpriv[32];
+        if ( onetimeflag == 0 )
+        {
+            void OS_randombytes(unsigned char *x,long xlen);
+            OS_randombytes(sessionpriv,32);
+            fprintf(stderr,"privkey for pubkey not found -> generate session specific privkey\n");
+            onetimeflag = 1;
         }
+        memcpy(myprivkey,sessionpriv,32);
+        return(true);
     }
     fprintf(stderr,"privkey for the -pubkey= address is not in the wallet, importprivkey!\n");
     return(false);
@@ -641,17 +659,17 @@ int64_t CCOraclesGetDepositBalance(char const *logcategory,uint256 reforacletxid
 
 int32_t NSPV_coinaddr_inmempool(char const *logcategory,char *coinaddr,uint8_t CCflag);
 
-int32_t myIs_coinaddr_inmempoolvout(char const *logcategory,char *coinaddr)
+int32_t myIs_coinaddr_inmempoolvout(char const *logcategory,uint256 txid,char *coinaddr)
 {
     int32_t i,n; char destaddr[64];
     if ( KOMODO_NSPV_SUPERLITE )
-        return(NSPV_coinaddr_inmempool(logcategory,coinaddr,1));
+        return(NSPV_coinaddr_inmempool(logcategory,coinaddr,0));
     BOOST_FOREACH(const CTxMemPoolEntry &e,mempool.mapTx)
     {
         const CTransaction &tx = e.GetTx();
         if ( (n= tx.vout.size()) > 0 )
         {
-            const uint256 &txid = tx.GetHash();
+            if (txid == tx.GetHash()) continue;
             for (i=0; i<n; i++)
             {
                 Getscriptaddress(destaddr,tx.vout[i].scriptPubKey);
@@ -692,17 +710,17 @@ int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_
     return(i);
 }
 
-int32_t CCCointxidExists(char const *logcategory,uint256 cointxid)
+int32_t CCCointxidExists(char const *logcategory,uint256 txid, uint256 cointxid)
 {
     char txidaddr[64]; std::string coin; int32_t numvouts; uint256 hashBlock;
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
     CCtxidaddr(txidaddr,cointxid);
-    SetCCtxids(addressIndex,txidaddr,true);
+    SetCCtxids(addressIndex,txidaddr,false);
     for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++)
     {
         return(-1);
     }
-    return(myIs_coinaddr_inmempoolvout(logcategory,txidaddr));
+    return(myIs_coinaddr_inmempoolvout(logcategory,txid,txidaddr));
 }
 
 bool CompareHexVouts(std::string hex1, std::string hex2)
@@ -769,15 +787,16 @@ int32_t komodo_get_current_height()
     else return chainActive.LastTip()->GetHeight();
 }
 
-bool komodo_txnotarizedconfirmed(uint256 txid)
+bool komodo_txnotarizedconfirmed(uint256 txid, int32_t minconfirms)
 {
     char str[65];
-    int32_t confirms,notarized=0,txheight=0,currentheight=0;;
+    int32_t confirms,minimumconfirms,notarized=0,txheight=0,currentheight=0;;
     CTransaction tx;
     uint256 hashBlock;
     CBlockIndex *pindex;    
     char symbol[KOMODO_ASSETCHAIN_MAXLEN],dest[KOMODO_ASSETCHAIN_MAXLEN]; struct komodo_state *sp;
 
+    if (minconfirms==0) return (true);
     if ( KOMODO_NSPV_SUPERLITE )
     {
         if ( NSPV_myGetTransaction(txid,tx,hashBlock,txheight,currentheight) == 0 )
@@ -821,14 +840,15 @@ bool komodo_txnotarizedconfirmed(uint256 txid)
         }    
         confirms=1 + pindex->GetHeight() - txheight;
     }
-
+    if (minconfirms>1) minimumconfirms=minconfirms;
+    else minimumconfirms=MIN_NON_NOTARIZED_CONFIRMS;
     if ((sp= komodo_stateptr(symbol,dest)) != 0 && (notarized=sp->NOTARIZED_HEIGHT) > 0 && txheight > sp->NOTARIZED_HEIGHT)  notarized=0;            
 #ifdef TESTMODE           
     notarized=0;
 #endif //TESTMODE
     if (notarized>0 && confirms > 1)
         return (true);
-    else if (notarized==0 && confirms >= MIN_NON_NOTARIZED_CONFIRMS)
+    else if (notarized==0 && confirms >= minimumconfirms)
         return (true);
     return (false);
 }
@@ -993,6 +1013,158 @@ bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,co
     return eval->Invalid("cclib CC must have evalcode between 16 and 127");
 }
 
+void OS_randombytes(unsigned char *x,long xlen);
+extern bits256 curve25519_basepoint9();
+
+int32_t _SuperNET_cipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 destpub,bits256 srcpriv,uint8_t *buf)
+{
+    memset(cipher,0,len+crypto_box_ZEROBYTES);
+    memset(buf,0,crypto_box_ZEROBYTES);
+    memcpy(buf+crypto_box_ZEROBYTES,message,len);
+    if ( crypto_box(cipher,buf,len+crypto_box_ZEROBYTES,nonce,destpub.bytes,srcpriv.bytes) != 0 )
+        return(-1);
+    return(len + crypto_box_ZEROBYTES);
+}
+
+uint8_t *_SuperNET_decipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 srcpub,bits256 mypriv)
+{
+    int32_t err;
+    if ( (0) )
+    {
+        int32_t z;
+        for (z=0; z<crypto_box_NONCEBYTES; z++)
+            fprintf(stderr,"%02x",nonce[z]);
+        fprintf(stderr," nonce, ");
+        for (z=0; z<32; z++)
+            fprintf(stderr,"%02x",mypriv.bytes[z]);
+        fprintf(stderr," priv\n");
+        for (z=0; z<32; z++)
+            fprintf(stderr,"%02x",srcpub.bytes[z]);
+        fprintf(stderr," srcpub ");
+        for (z=0; z<len; z++)
+            fprintf(stderr,"%02x",cipher[z]);
+        fprintf(stderr," cipher[%d]\n",len);
+    }
+    if ( (err= crypto_box_open(message,cipher,len,nonce,srcpub.bytes,mypriv.bytes)) == 0 )
+    {
+        message += crypto_box_ZEROBYTES;
+        len -= crypto_box_ZEROBYTES;
+        return(message);
+    }
+    return(0);
+}
+
+uint8_t *SuperNET_deciphercalc(uint8_t *senderpub,uint8_t **ptrp,int32_t *msglenp,bits256 privkey,uint8_t *cipher,int32_t cipherlen)
+{
+    bits256 srcpubkey; uint8_t *origptr,*nonce,*message; uint8_t *retptr = 0;
+    message = (uint8_t *)calloc(1,cipherlen);
+    *ptrp = message;
+    origptr = cipher;
+    memcpy(srcpubkey.bytes,cipher,sizeof(srcpubkey));
+    memcpy(senderpub,srcpubkey.bytes,sizeof(srcpubkey));
+    cipher += sizeof(srcpubkey);
+    cipherlen -= sizeof(srcpubkey);
+    nonce = cipher;
+    cipher += crypto_box_NONCEBYTES, cipherlen -= crypto_box_NONCEBYTES;
+    *msglenp = cipherlen - crypto_box_ZEROBYTES;
+    if ( *msglenp <= 0 || (retptr= _SuperNET_decipher(nonce,cipher,message,cipherlen,srcpubkey,privkey)) == 0 )
+    {
+        *msglenp = -1;
+        free(*ptrp);
+        *ptrp = 0;
+    }
+    return(retptr);
+}
+
+uint8_t *SuperNET_ciphercalc(uint8_t **ptrp,int32_t *cipherlenp,bits256 privkey,bits256 destpubkey,uint8_t *data,int32_t datalen)
+{
+    bits256 mypubkey; uint8_t *buf,*nonce,*cipher,*origptr,space[1024]; int32_t allocsize;
+    *ptrp = 0;
+    allocsize = (datalen + crypto_box_NONCEBYTES + crypto_box_ZEROBYTES + sizeof(mypubkey));
+    if ( allocsize > sizeof(space) )
+        buf = (uint8_t *)calloc(1,allocsize);
+    else
+    {
+        memset(space,0,sizeof(space));
+        buf = space;
+    }
+    cipher = (uint8_t *)calloc(1,allocsize);
+    *ptrp = cipher;
+    origptr = nonce = cipher;
+    mypubkey = curve25519(privkey,curve25519_basepoint9());
+    memcpy(cipher,mypubkey.bytes,sizeof(mypubkey));
+    nonce = &cipher[sizeof(mypubkey)];
+    OS_randombytes(nonce,crypto_box_NONCEBYTES);
+    cipher = &nonce[crypto_box_NONCEBYTES];
+    _SuperNET_cipher(nonce,cipher,data,datalen,destpubkey,privkey,buf);
+    if ( (0) )
+    {
+        int32_t z;
+        uint8_t message[8192];
+        for (z=0; z<32; z++)
+            fprintf(stderr,"%02x",mypubkey.bytes[z]);
+        fprintf(stderr," mypub\n");
+        if ( _SuperNET_decipher(nonce,cipher,message,datalen+crypto_box_ZEROBYTES,destpubkey,privkey) != 0 )
+        {
+            for (z=0; z<datalen; z++)
+                fprintf(stderr,"%02x",message[z+crypto_box_ZEROBYTES]);
+            fprintf(stderr," deciphered.%d\n",z);
+        } else fprintf(stderr,"decipher error\n");
+    }
+    if ( buf != space )
+        free(buf);
+    *cipherlenp = allocsize;
+    return(origptr);
+}
+
+uint8_t *komodo_DEX_encrypt(uint8_t **allocatedp,uint8_t *data,int32_t *datalenp,bits256 destpubkey,bits256 privkey)
+{
+     int32_t cipherlen; uint8_t *cipher;
+    cipher = SuperNET_ciphercalc(allocatedp,&cipherlen,privkey,destpubkey,data,*datalenp);
+    *datalenp = cipherlen;
+    return(cipher);
+}
+
+uint8_t *komodo_DEX_decrypt(uint8_t *senderpub,uint8_t **allocatedp,uint8_t *data,int32_t *datalenp,bits256 privkey)
+{
+    int32_t msglen;
+    *allocatedp = 0;
+    if ( (msglen= *datalenp) <= crypto_box_NONCEBYTES + crypto_box_ZEROBYTES + sizeof(bits256) )
+    {
+        *datalenp = 0;
+        return(0);
+    }
+    if ( (data= SuperNET_deciphercalc(senderpub,allocatedp,&msglen,privkey,data,*datalenp)) == 0 )
+    {
+        //printf("komodo_DEX_decrypt decrytion error\n");
+        *datalenp = 0;
+        return(0);
+    } else *datalenp = msglen;
+    return(data);
+}
+
+void komodo_DEX_privkey(bits256 &privkey)
+{
+    bits256 priv,hash;
+    Myprivkey(priv.bytes);
+    vcalc_sha256(0,hash.bytes,priv.bytes,32);
+    vcalc_sha256(0,privkey.bytes,hash.bytes,32);
+    memset(priv.bytes,0,sizeof(priv));
+    memset(hash.bytes,0,sizeof(hash));
+}
+
+void komodo_DEX_pubkey(bits256 &pubkey)
+{
+    bits256 privkey;
+    komodo_DEX_privkey(privkey);
+    /*{
+        char *bits256_str(char hexstr[65],bits256 x);
+        char str[65];
+        fprintf(stderr,"new DEX_privkey %s\n",bits256_str(str,privkey));
+    }*/
+    pubkey = curve25519(privkey,curve25519_basepoint9());
+    memset(privkey.bytes,0,sizeof(privkey));
+}
 
 // add probe vintx conditions for making CCSig in FinalizeCCTx
 void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, const uint8_t *priv)

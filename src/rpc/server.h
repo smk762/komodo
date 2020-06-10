@@ -241,22 +241,6 @@ extern UniValue submitblock(const UniValue& params, bool fHelp, const CPubKey& m
 extern UniValue estimatefee(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue estimatepriority(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue coinsupply(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokeninfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenlist(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenorders(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue mytokenorders(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenbalance(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue assetsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenask(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokencancelask(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenfillask(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue tokenconvert(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue heiraddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue heirfund(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue heiradd(const UniValue& params, bool fHelp, const CPubKey& mypk);
@@ -299,7 +283,6 @@ extern UniValue gatewaysdumpprivkey(const UniValue& params, bool fHelp, const CP
 extern UniValue gatewaysexternaladdress(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewaysbind(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewaysdeposit(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue gatewaysclaim(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewayswithdraw(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewayswithdrawsign(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewaysmarkdone(const UniValue& params, bool fHelp, const CPubKey& mypk);
@@ -310,6 +293,7 @@ extern UniValue channelslist(const UniValue& params, bool fHelp, const CPubKey& 
 extern UniValue channelsinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue channelsopen(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue channelspayment(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue channelsgeneratesecret(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue channelsclose(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue channelsrefund(const UniValue& params, bool fHelp, const CPubKey& mypk);
 //extern UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& mypk);
@@ -343,6 +327,7 @@ extern UniValue pegscreate(const UniValue& params, bool fHelp, const CPubKey& my
 extern UniValue pegsfund(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pegsget(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pegsredeem(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue pegsclose(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pegsliquidate(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pegsexchange(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pegsaccounthistory(const UniValue& params, bool fHelp, const CPubKey& mypk);
@@ -471,6 +456,20 @@ extern UniValue nspv_spend(const UniValue& params, bool fHelp, const CPubKey& my
 extern UniValue nspv_broadcast(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue nspv_logout(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue nspv_listccmoduleunspent(const UniValue& params, bool fHelp, const CPubKey& mypk);
+
+extern UniValue DEX_broadcast(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_anonsend(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_list(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_get(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_stats(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_orderbook(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_cancel(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_setpubkey(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_publish(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_subscribe(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_stream(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_streamsub(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue DEX_notarize(const UniValue& params, bool fHelp, const CPubKey& mypk);
 
 extern UniValue getblocksubsidy(const UniValue& params, bool fHelp, const CPubKey& mypk);
 

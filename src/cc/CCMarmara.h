@@ -23,8 +23,8 @@
 #define MARMARA_GROUPSIZE 60
 //#define MARMARA_MINLOCK (1440 * 3 * 30)
 //#define MARMARA_MAXLOCK (1440 * 24 * 30)
-#define MARMARA_VINS (CC_MAXVINS / 2)
-#define MARMARA_MAXENDORSERS    64
+#define MARMARA_VINS (CC_MAXVINS)
+#define MARMARA_MAXENDORSERS    1000
 
 #define MARMARA_LOOP_TOLERANCE 100
 
@@ -53,7 +53,20 @@ enum MARMARA_FUNCID : uint8_t {
     MARMARA_POOL = 'P'
 };
 
-const int32_t MARMARA_POS_IMPROVEMENTS_HEIGHT = 110777;
+// Marmara consensus update variables:
+const int32_t MARMARA_POS_IMPROVEMENTS_HEIGHT = 110777;  // first update with fixing consensus issues on March 2020
+const uint32_t MARMARA_2020JUNE_UPDATE_TIMESTAMP = 1593007200;  // second update (marmaraunlock/new loops) set to 2 weeks after with annual NN Season 4 on Jun 2020
+ 
+// return true if new version activation time is passed
+inline static bool MarmaraIs2020JuneUpdateActive(const Eval *eval)
+{
+    uint32_t latesttime = (eval == NULL ? GetLatestTimestamp(komodo_currentheight()) : GetLatestTimestamp(eval->GetCurrentHeight()));
+    if (latesttime >= MARMARA_2020JUNE_UPDATE_TIMESTAMP)
+        return true;
+    else
+        return false;
+}
+
 
 const uint8_t MARMARA_OPRET_VERSION = 1;
 const int32_t MARMARA_LOOP_MARKER_VOUT = 1;
@@ -67,11 +80,16 @@ const int32_t MARMARA_BATON_AMOUNT = 10000;             // baton amount
 const int32_t MARMARA_CREATETX_AMOUNT = 2 * MARMARA_BATON_AMOUNT;
 const int32_t MARMARA_LOOP_MARKER_AMOUNT = 10000;
 const int32_t MARMARA_OPEN_MARKER_AMOUNT = 10000;
+const int32_t MARMARA_SETTLE_VOUT = 0;
 
 
-inline bool IS_REMOTE(const CPubKey &remotepk) {
-    return remotepk.IsValid();
-}
+#define MARMARA_OPRET_VERSION_ANY 0
+#define MARMARA_OPRET_VERSION_DEFAULT 1
+#define MARMARA_OPRET_LOOP12_VERSION 2
+
+//inline bool IS_REMOTE(const CPubKey &remotepk) {
+//    return remotepk.IsValid();
+//}
 
 inline bool IsFuncidOneOf(uint8_t funcid, const std::set<uint8_t> & funcidSet)
 {
@@ -128,6 +146,7 @@ UniValue MarmaraListActivatedAddresses(CWallet *pwalletMain);
 std::string MarmaraReleaseActivatedCoins(CWallet *pwalletMain, const std::string &destaddr);
 UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight);
 std::string MarmaraUnlockActivatedCoins(CAmount amount);
+UniValue MarmaraReceiveList(const CPubKey &pk);
 
 bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
@@ -135,7 +154,7 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
 int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &txNew, int32_t height);
 uint8_t MarmaraDecodeCoinbaseOpretExt(const CScript &scriptPubKey, uint8_t &version, CPubKey &pk, int32_t &height, int32_t &unlockht, int32_t &matureht);
 uint8_t MarmaraDecodeCoinbaseOpret(const CScript &scriptPubKey, CPubKey &pk, int32_t &height, int32_t &unlockht);
-uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCreditLoopOpret &loopData);
+uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCreditLoopOpret &loopData, uint8_t checkVersion);
 int32_t MarmaraGetStakeMultiplier(const CTransaction & tx, int32_t nvout);
 int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, const CTransaction &staketx, const CTransaction &coinbase, int32_t height);
 void MarmaraGetStakingUtxos(std::vector<struct komodo_staking> &array, int32_t *numkp, int32_t *maxkp, uint8_t *hashbuf, int32_t height);

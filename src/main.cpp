@@ -920,7 +920,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
         else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
             return false;
-        } else if (whichType != TX_CRYPTOCONDITION && txout.IsDust(::minRelayTxFee)) {
+        } else if (!IsCryptoConditionsEnabled() && txout.IsDust(::minRelayTxFee)) {
             reason = "dust";
             return false;
         }
@@ -2129,7 +2129,30 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTxMemPoolEntry entry(tx, 0, GetTime(), 0, chainActive.Height(), mempool.HasNoInputsOf(tx), false, consensusBranchId);
     //fprintf(stderr, "adding %s to mempool from block %d\n",tx.GetHash().ToString().c_str(),chainActive.GetHeight());
+    
+    //CCoinsView dummy;
+    //CCoinsViewCache view(&dummy);
+
     pool.addUnchecked(tx.GetHash(), entry, false);
+    /*{
+        LOCK(pool.cs);
+
+        CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
+        view.SetBackend(viewMemPool);
+
+        if (!tx.IsCoinImport())
+        {
+            // Add memory address index
+            if (fAddressIndex) {
+                pool.addAddressIndex(entry, view);
+            }
+
+            // Add memory spent index
+            if (fSpentIndex) {
+                pool.addSpentIndex(entry, view);
+            }
+        }
+    }*/
     return true;
 }
 
@@ -4256,6 +4279,112 @@ static int64_t nTimeFlush = 0;
 static int64_t nTimeChainState = 0;
 static int64_t nTimePostConnect = 0;
 
+// @author dimxy
+// class to save mempool state to a temp mempool object
+// and auto restore it (in destructor)
+// this is used for assets chains where we need to restore mempool form the txns of a validated block 
+// and restore the previous mempool state if block is failed 
+class CMempoolStateSaver 
+{
+public: 
+    CMempoolStateSaver(const std::string & _caller) : isAssetChain(false), preventRestore(false), caller(_caller), savedMempool(::minRelayTxFee) {}
+    void Save(bool _isAssetChain) 
+    {
+        isAssetChain = _isAssetChain;
+        if (isAssetChain)
+        {
+            // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
+            LOCK2(cs_main, mempool.cs);
+
+            BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+                const CTransaction &tx = e.GetTx();
+                const uint256 &hash = tx.GetHash();
+                if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+                    savedMempool.addUnchecked(hash, e, true);
+                }
+            }
+        }
+    }
+
+    // fix mempool state, so it would not return it to the real mempool
+    // if the block was valid and connected 
+    void PreventRestore() 
+    {
+        if (isAssetChain)   {
+            savedMempool.clear();
+            preventRestore = true;
+        }
+    } 
+
+private:
+    void _RestoreState()
+    {
+        if (isAssetChain)
+        {
+            if (!preventRestore)
+            {
+                LOCK2(cs_main, mempool.cs);
+
+                // clear current mempool:
+
+                list<CTransaction> transactionsToRemove;
+                BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+                    const CTransaction &tx = e.GetTx();
+                    if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+                        transactionsToRemove.push_back(tx);
+                    }                
+                }
+                BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+                    list<CTransaction> removed;
+                    mempool.remove(tx, removed, false);
+                }            
+
+                // return the saved txns to mempool:
+
+                CCoinsView dummy;
+                CCoinsViewCache view(&dummy);
+                {
+                    CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
+                    view.SetBackend(viewMemPool);
+
+                    BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
+                        const CTransaction &tx = e.GetTx();
+                        const uint256 &hash = tx.GetHash();
+                        mempool.addUnchecked(hash, e, true);
+                        /* TODO: check why asserts for no inputs.prev.hash in coin cache here
+                        if (!tx.IsCoinImport())
+                        {
+                            // Add memory address index
+                            if (fAddressIndex) {
+                                mempool.addAddressIndex(e, view);
+                            }
+
+                            // Add memory spent index
+                            if (fSpentIndex) {
+                                mempool.addSpentIndex(e, view);
+                            }
+                        }*/
+                    }
+                    savedMempool.clear();
+                }
+            }
+        }
+    }
+public:
+    // auto restore the saved state
+    ~CMempoolStateSaver()
+    {
+        _RestoreState();
+    }
+
+private:
+    bool isAssetChain;
+    bool preventRestore;
+    CTxMemPool savedMempool;
+    std::string caller;
+};
+
+
 /**
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
@@ -4288,6 +4417,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
+
+        // save mempool state and clear it, for asset chains:
+        // The mempool will be restored to the initial state when mempoolState exits its scope (if any errors)
+        CMempoolStateSaver mempoolState(__func__);
+        mempoolState.Save(ASSETCHAINS_CC != 0);  
+
         bool rv = ConnectBlock(*pblock, state, pindexNew, view, false, true);
         KOMODO_CONNECTING = -1;
         GetMainSignals().BlockChecked(*pblock, state);
@@ -4308,6 +4443,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         LogPrint("bench", "  - Connect total: %.2fms [%.2fs]\n", (nTime3 - nTime2) * 0.001, nTimeConnectTotal * 0.000001);
         if ( KOMODO_NSPV_FULLNODE )
             assert(view.Flush());
+
+        mempoolState.PreventRestore(); // if block connected okay
     }
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint("bench", "  - Flush: %.2fms [%.2fs]\n", (nTime4 - nTime3) * 0.001, nTimeFlush * 0.000001);
@@ -5221,6 +5358,8 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
     if ( ASSETCHAINS_CC != 0 ) // CC contracts might refer to transactions in the current block, from a CC spend within the same block and out of order
     {
         int32_t i,j,rejects=0,lastrejects=0;
+        
+        /* dimxy: we already did this in CMempoolStateSaver:
         //fprintf(stderr,"put block's tx into mempool\n");
         // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
         LOCK2(cs_main,mempool.cs);
@@ -5237,7 +5376,8 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
             list<CTransaction> removed;
             mempool.remove(tx, removed, false);
-        }
+        }     */
+
         // add all the txs in the block to the empty mempool.
         // CC validation shouldnt (cant) depend on the state of mempool!
         while ( 1 )
@@ -5262,7 +5402,9 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                     } else rejects++;
                 }
                 // here we remove any txs in the temp mempool that were included in the block.
-                tmpmempool.remove(tx, removed, false);
+                // dimxy: we do not do this anymore as tmpmempool is used for saving the mempool state
+                // and if a block tx was in tmpmempool it would just try to add it to the mempool second time, no problem with this
+                // tmpmempool.remove(tx, removed, false);
             }
             //fprintf(stderr, "removed.%ld\n",removed.size());
             if ( rejects == 0 || rejects == lastrejects )
@@ -5314,6 +5456,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
 
     if ( ASSETCHAINS_CC != 0 )
     {
+        /* dimxy: mempool will be restored and cleared in CMempoolStateSaver:
         LOCK2(cs_main,mempool.cs);
         // here we add back all txs from the temp mempool to the main mempool.
         BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx)
@@ -5324,7 +5467,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         }
         //fprintf(stderr, "finished adding back. mempoolsize.%ld\n",mempool.size());
         // empty the temp mempool for next time.
-        tmpmempool.clear();
+        tmpmempool.clear();   */
     }
     return true;
 }
@@ -5781,6 +5924,12 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
     //fprintf(stderr,"ProcessBlock %d\n",(int32_t)chainActive.LastTip()->GetHeight());
     {
         LOCK(cs_main);
+
+        // save mempool state and clear it, for asset chains:
+        // (here mempool state should be restored after the exit of this code in {} as no block connect is done here, only checks) 
+        CMempoolStateSaver mempoolState(__func__);
+        mempoolState.Save(ASSETCHAINS_CC != 0);  // The mempool will be restored to the initial state when mempoolState exits its scope
+
         if ( chainActive.LastTip() != 0 )
             komodo_currentheight_set(chainActive.LastTip()->GetHeight());
         checked = CheckBlock(&futureblock,height!=0?height:komodo_block2height(pblock),0,*pblock, state, verifier,0);
@@ -5829,7 +5978,9 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
 
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex * const pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
 {
-    AssertLockHeld(cs_main);
+    // AssertLockHeld(cs_main);  <-- asserts if DEBUG_LOCKORDER is set
+    LOCK(cs_main);   // TestBlockValidity sometimes is called with no lock of cs_main, but we need this lock to restore the mempool state
+
     assert(pindexPrev == chainActive.Tip());
 
     CCoinsViewCache viewNew(pcoinsTip);
@@ -5838,6 +5989,12 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     indexDummy.SetHeight(pindexPrev->GetHeight() + 1);
     // JoinSplit proofs are verified in ConnectBlock
     auto verifier = libzcash::ProofVerifier::Disabled();
+
+    // save mempool state and clear it, for asset chains:
+    // (here mempool state should be restored after the exit of this code in {} as no block connect is done here, only checks) 
+    CMempoolStateSaver mempoolState(__func__);
+    mempoolState.Save(ASSETCHAINS_CC != 0); // the mempool state will be restored when mempoolState exits its scope
+
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev))
     {
@@ -7346,6 +7503,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 pfrom->fDisconnect = true;
                 return false;
             }
+            if ( KOMODO_DEX_P2P != 0 && (pfrom->nServices & NODE_DEXP2P) == 0 )
+            {
+                pfrom->fDisconnect = true;
+                return false;
+            }
         }
         // Mark this node as currently connected, so we update its timestamp later.
         if (pfrom->fNetworkNode) {
@@ -7553,6 +7715,16 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             std::vector<uint8_t> payload;
             vRecv >> payload;
             komodo_nSPVresp(pfrom,payload);
+        }
+        return(true);
+    }
+    else if ( strCommand == "DEX" )
+    {
+        if ( KOMODO_DEX_P2P != 0 )
+        {
+            std::vector<uint8_t> payload;
+            vRecv >> payload;
+            komodo_DEXmsg(pfrom,payload);
         }
         return(true);
     }
@@ -8346,11 +8518,14 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             }
             state.fShouldBan = false;
         }
+        if ( KOMODO_DEX_P2P != 0 && (pto->nServices & NODE_DEXP2P) != 0 )
+            komodo_DEXpoll(pto);
         if ( KOMODO_NSPV_SUPERLITE )
         {
             komodo_nSPV(pto);
             return(true);
         }
+
         BOOST_FOREACH(const CBlockReject& reject, state.rejects)
         pto->PushMessage("reject", (string)"block", reject.chRejectCode, reject.strRejectReason, reject.hashBlock);
         state.rejects.clear();
