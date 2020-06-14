@@ -59,11 +59,13 @@ bool bSpendZeroConfChange = true;
 bool fSendFreeTransactions = false;
 bool fPayAtLeastCustomFee = true;
 #include "komodo_defs.h"
+extern bool fResetUtxoCache;
 
 CBlockIndex *komodo_chainactive(int32_t height);
 extern std::string DONATION_PUBKEY;
 int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
 int tx_height( const uint256 &hash );
+void komodo_statefname(char *fname,char *symbol,char *str);
 
 /**
  * Fees smaller than this (in satoshi) are considered zero fee (for transaction creation)
@@ -1747,6 +1749,69 @@ bool CWallet::UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx)
     return !unchangedSproutFlag || !unchangedSaplingFlag;
 }
 
+bool komodo_cmputxocacheitems(const struct komodo_utxocacheitem& utxoin, const struct komodo_utxocacheitem& utxoout)
+{
+    return(utxoin.txid == utxoout.txid && utxoin.vout == utxoout.vout && utxoin.scriptPubKey == utxoout.scriptPubKey);
+}
+
+bool komodo_updateutxocache(CAmount nValue, CTxDestination notaryaddress, CTransaction* txin, int32_t vout)
+{
+    static CAmount value = 0; int32_t i;
+    if (!pwalletMain)
+        return false;
+    if ( value == 0 && nValue != 0 )
+        value = nValue;
+    if ( value == 0 )
+        return(false);
+
+    if ( nValue == 0 && vout > -1 && txin != NULL )
+    {
+        struct komodo_utxocacheitem delutxo;
+        delutxo.txid = txin->GetHash();
+        delutxo.vout = vout;
+        delutxo.scriptPubKey = txin->vout[vout].scriptPubKey;
+        for (i = 0; i < vIguanaUTXOs.size(); i++) 
+            if ( komodo_cmputxocacheitems(vIguanaUTXOs[i], delutxo) )
+                break;
+        if ( i < vIguanaUTXOs.size() )
+        {
+            vIguanaUTXOs.erase(vIguanaUTXOs.begin()+i);
+            LogPrintf("removed %s/%i from utxo cache", delutxo.txid.GetHex().c_str(), delutxo.vout);
+        }
+    }
+    else 
+    {
+        vIguanaUTXOs.clear();
+        vector<COutput> vecOutputs;
+        pwalletMain->AvailableCoins(vecOutputs, false, NULL, false, false);
+        for ( auto out : vecOutputs )
+        {
+            CTxDestination address; struct komodo_utxocacheitem newutxo;
+            if ( out.tx->GetDepthInMainChain() < 1 )
+                continue;
+            if ( out.tx->IsCoinBase() )
+                continue;
+            if ( !out.fSpendable )
+                continue;
+            if ( !ExtractDestination(out.tx->vout[out.i].scriptPubKey, address) || address != notaryaddress )
+                continue;
+            if ( out.tx->vout[out.i].nValue != value )
+                continue;
+            newutxo.txid = out.tx->GetHash();
+            newutxo.vout = out.i;
+            newutxo.scriptPubKey = out.tx->vout[out.i].scriptPubKey;
+            for (i = 0; i < vIguanaUTXOs.size(); i++) 
+                if ( komodo_cmputxocacheitems(vIguanaUTXOs[i], newutxo) )
+                    break;    
+            if ( i == vIguanaUTXOs.size() )
+                vIguanaUTXOs.push_back(newutxo);
+            if ( vIguanaUTXOs.size() >= KOMODO_MAX_UTXOCACHE_SIZE )
+                break;
+        }
+    }
+    return(vIguanaUTXOs.size() != 0);
+}
+
 /**
  * Add a transaction to the wallet, or update it.
  * pblock is optional, but should be provided if the transaction is known to be in a block.
@@ -1799,6 +1864,9 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
                                     fIsFromWhiteList = true;
                                     // std::cerr << __FUNCTION__ << " tx." << tx.GetHash().ToString() << " passed wallet filter! whitelistaddress." << EncodeDestination(dest) << std::endl;
                                     LogPrintf("tx.%s passed wallet filter! whitelistaddress.%s\n", tx.GetHash().ToString(),EncodeDestination(dest));
+                                    pthread_mutex_lock(&utxocache_mutex);
+                                    komodo_updateutxocache(0, dest, &prevTx, txin.prevout.n);
+                                    pthread_mutex_unlock(&utxocache_mutex);
                                     break;
                                 }
                             }
