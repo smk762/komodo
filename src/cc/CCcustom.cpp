@@ -25,6 +25,7 @@
 #include "CCHeir.h"
 #include "CCchannels.h"
 #include "CCOracles.h"
+#include "CCOraclesV2.h"
 #include "CCPrices.h"
 #include "CCPegs.h"
 #include "CCMarmara.h"
@@ -32,6 +33,7 @@
 #include "CCGateways.h"
 #include "CCtokens.h"
 #include "CCImportGateway.h"
+#include "CCKogs.h"
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -253,6 +255,28 @@ uint8_t ImportGatewayCCpriv[32] = { 0x65, 0xef, 0x27, 0xeb, 0x3d, 0xb0, 0xb4, 0x
 #undef FUNCNAME
 #undef EVALCODE
 
+// Kogs
+#define FUNCNAME IsKogsInput
+#define EVALCODE EVAL_KOGS
+const char *KogsCCaddr = "RD3UQofnS7uqa9Z3cKC8cb9c95VvoxnPyo";
+const char *KogsNormaladdr = "RVH1M8ZmT2nPB7MW6726RRsxjY7D5FKQHa";
+char KogsCChexstr[67] = { "03c27db737b92826d37fb43f3fda3d1b1d258cd28b68fe4be605457bf9dd9e0218" };
+uint8_t KogsCCpriv[32] = { 0x9f, 0x9a, 0x85, 0x6d, 0xd9, 0x2b, 0xfe, 0xcb, 0xa1, 0x18, 0xca, 0x51, 0x06, 0x80, 0x87, 0x7f, 0x87, 0xaa, 0xef, 0x9c, 0x6e, 0xa0, 0x21, 0x21, 0xed, 0x1c, 0x89, 0x96, 0xc6, 0xe6, 0x93, 0x21 };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+// OraclesV2
+#define FUNCNAME IsOraclesV2Input
+#define EVALCODE EVAL_ORACLESV2
+const char *OraclesV2CCaddr = "RBPhbiVUoyvDuLc7ZdFHqzar8t8jtQdKC4";
+const char *OraclesV2Normaladdr = "RPKeRunEv8FwfFGxU3SoC1W4gEDgUBqUaS";
+char OraclesV2CChexstr[67] = { "02c03cdb8822daa30241cc137fbbee76ead55d7f92e667df1c8ce56e6e50824386" };
+uint8_t OraclesV2CCpriv[32] = { 0x18, 0x6A, 0xE7, 0x8C, 0x0E, 0x03, 0x3C, 0x5D, 0x6C, 0xE7, 0xE9, 0x8E, 0x0A, 0xCA, 0x94, 0x69, 0x6A, 0xEC, 0x5C, 0x84, 0x09, 0x28, 0xD4, 0x37, 0x17, 0xAF, 0xEF, 0x35, 0x3A, 0x0E, 0x19, 0x3F };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
     CPubKey pk; int32_t i; uint8_t pub33[33],check33[33],hash[32]; char CCaddr[64],checkaddr[64],str[67];
@@ -300,8 +324,9 @@ int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 
 struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 {
-    // important to clear because not all members are always initialized!
-    memset(cp, '\0', sizeof(*cp));
+    // memset(cp, '\0', sizeof(*cp)); <-- it is not good to initialize objects like this. 
+	// special init func now used:
+    cp->init_to_zeros();
 
     cp->evalcode = evalcode;
     switch ( evalcode )
@@ -443,6 +468,22 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 			cp->validate = ImportGatewayValidate;
 			cp->ismyvin = IsImportGatewayInput;
 			break;
+		case EVAL_KOGS:
+			strcpy(cp->unspendableCCaddr, KogsCCaddr);
+			strcpy(cp->normaladdr, KogsNormaladdr);
+			strcpy(cp->CChexstr, KogsCChexstr);
+			memcpy(cp->CCpriv, KogsCCpriv, 32);
+			cp->validate = KogsValidate;
+			cp->ismyvin = IsKogsInput;
+			break;
+        case EVAL_ORACLESV2:
+            strcpy(cp->unspendableCCaddr,OraclesV2CCaddr);
+            strcpy(cp->normaladdr,OraclesV2Normaladdr);
+            strcpy(cp->CChexstr,OraclesV2CChexstr);
+            memcpy(cp->CCpriv,OraclesV2CCpriv,32);
+            cp->validate = OraclesV2Validate;
+            cp->ismyvin = IsOraclesV2Input;
+            break;
         default:
             if ( CClib_initcp(cp,evalcode) < 0 )
                 return(0);
