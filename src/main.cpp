@@ -1396,7 +1396,7 @@ bool CheckTransaction(uint32_t tiptime,const CTransaction& tx, CValidationState 
                 {
                     static uint32_t counter;
                     if ( counter++ < 100 )
-                        printf("MEMPOOL: banned tx.%d being used at ht.%d vout.%d\n",k,(int32_t)chainActive.Tip()->GetHeight(),j);
+                        LogPrintf("MEMPOOL: banned tx.%d being used at ht.%d vout.%d\n",k,(int32_t)chainActive.Tip()->GetHeight(),j);
                     return(false);
                 }
             }
