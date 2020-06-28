@@ -3912,13 +3912,13 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                         result.push_back(Pair("error", "cant settle immature creditloop"));
                         return(result);
                     }
-                    /*else if ((loopData.matures & 1) == 0)
+                    else if ((loopData.matures & 1) == 0)
                     {
                         // discontinued:
                         //result.push_back(Pair("result", "error"));
                         //result.push_back(Pair("error", "cant automatic settle even maturity heights"));
                         //return(result);
-                    }*/
+                    }
                     else if (numDebtors < 1)
                     {
                         result.push_back(Pair("result", "error"));
@@ -4189,7 +4189,7 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
         CTransaction settlementtx;
         //TODO: temp UniValue result legacy code, change to remove UniValue
 
-        if (chainActive.LastTip()->GetHeight() >= matures + 5)   //check height if matured 
+        if (chainActive.LastTip()->GetHeight() >= matures)   //check height if matured 
         {
             LOGSTREAM("marmara", CCLOG_DEBUG2, stream << funcname << " " << "miner calling settlement for batontxid=" << batontxid.GetHex() << std::endl);
 
@@ -4737,7 +4737,7 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                         result.push_back(Pair("settlement", settletxid.GetHex()));
                         result.push_back(Pair("createtxid", creditloop[0].GetHex()));
                         result.push_back(Pair("remainder", ValueFromAmount(loopData.remaining)));
-                        result.push_back(Pair("matures", static_cast<int64_t>(loopData.matures)));  // used true "height" instead
+                        //result.push_back(Pair("settled", static_cast<int64_t>(loopData.matures)));  // used true "height" instead
                         result.push_back(Pair("pubkey", HexStr(loopData.pk)));
                         Getscriptaddress(normaladdr, CScript() << ParseHex(HexStr(loopData.pk)) << OP_CHECKSIG);
                         result.push_back(Pair("settledToNormalAddress", normaladdr));
@@ -4756,7 +4756,7 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                         result.push_back(Pair("settlement", settletxid.GetHex()));
                         result.push_back(Pair("createtxid", creditloop[0].GetHex()));
                         result.push_back(Pair("remainder", ValueFromAmount(loopData.remaining)));
-                        result.push_back(Pair("matures", static_cast<int64_t>(loopData.matures))); // used true "height" instead
+                        //result.push_back(Pair("settled", static_cast<int64_t>(loopData.matures))); // used true "height" instead
                         Getscriptaddress(vout0addr, lasttx.vout[0].scriptPubKey);
                         result.push_back(Pair("txidaddr", vout0addr));  //TODO: why 'txidaddr'?
                         if (lasttx.vout.size() > 1)
@@ -5037,16 +5037,14 @@ UniValue MarmaraInfo(const CPubKey &refpk, int32_t firstheight, int32_t lastheig
 
         Getscriptaddress(mynormaladdr, CScript() << ParseHex(HexStr(vrefpk)) << OP_CHECKSIG);
         result.push_back(Pair("myNormalAddress", mynormaladdr));
-        result.push_back(Pair("myPubkeyNormalAmount", ValueFromAmount(CCaddress_balance(mynormaladdr, 0, true)))); // show utxo in mempool to match pWalletMain->GetBalance()
-        if (!isRemote && pwalletMain && pwalletMain->HaveKey(refpk.GetID())) { // show wallet balance if refpk is mine
+        result.push_back(Pair("myPubkeyNormalAmount", ValueFromAmount(CCaddress_balance(mynormaladdr, 0)))); 
+        if (!isRemote && pwalletMain && pwalletMain->HaveKey(refpk.GetID())) {
             LOCK2(cs_main, pwalletMain->cs_wallet);
             result.push_back(Pair("myWalletNormalAmount", ValueFromAmount(pwalletMain->GetBalance())));
         }
 
         GetCCaddress1of2(cp, activated1of2addr, Marmarapk, vrefpk);
         result.push_back(Pair("myCCActivatedAddress", activated1of2addr));
-
-        // show only confirmed:
         result.push_back(Pair("myActivatedAmount", ValueFromAmount(AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, 0, MARMARA_VINS))));
         result.push_back(Pair("myTotalAmountOnActivatedAddress", ValueFromAmount(CCaddress_balance(activated1of2addr, 1))));
 
