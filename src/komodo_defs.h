@@ -37,6 +37,7 @@
 #define ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF 27
 #define ASSETCHAINS_STAKED_MIN_POW_DIFF 536900000 // 537000000 537300000
 #define _COINBASE_MATURITY 100
+#define KOMODO_MAX_UTXOCACHE_SIZE 64
 
 // KMD Notary Seasons 
 // 1: May 1st 2018 1530921600
@@ -454,6 +455,8 @@ extern int32_t ASSETCHAINS_EARLYTXIDCONTRACT;
 extern int32_t ASSETCHAINS_STAKED_SPLIT_PERCENTAGE;
 int tx_height( const uint256 &hash );
 extern std::vector<std::string> vWhiteListAddress;
+extern std::vector<struct komodo_utxocacheitem> vIguanaUTXOs;
+extern pthread_mutex_t utxocache_mutex;
 extern std::map <std::int8_t, int32_t> mapHeightEvalActivate;
 void komodo_netevent(std::vector<uint8_t> payload);
 int32_t getacseason(uint32_t timestamp);

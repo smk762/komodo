@@ -127,4 +127,11 @@ struct komodo_state
     uint32_t RTbufs[64][3]; uint64_t RTmask;
 };
 
+struct komodo_utxocacheitem
+{
+    uint256 txid;
+    int32_t vout;
+    CScript scriptPubKey;
+};
+
 #endif /* KOMODO_STRUCTS_H */
