@@ -360,6 +360,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/tokensrpc.cpp \
   rpc/pricesrpc.cpp \
   rpc/marmararpc.cpp \
+  rpc/ccutilsrpc.cpp \
   script/serverchecker.cpp \
   script/sigcache.cpp \
   timedata.cpp \
