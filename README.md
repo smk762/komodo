@@ -45,6 +45,8 @@ More details are available under http://marmara.io/
 
 ## Getting Started
 
+- To install Marmara Credit Loops, follow the [Marmara Credit Loops Instructions](https://github.com/marmarachain/Marmara-v.1.0/blob/master/MCLInstallationGuide.md).
+- To use Marmara Credit Loops, follow the [Marmara Credit Loops Usage Guidelines](https://github.com/marmarachain/Marmara-v.1.0/blob/master/MCLUsageGuide.md).
 
 ## Marmara Evolvement
 ### Marmara v.1.0.1 Hardfork Change log
