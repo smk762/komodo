@@ -100,7 +100,7 @@ sudo ufw allow ssh
 sudo ufw allow "OpenSSH"
 sudo ufw allow 33824
 ```
-#Important Notice
+# Important Notice
 This software is based on **Komodo** which is based on **zcash** and is considered experimental and is continously undergoing heavy development. 
 **Marmara Credit Loops is experimental and a work-in-progress.** Use at your own risk.
 
