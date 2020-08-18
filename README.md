@@ -38,6 +38,7 @@ This is the official Marmara Credit Loops sourcecode repository based on https:/
 ## About this Project
 
 Marmara, or Marmara Credit Loops is a peer-to-peer credit creation and circulation platform using Komodo Blockchain Technologies that is based on Zcash and has been extended by its innovative consensus algorithm called dPoW which utilizes Bitcoin's hashrate to store Komodo blockchain information into the Bitcoin blockchain. 
+
 The main purpose of Marmara is to solve non-redemption problem in peer-to-peer credit creation and circulation. It is the first system in the World to solve universal bouncing problem in post-dated cheques and promissory notes used in many countries. The system may be easily used by communities adopting similar culture. It is originally a trust based system.
 
 Millennium Version has 100 % collateralization. So there is no more bouncing problem in credits or cheques. This is achieved through staking coins by means of activation, i.e. timelocking. When activated in credit loops, coins give you 3x boosted staking power.
@@ -45,7 +46,7 @@ More details are available under http://marmara.io/
 
 ## Getting Started
 
-- To install Marmara Credit Loops, follow the [Marmara Credit Loops Instructions](https://github.com/marmarachain/Marmara-v.1.0/blob/master/MCLInstallationGuide.md).
+- To install/download Marmara Credit Loops, follow the [Marmara Credit Loops Instructions](https://github.com/marmarachain/Marmara-v.1.0/blob/master/MCLInstallationGuide.md).
 - To use Marmara Credit Loops, follow the [Marmara Credit Loops Usage Guidelines](https://github.com/marmarachain/Marmara-v.1.0/blob/master/MCLUsageGuide.md).
 
 ## Marmara Evolvement
