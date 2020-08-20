@@ -3,7 +3,23 @@
 
 # Marmara v.1.0.1 Usage Guide
 
-## Creating A Pubkey and Launching MCL
+## Getting Started
+
+If you have downloaded and build MCL from source then you can run the commands under ```cd komodo/src``` directory. According to your configuration, ```komodod``` and ```komodo-cli```  may be under different directories. Hence, find where they are and change directory accordingly.
+
+Launch the Marmara Chain with the following parameters:
+```
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
+```
+Wait until it connects and synchronizes. You may check if the node sychronized to the chain by executing the following: 
+```
+./komodo-cli -ac_name=MCL getinfo
+```
+**TO DO: Provide the output of getinfo and explain it**
+
+**TO DO: information about bootstrap may be added here**
+
+## Creating A Pubkey and Launching MCL with pubkey
 To use Marmara Credit Loops, a user must have a **pubkey** and launch the chain with a **pubkey**. Otherwise, any mining or staking in the smart chain would be in vain. Since all mined or staked coins will also be sent to this address. 
 
 In order to get a pubkey, launch the Marmara Chain with the normal launch parameters and execute the [getnewaddress](https://developers.komodoplatform.com/basic-docs/smart-chains/smart-chain-api/wallet.html#getnewaddress) API command.
@@ -22,78 +38,22 @@ This will return a json object with many properties. In the properties one can s
 ```	
 "pubkey": "DO_NOT_USE_THIS_ADDRESS019n79b0921a1be6d3ca6f9e8a050mar17eb845fe46b9d756"
 ```
-This will be your MCL pubkey; you must now indicate it to the daemon.
+**TO DO: Provide the output of validateaddress and explain it**
 
-IN order do this, first stop the daemon.
+This will be your MCL pubkey, make sure to note it. You must now indicate it to the daemon.
+
+In order do this, first stop the daemon.
 ```	
 ./komodo-cli -ac_name=MCL stop
 ```
 Then relaunch your daemon using the required parameters, and make sure to include your pubkey as an additional parameter. For example:
 ```	
-./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -pubkey=DO_NOT_USE_THIS_ADDRESS019n79b0921a1be6d3ca6f9e8a050mar17eb845fe46b9d756
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 -pubkey=DO_NOT_USE_THIS_ADDRESS019n79b0921a1be6d3ca6f9e8a050mar17eb845fe46b9d756 &
 ```
+ 
 
 
-Wallet adresi ve Pubkey alıp - pubkey ile Staking mod da başlatma.
 
-#### chain e start verelim. 
-
-src klasorümüze girelim.
-
-`cd ~/komodo/src`
-  
-#### chaine ilk startımızı verelim.
-
-```
-./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
-```
-
-#### ardından bir wallet adresi oluşturup not alınız. 
-
-`./komodo-cli -ac_name=MCL getnewaddress`
-
-#### örnek wallet adresi 
-
-`RJajZNoEcCRD5wduqt1tna5DiLqiBC23bo`
-
-#### oluşturulan wallet adresini alttaki komuttaki "wallet-adresi" yazan kısma girip enter'a basıyoruz 
-
-```
-./komodo-cli -ac_name=MCL validateaddress "wallet-adresi"
-```
-
-
-#### bu şekilde çıktı alacaksınız. ve burada yazan pubkey i de not alınız. 
-```
-{
-	": true,
-	"address": "RJajZNoEcCRD5wduqt1tna5DiLqiBC23bo",
-	"scriptPubKey": "76a914660a7b5c8ec61c59b80cf8f2184adf8a24bccb6b88ac",
-	"segid": 52,
-	"ismine": true,
-	"iswatchonly": false,
-	"isscript": false,
-	"pubkey": "03a3f641c4679c579b20c597435e8a32d50091bfc56e28303f5eb26fb1cb1eee72",
-	"iscompressed": true,
-	"account": ""
-}
-```
-
- oluşturulan pubkeyi niz : 03a3f641c4679c579b20c597435e8a32d50091bfc56e28303f5eb26fb1cb1eee72
-
-#### Chaini  durduruyoruz. 
-```
-./komodo-cli -ac_name=MCL stop
-```
-#### Sırada pubkeyimizi kullanarak chain i Mining modun da çalıştırmak. 
-
-Aşağıki komutu kullanarak çalıştırabilirsiniz. aşağıda ki "-pubkey=pubkeyburayagirilecek"  kısma not aldığınız pubkeyi giriniz. ve alttaki komut satırını düzenledikten sonra "cd komodo/src" klasorüne girip yapıştırın.
-	
-```
-./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 -gen -genproclimit=-1 -pubkey="pubkeyburayagirilecek" &
-```
-
-#### Ve artık mining halde çalışıyor sunucumuz. 
 
 #### mining dökümlerinize aşağıdaki kodları kullanarak ulaşabilirsiniz. 
 
