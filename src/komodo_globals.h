@@ -31,7 +31,7 @@ uint64_t komodo_maxallowed(int32_t baseid);
 int32_t komodo_bannedset(int32_t *indallvoutsp,uint256 *array,int32_t max);
 int32_t komodo_checkvout(int32_t vout,int32_t k,int32_t indallvouts);
 
-pthread_mutex_t komodo_mutex,staked_mutex;
+pthread_mutex_t komodo_mutex,staked_mutex,utxocache_mutex;
 
 #define KOMODO_ELECTION_GAP 2000    //((ASSETCHAINS_SYMBOL[0] == 0) ? 2000 : 100)
 #define KOMODO_ASSETCHAIN_MAXLEN 65
@@ -43,6 +43,9 @@ struct knotaries_entry *Pubkeys;
 struct komodo_state KOMODO_STATES[34];
 const uint32_t nStakedDecemberHardforkTimestamp = 1576840000; //December 2019 hardfork 12/20/2019 @ 11:06am (UTC)
 const int32_t nDecemberHardforkHeight = 1670000;   //December 2019 hardfork
+
+const uint32_t nS4Timestamp = 1592146800; //dPoW Season 4 2020 hardfork Sunday, June 14th, 2020 03:00:00 PM UTC
+const int32_t nS4HardforkHeight = 1922000;   //dPoW Season 4 2020 hardfork Sunday, June 14th, 2020 
 
 #define _COINBASE_MATURITY 100
 int COINBASE_MATURITY = _COINBASE_MATURITY;//100;
@@ -57,6 +60,7 @@ int8_t ASSETCHAINS_ADAPTIVEPOW;
 bool VERUS_MINTBLOCKS;
 std::vector<uint8_t> Mineropret;
 std::vector<std::string> vWhiteListAddress;
+std::vector<struct komodo_utxocacheitem> vIguanaUTXOs;
 char NOTARYADDRS[64][64];
 char NOTARY_ADDRESSES[NUM_KMD_SEASONS][64][64];
 

@@ -423,6 +423,7 @@ extern UniValue jumblr_resume(const UniValue& params, bool fHelp, const CPubKey&
 
 extern UniValue getrawtransaction(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rcprawtransaction.cpp
 extern UniValue listunspent(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue dpowlistunspent(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue lockunspent(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue listlockunspent(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue createrawtransaction(const UniValue& params, bool fHelp, const CPubKey& mypk);

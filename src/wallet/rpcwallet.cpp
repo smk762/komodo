@@ -60,6 +60,7 @@
 #include <numeric>
 
 #include "komodo_defs.h"
+#include "komodo_structs.h"
 #include <string.h>
 
 using namespace std;
@@ -72,14 +73,18 @@ const std::string ADDR_TYPE_SPROUT = "sprout";
 const std::string ADDR_TYPE_SAPLING = "sapling";
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 extern int32_t KOMODO_INSYNC;
+extern pthread_mutex_t utxocache_mutex;
 uint32_t komodo_segid32(char *coinaddr);
 int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
 int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime); // from ac_private chains only
 CBlockIndex *komodo_getblockindex(uint256 hash);
+void komodo_statefname(char *fname,char *symbol,char *str);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 std::string CCerror;
+
+bool fResetUtxoCache = false;
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -924,6 +929,53 @@ UniValue signmessage(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return EncodeBase64(&vchSig[0], vchSig.size());
 }
 
+bool komodo_updateutxocache(CAmount nValue, CTxDestination notaryaddress, CTransaction* txin, int32_t vout);
+
+UniValue dpowlistunspent(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+    if (fHelp || params.size() < 2)
+        throw runtime_error(
+            "dpowlistunspent satoshies address (reset)\n"
+            "Only for Notary Nodes, returns a single utxo of the requested size from the specified address from the utxo cache.\n"
+            );
+
+    CAmount value = params[0].get_int();
+    if ( value < 10000 )
+        value = 10000;
+
+    CTxDestination dest;
+    if (!IsValidDestination(dest = DecodeDestination(params[1].get_str())))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Komodo address: ") + params[1].get_str());
+
+    UniValue results(UniValue::VARR);
+
+    struct komodo_utxocacheitem utxo;
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    pthread_mutex_lock(&utxocache_mutex);
+    if ( vIguanaUTXOs.size() == 0 && !komodo_updateutxocache(value, dest, (CTransaction*)NULL, -1) )
+    {
+        pthread_mutex_unlock(&utxocache_mutex);
+        return(results);
+    }
+    utxo = vIguanaUTXOs[0];
+    vIguanaUTXOs.erase(vIguanaUTXOs.begin());
+    pthread_mutex_unlock(&utxocache_mutex);
+
+    UniValue entry(UniValue::VOBJ);
+    entry.push_back(Pair("txid", utxo.txid.GetHex()));
+    entry.push_back(Pair("vout", utxo.vout));
+    entry.push_back(Pair("generated", false));
+    entry.push_back(Pair("address", params[1].get_str()));
+    entry.push_back(Pair("amount", ValueFromAmount(value)));
+    entry.push_back(Pair("scriptPubKey", HexStr(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end())));
+    entry.push_back(Pair("spendable", true));
+    results.push_back(entry);
+
+    return results;
+}
+
 UniValue getreceivedbyaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -1340,7 +1392,7 @@ UniValue movecmd(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (!walletdb.TxnBegin())
         throw JSONRPCError(RPC_DATABASE_ERROR, "database error");
 
-    int64_t nNow = GetAdjustedTime();
+    int64_t nNow = GetTime();
 
     // Debit
     CAccountingEntry debit;
@@ -4506,7 +4558,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    THROW_IF_SYNCING(KOMODO_INSYNC);
+    //THROW_IF_SYNCING(KOMODO_INSYNC);
 
     // Check that the from address is valid.
     auto fromaddress = params[0].get_str();
@@ -4818,7 +4870,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp, const CPubKey& myp
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    THROW_IF_SYNCING(KOMODO_INSYNC);
+    //THROW_IF_SYNCING(KOMODO_INSYNC);
 
     // Validate the from address
     auto fromaddress = params[0].get_str();
@@ -5080,7 +5132,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp, const CPubKey& myp
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    THROW_IF_SYNCING(KOMODO_INSYNC);
+    //THROW_IF_SYNCING(KOMODO_INSYNC);
 
     bool useAnyUTXO = false;
     bool useAnySprout = false;
@@ -8458,6 +8510,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listsinceblock",           &listsinceblock,           false },
     { "wallet",             "listtransactions",         &listtransactions,         false },
     { "wallet",             "listunspent",              &listunspent,              false },
+    { "wallet",             "dpowlistunspent",          &dpowlistunspent,          false },
     { "wallet",             "lockunspent",              &lockunspent,              true  },
     { "wallet",             "move",                     &movecmd,                  false },
     { "wallet",             "sendfrom",                 &sendfrom,                 false },

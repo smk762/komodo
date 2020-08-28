@@ -59,11 +59,13 @@ bool bSpendZeroConfChange = true;
 bool fSendFreeTransactions = false;
 bool fPayAtLeastCustomFee = true;
 #include "komodo_defs.h"
+extern bool fResetUtxoCache;
 
 CBlockIndex *komodo_chainactive(int32_t height);
 extern std::string DONATION_PUBKEY;
 int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
 int tx_height( const uint256 &hash );
+void komodo_statefname(char *fname,char *symbol,char *str);
 
 /**
  * Fees smaller than this (in satoshi) are considered zero fee (for transaction creation)
@@ -1607,7 +1609,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
         bool fInsertedNew = ret.second;
         if (fInsertedNew)
         {
-            wtx.nTimeReceived = GetAdjustedTime();
+            wtx.nTimeReceived = GetTime();
             wtx.nOrderPos = IncOrderPosNext(pwalletdb);
 
             wtx.nTimeSmart = wtx.nTimeReceived;
@@ -1747,12 +1749,74 @@ bool CWallet::UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx)
     return !unchangedSproutFlag || !unchangedSaplingFlag;
 }
 
+bool komodo_cmputxocacheitems(const struct komodo_utxocacheitem& utxoin, const struct komodo_utxocacheitem& utxoout)
+{
+    return(utxoin.txid == utxoout.txid && utxoin.vout == utxoout.vout && utxoin.scriptPubKey == utxoout.scriptPubKey);
+}
+
+bool komodo_updateutxocache(CAmount nValue, CTxDestination notaryaddress, CTransaction* txin, int32_t vout)
+{
+    static CAmount value = 0; int32_t i;
+    if (!pwalletMain)
+        return false;
+    if ( value == 0 && nValue != 0 )
+        value = nValue;
+    if ( value == 0 )
+        return(false);
+
+    if ( nValue == 0 && vout > -1 && txin != NULL )
+    {
+        struct komodo_utxocacheitem delutxo;
+        delutxo.txid = txin->GetHash();
+        delutxo.vout = vout;
+        delutxo.scriptPubKey = txin->vout[vout].scriptPubKey;
+        for (i = 0; i < vIguanaUTXOs.size(); i++) 
+            if ( komodo_cmputxocacheitems(vIguanaUTXOs[i], delutxo) )
+                break;
+        if ( i < vIguanaUTXOs.size() )
+        {
+            vIguanaUTXOs.erase(vIguanaUTXOs.begin()+i);
+            LogPrintf("removed %s/%i from utxo cache", delutxo.txid.GetHex().c_str(), delutxo.vout);
+        }
+    }
+    else 
+    {
+        vIguanaUTXOs.clear();
+        vector<COutput> vecOutputs;
+        pwalletMain->AvailableCoins(vecOutputs, false, NULL, false, false);
+        for ( auto out : vecOutputs )
+        {
+            CTxDestination address; struct komodo_utxocacheitem newutxo;
+            if ( out.tx->GetDepthInMainChain() < 1 )
+                continue;
+            if ( out.tx->IsCoinBase() )
+                continue;
+            if ( !out.fSpendable )
+                continue;
+            if ( !ExtractDestination(out.tx->vout[out.i].scriptPubKey, address) || address != notaryaddress )
+                continue;
+            if ( out.tx->vout[out.i].nValue != value )
+                continue;
+            newutxo.txid = out.tx->GetHash();
+            newutxo.vout = out.i;
+            newutxo.scriptPubKey = out.tx->vout[out.i].scriptPubKey;
+            for (i = 0; i < vIguanaUTXOs.size(); i++) 
+                if ( komodo_cmputxocacheitems(vIguanaUTXOs[i], newutxo) )
+                    break;    
+            if ( i == vIguanaUTXOs.size() )
+                vIguanaUTXOs.push_back(newutxo);
+            if ( vIguanaUTXOs.size() >= KOMODO_MAX_UTXOCACHE_SIZE )
+                break;
+        }
+    }
+    return(vIguanaUTXOs.size() != 0);
+}
+
 /**
  * Add a transaction to the wallet, or update it.
  * pblock is optional, but should be provided if the transaction is known to be in a block.
  * If fUpdate is true, existing transactions will be updated.
  */
-
 bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate)
 {
     {
@@ -1770,49 +1834,51 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
                 return false;
             }
         }
-        static std::string NotaryAddress; static bool didinit;
-        if ( !didinit && NotaryAddress.empty() && NOTARY_PUBKEY33[0] != 0 )
-        {
-            didinit = true;
-            char Raddress[64]; 
-            pubkey2addr((char *)Raddress,(uint8_t *)NOTARY_PUBKEY33);
-            NotaryAddress.assign(Raddress);
-            vWhiteListAddress = mapMultiArgs["-whitelistaddress"];
-            if ( !vWhiteListAddress.empty() )
-            {
-                fprintf(stderr, "Activated Wallet Filter \n  Notary Address: %s \n  Adding whitelist address's:\n", NotaryAddress.c_str());
-                for ( auto wladdr : vWhiteListAddress )
-                    fprintf(stderr, "    %s\n", wladdr.c_str());
-            }
-        }
         if (fExisted || IsMine(tx) || IsFromMe(tx) || sproutNoteData.size() > 0 || saplingNoteData.size() > 0)
         {
-            // wallet filter for notary nodes. Enables by setting -whitelistaddress= as startup param or in conf file (works same as -addnode byut with R-address's)
-            if ( !tx.IsCoinBase() && !vWhiteListAddress.empty() && !NotaryAddress.empty() ) 
+            /**
+             * New implementation of wallet filter code.
+             *
+             * If any vout of tx is belongs to wallet (IsMine(tx) == true) and tx
+             * is not from us, mean, if every vin not belongs to our wallet
+             * (IsFromMe(tx) == false), then tx need to be checked through wallet
+             * filter. If tx haven't any vin from trusted / whitelisted address it
+             * shouldn't be added into wallet.
+            */
+
+            if (!mapMultiArgs["-whitelistaddress"].empty())
             {
-                int numvinIsOurs = 0, numvinIsWhiteList = 0;  
-                for (size_t i = 0; i < tx.vin.size(); i++)
+                if (IsMine(tx) && !tx.IsCoinBase() && !IsFromMe(tx))
                 {
-                    uint256 hash; CTransaction txin; CTxDestination address;
-                    if ( myGetTransaction(tx.vin[i].prevout.hash,txin,hash) && ExtractDestination(txin.vout[tx.vin[i].prevout.n].scriptPubKey, address) )
+                    bool fIsFromWhiteList = false;
+                    BOOST_FOREACH(const CTxIn& txin, tx.vin)
                     {
-                        if ( CBitcoinAddress(address).ToString() == NotaryAddress )
-                            numvinIsOurs++;
-                        for ( auto wladdr : vWhiteListAddress )
+                        if (fIsFromWhiteList) break;
+                        uint256 hashBlock; CTransaction prevTx; CTxDestination dest;
+                        if (GetTransaction(txin.prevout.hash, prevTx, hashBlock, true) && ExtractDestination(prevTx.vout[txin.prevout.n].scriptPubKey,dest))
                         {
-                            if ( CBitcoinAddress(address).ToString() == wladdr )
+                            BOOST_FOREACH(const std::string& strWhiteListAddress, mapMultiArgs["-whitelistaddress"])
                             {
-                                //fprintf(stderr, "We received from whitelisted address.%s\n", wladdr.c_str());
-                                numvinIsWhiteList++;
+                                if (EncodeDestination(dest) == strWhiteListAddress)
+                                {
+                                    fIsFromWhiteList = true;
+                                    // std::cerr << __FUNCTION__ << " tx." << tx.GetHash().ToString() << " passed wallet filter! whitelistaddress." << EncodeDestination(dest) << std::endl;
+                                    LogPrintf("tx.%s passed wallet filter! whitelistaddress.%s\n", tx.GetHash().ToString(),EncodeDestination(dest));
+                                    pthread_mutex_lock(&utxocache_mutex);
+                                    komodo_updateutxocache(0, dest, &prevTx, txin.prevout.n);
+                                    pthread_mutex_unlock(&utxocache_mutex);
+                                    break;
+                                }
                             }
                         }
                     }
+                    if (!fIsFromWhiteList)
+                    {
+                        // std::cerr << __FUNCTION__ << " tx." << tx.GetHash().ToString() << " is NOT passed wallet filter!" << std::endl;
+                        LogPrintf("tx.%s is NOT passed wallet filter!\n", tx.GetHash().ToString());
+                        return false;
+                    }
                 }
-                // Now we know if it was a tx sent to us, by either a whitelisted address, or ourself.
-                if ( numvinIsOurs != 0 )
-                    fprintf(stderr, "We sent from address: %s vins: %d\n",NotaryAddress.c_str(),numvinIsOurs);
-                if ( numvinIsOurs == 0 && numvinIsWhiteList == 0 )
-                    return false;
             }
 
             CWalletTx wtx(this,tx);
@@ -2187,6 +2253,18 @@ CAmount CWallet::GetChange(const CTxOut& txout) const
 
 typedef vector<unsigned char> valtype;
 unsigned int HaveKeys(const vector<valtype>& pubkeys, const CKeyStore& keystore);
+
+unsigned int HaveKeys(const vector<valtype>& pubkeys, const CKeyStore& keystore)
+{
+    unsigned int nResult = 0;
+    BOOST_FOREACH(const valtype& pubkey, pubkeys)
+    {
+        CKeyID keyID = CPubKey(pubkey).GetID();
+        if (keystore.HaveKey(keyID))
+            ++nResult;
+    }
+    return nResult;
+}
 
 bool CWallet::IsMine(const CTransaction& tx)
 {
