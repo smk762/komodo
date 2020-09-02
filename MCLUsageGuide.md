@@ -76,7 +76,7 @@ Then relaunch your daemon using the required parameters, and make sure to includ
 
 >In the command above, if the parameter ```-genproclimit``` is set to 0 such as ```-gen -genproclimit=0``` launches the Marmara Chain with Staking mode on and stakes on the Activated coin.  
 
-##dumpprivkey
+## dumpprivkey
 
 The `dumpprivkey` method reveals the private key corresponding to the indicated address.
 The command for this is given below for demo purposes.
@@ -88,7 +88,7 @@ The response of the command gives the private address as in the example below:
 DONOTUSETHISxxxxxxxxxxxxxxxxx7KkCmRnnSg7iXvRUqhYoxC9Y
 ```
 
-##importprivkey
+## importprivkey
 
 The `importprivkey` method adds a private key (as returned by dumpprivkey) to your wallet. The command may take several arguments as described in [here](https://developers.komodoplatform.com/basic-docs/smart-chains/smart-chain-api/wallet.html#importprivkey).
 The simplest form of command for this is given below for demo purposes.
@@ -105,7 +105,7 @@ Now, the wallet address can be validated through ```validateaddress``` to get th
 ``` 
 After getting the respective MCL pubkey from the response of the command above, relaunch the Marmara Chain with that pubkey.  
 
-##Checking the staking/mining mode of your node in Marmara Chain
+## Checking the staking/mining mode of your node in Marmara Chain
 
 The following command helps to check the mode of the node:
 ```	 
@@ -142,7 +142,7 @@ This returns a JSON object:
 ```
 > Note that ```"staking": true``` _**will not be of use**_ if you have no activated coins!
 
-##Sending Coins to an Address
+## Sending Coins to an Address
 One may directly send a payment to a given address by issuing the following command. The payment is made based on the **Normal Amount** available on the respective wallet.
 The amount is rounded to the nearest 0.00000001. A transaction fee is deducted for the transaction being made from one's Normal Amount.
 ```
@@ -151,7 +151,7 @@ The amount is rounded to the nearest 0.00000001. A transaction fee is deducted f
 > **Note:** This command directly sends payment to the specified address and should be used carefully. As, the payment sent through this method cannot be redeemed later. 
 
 
-##Reaching Details about Node and Wallet in Marmara Chain
+## Reaching Details about Node and Wallet in Marmara Chain
 The following commands are useful for getting details about your node and wallet.
 - ```getinfo``` 
 ```
