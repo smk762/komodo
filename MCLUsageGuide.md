@@ -76,7 +76,7 @@ Then relaunch your daemon using the required parameters, and make sure to includ
 
 >In the command above, if the parameter ```-genproclimit``` is set to 0 such as ```-gen -genproclimit=0``` launches the Marmara Chain with Staking mode on and stakes on the Activated coin.  
 
- ##dumpprivkey
+##dumpprivkey
 
 The `dumpprivkey` method reveals the private key corresponding to the indicated address.
 The command for this is given below for demo purposes.
