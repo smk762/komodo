@@ -74,9 +74,8 @@ Then relaunch your daemon using the required parameters, and make sure to includ
 >In the command above, if the parameter ```-genproclimit``` is set to -1 such as ```-gen -genproclimit=-1``` launches the Marmara Chain with the whole CPU.
 
 >In the command above, if the parameter ```-genproclimit``` is set to 0 such as ```-gen -genproclimit=0``` launches the Marmara Chain with Staking mode on and stakes on the Activated coin.  
- 
- ##dumpprivkey 
 
+ ##dumpprivkey
 The dumpprivkey method reveals the private key corresponding to the indicated address.
 The command for this is given below for demo purposes.
 ```
@@ -86,6 +85,7 @@ The response of the command gives the private address as in the example below:
 ```
 DONOTUSETHISxxxxxxxxxxxxxxxxx7KkCmRnnSg7iXvRUqhYoxC9Y
 ```
+
 ##importprivkey
 The `importprivkey` method adds a private key (as returned by dumpprivkey) to your wallet. The command may take several arguments as described in [here](https://developers.komodoplatform.com/basic-docs/smart-chains/smart-chain-api/wallet.html#importprivkey).
 The simplest form of command for this is given below for demo purposes.
