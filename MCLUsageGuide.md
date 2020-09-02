@@ -40,6 +40,7 @@ Now, relaunch the Marmara Chain by using the following command:
 ```
 
 ## Creating A Pubkey and Launching MCL with pubkey
+
 To use Marmara Credit Loops, a user must have a **pubkey** and launch the chain with a **pubkey**. Otherwise, any mining or staking in the smart chain would be in vain. Since all mined or staked coins will also be sent to this address. 
 
 In order to get a pubkey, launch the Marmara Chain with the normal launch parameters and execute the [getnewaddress](https://developers.komodoplatform.com/basic-docs/smart-chains/smart-chain-api/wallet.html#getnewaddress) API command.
@@ -76,6 +77,7 @@ Then relaunch your daemon using the required parameters, and make sure to includ
 >In the command above, if the parameter ```-genproclimit``` is set to 0 such as ```-gen -genproclimit=0``` launches the Marmara Chain with Staking mode on and stakes on the Activated coin.  
 
  ##dumpprivkey
+
 The `dumpprivkey` method reveals the private key corresponding to the indicated address.
 The command for this is given below for demo purposes.
 ```
@@ -87,6 +89,7 @@ DONOTUSETHISxxxxxxxxxxxxxxxxx7KkCmRnnSg7iXvRUqhYoxC9Y
 ```
 
 ##importprivkey
+
 The `importprivkey` method adds a private key (as returned by dumpprivkey) to your wallet. The command may take several arguments as described in [here](https://developers.komodoplatform.com/basic-docs/smart-chains/smart-chain-api/wallet.html#importprivkey).
 The simplest form of command for this is given below for demo purposes.
 ```
@@ -103,6 +106,7 @@ Now, the wallet address can be validated through ```validateaddress``` to get th
 After getting the respective MCL pubkey from the response of the command above, relaunch the Marmara Chain with that pubkey.  
 
 ##Checking the staking/mining mode of your node in Marmara Chain
+
 The following command helps to check the mode of the node:
 ```	 
 ./komodo-cli -ac_name=MCL getgenerate
