@@ -17,7 +17,27 @@ Wait until it connects and synchronizes. You may check if the node sychronized t
 ./komodo-cli -ac_name=MCL getinfo
 ```
 
-**TO DO: information about bootstrap may be added here**
+**_Indexing (Optional step for fastening up the process of downloading all the blocks)_**
+
+Newcomers need to wait for all the blocks to be downloaded to their machine. To fasten up this process, [bootstrap](https://eu.bootstrap.dexstats.info/MCL-bootstrap.tar.gz) may be downloaded and used. 
+
+Stop the Marmara blockchain by executing the following command:
+```	
+./komodo-cli -ac_name=MCL stop
+```
+
+To install bootstrap from the command line, execute the following command:
+```
+wget https://eu.bootstrap.dexstats.info/MCL-bootstrap.tar.gz
+```
+Now, in the following command, tar will extract the bootstrap contents in a specific directory as shown below:
+```
+tar -xvf MCL-bootstrap.tar.gz -C .komodo/MCL
+```
+Now, relaunch the Marmara Chain by using the following command:
+```
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
+```
 
 ## Creating A Pubkey and Launching MCL with pubkey
 To use Marmara Credit Loops, a user must have a **pubkey** and launch the chain with a **pubkey**. Otherwise, any mining or staking in the smart chain would be in vain. Since all mined or staked coins will also be sent to this address. 
