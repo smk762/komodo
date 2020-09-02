@@ -58,7 +58,6 @@ This will return a json object with many properties. In the properties one can s
 ```	
 "pubkey": "DO_NOT_USE_THIS_ADDRESS019n79b0921a1be6d3ca6f9e8a050mar17eb845fe46b9d756"
 ```
-**TO DO: Provide the output of validateaddress and explain it**
 
 This will be your MCL pubkey, make sure to note it. You must now indicate it to the daemon.
 
@@ -93,10 +92,15 @@ The simplest form of command for this is given below for demo purposes.
 ```
 ./komodo-cli -ac_name=MCL importprivkey "DONOTUSETHISxxxxxxxxxxxxxxxxx7KkCmRnnSg7iXvRUqhYoxC9Y"
 ```
-The response of the command gives the public address as in the demo response below:
+The response of the command gives the wallet address as in the demo response below:
 ```
 R9z796AehK5b6NCPeVkGUHSpJnawerf8oP
 ```
+Now, the wallet address can be validated through ```validateaddress``` to get the MCL pubkey:
+```
+./komodo-cli -ac_name=MCL validateaddress R9z796AehK5b6NCPeVkGUHSpJnawerf8oP
+``` 
+After getting the respective MCL pubkey from the response of the command above, relaunch the Marmara Chain with that pubkey.  
 
 ##Checking the staking/mining mode of your node in Marmara Chain
 The following command helps to check the mode of the node:
@@ -190,8 +194,10 @@ To see the activated coins, use ```marmarainfo``` command provided earlier and s
 ```
 In the same way explained earlier, this transaction needs to be validated through the ```sendrawtrasaction``` command given above. For this purpose, copy the hex returned by ```marmaraunlock``` command and use it with ```sendrawtrasaction``` command.
   
-
------------------------------------
+- ```listaddressgroupings``` is used to list the pairs of wallet addresses and respective normal amounts in them. The usage is given in the command below.
+```
+./komodo-cli -ac_name=MCL listaddressgroupings
+```
 
 ## How to Make Marmara Credit Loops
 The current Marmara Credit loops currently work based on Protocol 1 which is in 100% collateralization mode. 100 % collateralization is made by issuer on behalf of both himself/herself and holder. Both issuer and holder have the 3x staking chance to get blockchain rewards. Issuer has the 3x staking chance until maturity date of credit whereas holder has the 3x staking chance until he/she endorses/transfers the credit to a new holder who will continue staking with the issuer. 
