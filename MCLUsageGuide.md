@@ -70,6 +70,8 @@ Then relaunch your daemon using the required parameters, and make sure to includ
 ```	
 ./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 -gen -genproclimit=1 -pubkey=DO_NOT_USE_THIS_ADDRESS019n79b0921a1be6d3ca6f9e8a050mar17eb845fe46b9d756 &
 ```
+>```-genproclimit``` sets the number of threads to be used for mining. 
+
 >In the command above, if the parameter ```-genproclimit``` is set to 1 such as ```-gen -genproclimit=1``` launches the Marmara Chain with single (1) CPU. Note that you can set this to any number of cores such as 3. 
 
 >In the command above, if the parameter ```-genproclimit``` is set to -1 such as ```-gen -genproclimit=-1``` launches the Marmara Chain with the whole CPU.
