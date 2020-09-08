@@ -160,20 +160,21 @@ Aşağıdaki komut ile **normal koinlerinizden (NormalCoin)** dilediğiniz bir a
 > **Önemli Not:** Bu komut kullanıcı tarafından belirtilen adrese direk olarak ödeme yapılmasını sağlamakta olup, bu ödeme sonrasında geri çekilemez.
 
 
-## Reaching Details about Node and Wallet in Marmara Chain
-The following commands are useful for getting details about your node and wallet.
+## Marmara Zinciri ve Cüzdan Bilgilerine Erişim için Önemli Komutlar
+Aşağıda yer alan komutlar zincire bağlanan cüzdanınınız ve zincirle ilgili önemli ayrıntılara erişim için kullanılmaktadır. 
+
 - ```getinfo``` 
 ```
 ./komodo-cli -ac_name=MCL getinfo
 ```
 
-```getinfo``` command returns important details such as the version of MARMARA through ```"version"```; synchronization status of your node through ```synced``` (this parameter's value is true if the parameters "blocks" and "longestchain" are equal ); difficulty of the chain through ```"difficulty"```; number of nearest connected nodes to the chain through ```"connections"```; the pubkey with which you are connected to the chain through ```"pubkey":```
+```getinfo``` komutu Marmara Zinciri ile ilgili önemli bilgileri göstermektedir. Döndürülen parametrelerden ```"version"``` MARMARA'nın versiyonunu, ```synced``` zincire bağlanan makinenin senkronizasyon durumunu (Senkronizasyonun sağlandığı bilgisi "blocks" ve "longestchain" parametrelerinin değerlerinin eşit olmasından anlaşılmaktadır), ```"difficulty"``` ile zincirin zorluk değeri, ```"connections"``` parametresi ile zincire bağlı olan makinenize en yakın zincirdeki diğer nodların sayısını, ```"pubkey":``` ile zincire bağlı olan pubkey gösterilmektedir.
 
 - ```getpeerinfo``` 
 ```
 ./komodo-cli -ac_name=MCL getpeerinfo  
 ```
-This command returns detailed information on nearest connected nodes to the chain around your node.
+```getpeerinfo```  komutu, Marmara Zincirine bağlı olan makinenize en yakın zincire bağlı nodların detay bilgilerini gösterir.  
 - ```marmarainfo```  
 ```
 ./komodo-cli -ac_name=MCL marmarainfo 0 0 0 0 pubkey
