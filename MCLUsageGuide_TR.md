@@ -177,9 +177,9 @@ Aşağıda yer alan komutlar zincire bağlanan cüzdanınınız ve zincirle ilgi
 ```getpeerinfo```  komutu, Marmara Zincirine bağlı olan makinenize en yakın zincire bağlı nodların detay bilgilerini gösterir.  
 - ```marmarainfo```  
 ```
-./komodo-cli -ac_name=MCL marmarainfo 0 0 0 0 pubkey
+./komodo-cli -ac_name=MCL marmarainfo 0 0 0 0 PubkeyAdresiniz
 ```
-```marmarainfo``` command returns important details such as the normal amount in the pubkey through ```"myPubkeyNormalAmount"```; the activated amount through  ```"myActivatedAmount"```; the details of credit loops made through ```"Loops"```; the total amount locked in credit loops through ```"TotalLockedInLoop"```; the number of credit loops closed through ```"numclosed"```; and the details of credit loops closed through ```"closed"```.
+```marmarainfo``` komutu ayrıntılı cüzdan incelemede kullanılmakta olup,  ```"myPubkeyNormalAmount"``` parametresi cüzdanınızda bulunan normal MARMARA miktarını;  ```"myActivatedAmount"``` parametresi aktif MARMARA koin miktarını; ```"Loops"``` parametresi gerçekleştirilen kredi döngülerini; ```"TotalLockedInLoop"``` parametresi kredi döngülerinde kilitlenen toplam MARMARA koin miktarını; ```"numclosed"``` parametresi toplamda kapatılan kredi döngüsü sayısını; ve ```"closed"``` parametresi kapatılan kredi döngülerinin detaylarını vermektedir.
 
 ##Activating and Deactivating Coins
 
