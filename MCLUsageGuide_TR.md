@@ -216,12 +216,13 @@ In the same way explained earlier, this transaction needs to be validated throug
 ## How to Make Marmara Credit Loops
 The current Marmara Credit loops currently work based on Protocol 1 which is in 100% collateralization mode. 100 % collateralization is made by issuer on behalf of both himself/herself and holder. Both issuer and holder have the 3x staking chance to get blockchain rewards. Issuer has the 3x staking chance until maturity date of credit whereas holder has the 3x staking chance until he/she endorses/transfers the credit to a new holder who will continue staking with the issuer. 
 The Credit loops can be made using only activated coins.
-### Terminology
-**Issuer:** The person who first creates a credit in a credit loop. It is the person who forms the first node in the credit loop. The credit may be collateralized 100% or with even zero-collateralization until maturity date of a credit.
+### Kavramlar
 
-**Bearer (Holder):** The last node in a credit loop is always called bearer (holder). When someone transfers a credit in a loop, that node becomes immediately an endorser.
+**Keşideci:** Krediyi ilk çıkaran ve kredi döngüsünü başlatan kişi.
 
-**Endorser:** All other nodes that fall between the issuer, which is the first node in the credit loop, and the last node, and transfer the credit to the next node.
+**Hamil:**  Kredi Döngüsündeki son düğüm. Keşideci başta olmak üzere diğer tüm düğümler kredi vadesi dolduğunda hamil olan düğümün borcunu ödemekle mükelleftir. Hamil dışında hepsi döngüde alışveriş sırasında mal ve hizmet almışlardır. Ancak hamil mal ve hizmet sağladığı halde elinde sadece kredi mevcuttur. İşte diğer tüm düğümler bu mal ve hizmetin karşılığı olan parayı hamil olan düğüme öderler.
+
+**Ciranta:** Kredi Döngüsündeki ilk düğüm olan Keşideci ile son düğüm olan hamil arasında kalan tüm düğümler Ciranta yaptıkları işlem ise cirolama olarak adlandırılır. Cirantalar mal ve hizmet karşılığında krediyi bir sonraki düğüme aktarırlar.
 
 **Maturity:** The time a credit expires. It is measured as blocks in estimation. The block per day is 1440 (60 blocks an hour times 24 hours a day). Suppose a credit is for 100 days, the maturity is 1440x100, i.e. 144,000 blocks.
 
@@ -236,9 +237,12 @@ The Credit loops can be made using only activated coins.
 **Dispute Expiry:** It is grace period for solving non-redemption problem in credit loops in protocol 2. An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
 
 ###Important Commands for Making Credit Loops
+Kredi döngüsü başlatma ve aktarma işlemlerini gerçekleştirmek için eşler (p2p) karşılıklı birbirinin public key adresini bilmek zorundadırlar.
+
 - ```marmararecieve```
 
-This command is used to get a credit from an issuer or an endorser. When asking a credit from an issuer, i.e. the first node, it has a unique use. In other nodes, it is the same.
+Kredi talebinde bulunma. Ciranta ve hamil durumda olanlar kullanırlar.
+When asking a credit from an issuer, i.e. the first node, it has a unique use. In other nodes, it is the same.
 
 **Scenario 1:** Two nodes are making a credit loop for the first time. This credit loop may be created for a sale of a good or service in the market. In such case, the holder (the one selling the product/service) should request for a credit from the issuer (the one paying the product/service) by writing down the following command:
 ```
