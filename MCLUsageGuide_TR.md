@@ -236,29 +236,29 @@ The Credit loops can be made using only activated coins.
 
 **Dispute Expiry:** It is grace period for solving non-redemption problem in credit loops in protocol 2. An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
 
-###Important Commands for Making Credit Loops
+### Kredi Döngüsü Oluşturmak için Önemli Komutlar
 Kredi döngüsü başlatma ve aktarma işlemlerini gerçekleştirmek için eşler (p2p) karşılıklı birbirinin public key adresini bilmek zorundadırlar.
 
 - ```marmararecieve```
 
-Kredi talebinde bulunma. Ciranta ve hamil durumda olanlar kullanırlar.
-When asking a credit from an issuer, i.e. the first node, it has a unique use. In other nodes, it is the same.
+Kredi talebinde bulunma komutu. Ciranta ve hamil durumda olanlar kullanırlar.
 
-**Scenario 1:** Two nodes are making a credit loop for the first time. This credit loop may be created for a sale of a good or service in the market. In such case, the holder (the one selling the product/service) should request for a credit from the issuer (the one paying the product/service) by writing down the following command:
+
+**Birinci Senaryo:** İki düğüm ilk defa bir Marmara Kredi döngüsü başlatacaklardır. Bu döngü mal veya hizmet karşılığında başlatılacak olabilir. Bu durumda, Hamil (mal veya hizmeti satan, alacaklı kişi), Keşideciye (mal veya hizmeti satın alacak kişiye) kredi talebinde bulunur. Bu talep aşağıdaki komutun, komut satırına yazılması ile gerçekleşir: 
 ```
 ./komodo-cli -ac_name=MCL marmarareceive senderpk amount currency matures '{"avalcount":"n"}'
 ```
->```senderpk``` is the pubkey address of the issuer (the one paying the product/service)
+>```senderpk``` Keşidecinin (mal veya hizmeti satın alacak kişinin) pubkey adresidir.
 >
->```amount``` is the payment amount. Please note that this amount should be available in activated fund of the issuer and if not then must be activated thru ```marmaralock``` command by th issuer.
+>```amount``` ödeme miktarını belirtir. Bu miktar Keşidecinin aktif hesabında yer alan miktardır. Eğer aktif hesapta belirtilen miktarda koin yoksa bu durumda ```marmaralock``` komutu ile Keşideci tarafından normal hesabından aktifleştirilmesi gerekmektedir.
 >
->```currency``` is MARMARA
+>```currency``` ödeme birimi olan MARMARA'dır.
 >
->```matures``` is the time that respective credit expires, 60 blocks an hour times 24 hours a day making 1440 blocks per day.
+>```matures``` kredinin vaadinin dolduğu vakti gösterir. Bir saatte çıkan blok sayısı 60 olup, 24 saatlik zaman diliminde çıkan toplam blok sayısı 1440'tır. Kredi bitiş süresi buna göre hesaplanıp bu parametreye karşılık olarak girilmelidir.
 >
->```'{"avalcount":"n"}'``` is the number of avalists i.e. '{"avalcount":"0"}' for protocol 1. 
+>```'{"avalcount":"n"}'``` avalistlerin sayısıdır. Marmara Kredi Döngülerinin birinci protokülü bazında avalist sayısı sıfıra eşittir. Örnekle, bu parametre için sıfır değeri verilmelidir. '{"avalcount":"0"}'
 
-
+Yukarıda verilen komut sonuç olarak bir hex kodu oluşturup döndürür. BU hex kodunun Hamil tarafından onaylanması gerekir, bunun 
 This marmarareceive call generates a hex code. This HEXCODE needs to be verified by the holder by executing the ```sendrawtransaction``` command:
 ```
 ./komodo-cli -ac_name=MCL sendrawtransaction HEXCODE
@@ -276,14 +276,16 @@ Once this command is executed, a transaction id named ```txid``` gets generated.
 
 - ```marmaraissue```
 
-This command is only used by issuer, the first node to create/issue a credit. By this, a credit is also transferred to the first holder, i.e. the second node. Many of the parameters for a credit loop is decided between the issuer and the first holder.
-```marmaraissue``` method takes in the following arguments: 
+```marmaraissue``` komutu yalnızca krediyi var eden ilk düğüm olan Keşideci tarafından kullanılır. Bu komut ile kredi, döngüde yer alan ikinci düğüm olan Hamile transfer edilir. Kredi döngüsüne ait koşullar Keşideci ile Hamil arasında belirlenmektedir. 
+
+Kredi döngüsünün koşullarını içeren komut aşağıda yer almaktadır:
+
 ```
 ./komodo-cli -ac_name=MCL marmaraissue receiverpk '{"avalcount":"n", "autosettlement":"true"|"false", "autoinsurance":"true"|"false", "disputeexpires":"offset", "EscrowOn":"true"|"false", "BlockageAmount":"amount" }' requesttxid
 ```
->```receiverpk``` is the pubkey of the receiver which is the holder.
+>```receiverpk``` krediyi alacak olan Hamilin pubkey adresidir.
 >
->```"avalcount":"n"``` is the number of avalists i.e. '{"avalcount":"0"}' for protocol 1. 
+>```"avalcount":"n"``` avalistlerin sayısıdır. Marmara Kredi Döngüleri Protokol 1 kapsamında bu parametre için sıfır değeri verilmelidir.
 >
 >``` "autosettlement":"true"|"false"``` AutoSettlement is true due to 100% collateralization in Protocol 1.
 >
