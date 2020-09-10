@@ -327,7 +327,10 @@ UniValue marmara_info(const UniValue& params, bool fHelp, const CPubKey& remotep
 
     if ( fHelp || params.size() < 4 || params.size() > 6 )
     {
-        throw runtime_error("marmarainfo firstheight lastheight minamount maxamount [pk currency]\n");
+        throw runtime_error("marmarainfo firstheight lastheight minamount maxamount [pk currency]\n"
+                            "returns open and closed loops (if pk is set than returns loops only for this pk\n"
+                            "the returned info amount might be constrained by setting first and last height and min and max amount\n"
+                            "if those params are 0 than returns all avaiable data\n");
     }
     if ( ensure_CCrequirements(EVAL_MARMARA) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
@@ -371,6 +374,51 @@ UniValue marmara_info(const UniValue& params, bool fHelp, const CPubKey& remotep
     result = MarmaraInfo(pk, firstheight, lastheight, minamount, maxamount, currency);
     return(result);
 }
+
+UniValue marmara_holderloops(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ); 
+    CPubKey pk; 
+    std::vector<uint8_t> vpk; 
+    int64_t minamount,maxamount; 
+    int32_t firstheight,lastheight; 
+    std::string currency;
+
+    if (fHelp || params.size() < 5 || params.size() > 6)
+    {
+        throw runtime_error("marmaraholderloops firstheight lastheight minamount maxamount pk [currency]\n" 
+                            "returns open and closed loops where the pr is the holder\n"
+                            "the returned info amount might be constrained by setting first and last height and min and max amount\n"
+                            "if those params are 0 than returns all avaiable data\n");
+    }
+    if ( ensure_CCrequirements(EVAL_MARMARA) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+
+    firstheight = atol(params[0].get_str().c_str());
+    lastheight = atol(params[1].get_str().c_str());
+    minamount = AmountFromValue(params[2]);
+    maxamount = AmountFromValue(params[3]);
+    if (params.size() >= 5) 
+    {
+        vpk = ParseHex(params[4].get_str().c_str());
+        if (vpk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+        {
+            ERR_RESULT("invalid pubkey parameter");
+            return result;
+        }
+        pk = pubkey2pk(vpk);
+        if (!pk.IsFullyValid())
+        {
+            ERR_RESULT("invalid pubkey parameter");
+            return result;
+        }
+        if (params.size() == 6)
+            currency = params[5].get_str();
+    }
+    result = MarmaraHolderLoops(pk, firstheight, lastheight, minamount, maxamount, currency);
+    return(result);
+}
+
 
 UniValue marmara_creditloop(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
@@ -595,10 +643,10 @@ UniValue marmara_receivelist(const UniValue& params, bool fHelp, const CPubKey& 
     if (ensure_CCrequirements(EVAL_MARMARA) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    if (fHelp || params.size() != 1)
+    if (fHelp || (params.size() < 1 || params.size() > 2))
     {
-        throw runtime_error("marmarareceivelist pubkey\n"
-            "list unspent marmarareceive transactions on pubkey\n" "\n");
+        throw runtime_error("marmarareceivelist pubkey [maxage]\n"
+            "list unspent marmarareceive transactions for the pubkey, the txns' age is not older than the 'maxage' (in 'blocktime periods, default is 24*60)\n" "\n");
     }
 
     vuint8_t vpk = ParseHex(params[0].get_str().c_str());
@@ -615,8 +663,11 @@ UniValue marmara_receivelist(const UniValue& params, bool fHelp, const CPubKey& 
         ERR_RESULT("invalid pubkey parameter");
         return result;
     }
+    int32_t maxage = MARMARA_REQUEST_MAX_AGE_DEFAULT;
+    if (params.size() == 2) 
+        maxage = atoi(params[1].get_str().c_str());
 
-    UniValue result = MarmaraReceiveList(pk);    
+    UniValue result = MarmaraReceiveList(pk, maxage);    
     return result;
 }
 
@@ -694,6 +745,22 @@ UniValue marmara_decodetxdata(const UniValue& params, bool fHelp, const CPubKey&
     return result;
 }
 
+// marmaraaddressamountstat rpc impl, return PoS statistics
+UniValue marmara_amountstat(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    CCerror.clear();
+    if (fHelp || params.size() != 0)
+    {
+        throw runtime_error("marmaraamountstat\n"
+            "returns amounts\n"
+            "\n");
+    }
+
+    UniValue result = MarmaraAmountStat();
+    RETURN_IF_ERROR(CCerror);
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -714,7 +781,9 @@ static const CRPCCommand commands[] =
     { "marmara",       "marmaraposstat",   &marmara_posstat,      true },
     { "marmara",       "marmaraunlock",   &marmara_unlock,      true },
     { "marmara",       "marmarareceivelist",   &marmara_receivelist,      true },
-    { "marmara",       "marmaradecodetxdata",   &marmara_decodetxdata,      true }
+    { "marmara",       "marmaradecodetxdata",   &marmara_decodetxdata,      true },
+    { "marmara",       "marmaraamountstat",   &marmara_amountstat,      true },
+    { "marmara",       "marmaraholderloops",   &marmara_holderloops,      true }
 };
 
 void RegisterMarmaraRPCCommands(CRPCTable &tableRPC)
