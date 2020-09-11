@@ -213,8 +213,9 @@ In the same way explained earlier, this transaction needs to be validated throug
 ./komodo-cli -ac_name=MCL listaddressgroupings
 ```
 
-## How to Make Marmara Credit Loops
-The current Marmara Credit loops currently work based on Protocol 1 which is in 100% collateralization mode. 100 % collateralization is made by issuer on behalf of both himself/herself and holder. Both issuer and holder have the 3x staking chance to get blockchain rewards. Issuer has the 3x staking chance until maturity date of credit whereas holder has the 3x staking chance until he/she endorses/transfers the credit to a new holder who will continue staking with the issuer. 
+## Marmara Kredi Döngüleri
+ 
+Mevcutta Marmara Kredi Döngüleri %100 karşılıksızlığı önleyen modda protokol 1 üzerine çalışmaktadır. %100 karşılıksızlık  colls made by issuer on behalf of both himself/herself and holder. Both issuer and holder have the 3x staking chance to get blockchain rewards. Issuer has the 3x staking chance until maturity date of credit whereas holder has the 3x staking chance until he/she endorses/transfers the credit to a new holder who will continue staking with the issuer. 
 The Credit loops can be made using only activated coins.
 ### Kavramlar
 
@@ -224,9 +225,9 @@ The Credit loops can be made using only activated coins.
 
 **Ciranta:** Kredi Döngüsündeki ilk düğüm olan Keşideci ile son düğüm olan hamil arasında kalan tüm düğümler Ciranta yaptıkları işlem ise cirolama olarak adlandırılır. Cirantalar mal ve hizmet karşılığında krediyi bir sonraki düğüme aktarırlar.
 
-**Maturity:** The time a credit expires. It is measured as blocks in estimation. The block per day is 1440 (60 blocks an hour times 24 hours a day). Suppose a credit is for 100 days, the maturity is 1440x100, i.e. 144,000 blocks.
+**Vade:** Mevcut bloktan başlayarak kredinin vadesinin kaç blok sonra bittiğini göstermektedir. Vade blokların çıkışına göre hesaplanır. Marmara zincirinde bir günde çıkan blok sayısı 1440'tır (Bir Saatte 60 blok çarpı 1 günde 24 saat sonucu). 100 günlük bir kredi için, Vade 1440x100 = 144,000 blok şeklinde hesaplanır.
 
-**Settlement:** When a credit matures, settlement is made to the holder, the last node in a loop. Settlement may be automatic or manual.
+**Settlement:** Bir kredinin vadesi dolduğunda, ödeme döngüde son düğüm olan hamile aktarılır. Settlement may be automatic or manual.
 
 **Escrow:** Trust based parties for Protocol 2. If EscrowOn is false, then 100% collateralization is used and settlement is automatic. There is no need for escrows in protocol 1 which works as complete trustless version.
 
@@ -237,6 +238,8 @@ The Credit loops can be made using only activated coins.
 **Dispute Expiry:** It is grace period for solving non-redemption problem in credit loops in protocol 2. An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
 
 ### Kredi Döngüsü Oluşturmak için Önemli Komutlar
+Marmara Kredi Döngüsünü gerçekleştirebilmek oldukça basittir. Sadece 4 komutu bilmeniz yeterlidir. Ancak kredi döngüsü var edebilmek veya bir sonraki düğüme aktarabilmek için yeterli aktif/kilitli koininiz olması gerekir. Bunun için kilitleme komutlarını kullanabilirsiniz.
+
 Kredi döngüsü başlatma ve aktarma işlemlerini gerçekleştirmek için eşler (p2p) karşılıklı birbirinin public key adresini bilmek zorundadırlar.
 
 - ```marmararecieve```
@@ -254,30 +257,30 @@ Kredi talebinde bulunma komutu. Ciranta ve hamil durumda olanlar kullanırlar.
 >
 >```currency``` ödeme birimi olan MARMARA'dır.
 >
->```matures``` kredinin vaadinin dolduğu vakti gösterir. Bir saatte çıkan blok sayısı 60 olup, 24 saatlik zaman diliminde çıkan toplam blok sayısı 1440'tır. Kredi bitiş süresi buna göre hesaplanıp bu parametreye karşılık olarak girilmelidir.
+>```matures``` mevcut bloktan başlayarak kredinin vadesinin kaç blok sonra bittiğini göstermektedir. Bir saatte çıkan blok sayısı 60 olup, 24 saatlik zaman diliminde çıkan toplam blok sayısı 1440'tır. Kredi bitiş süresi buna göre hesaplanıp bu parametreye karşılık olarak girilmelidir.
 >
 >```'{"avalcount":"n"}'``` avalistlerin sayısıdır. Marmara Kredi Döngülerinin birinci protokülü bazında avalist sayısı sıfıra eşittir. Örnekle, bu parametre için sıfır değeri verilmelidir. '{"avalcount":"0"}'
 
 Yukarıda verilen komut sonuç olarak bir hex kodu oluşturup döndürür. BU hex kodunun Hamil tarafından onaylanması gerekir, bunun 
 This marmarareceive call generates a hex code. This HEXCODE needs to be verified by the holder by executing the ```sendrawtransaction``` command:
 ```
-./komodo-cli -ac_name=MCL sendrawtransaction HEXCODE
+./komodo-cli -ac_name=MCL sendrawtransaction HEXKODU
 
 ```
-Once this command is executed, a transaction id named ```txid``` gets generated. This ```txid``` along with the ```receiverpk``` needs to be communicated to the issuer to complete the credit loop. But, an alternative to this communication would be the use of ```marmarareceivelist``` method which could be used to see the receive requests made to the issuer himself/herself.
+Bu komutun çalıştırılmasının ardından, ```txid``` şeklinde bir işlem numarası oluşturulur. Kredi döngüsünün tamamlanması için bu işlem numarası, ```txid```, ile Hamilin pubkey adresi,```receiverpk```, Keşideciye iletilmelidir. Bu iletişime alternatif olarak ```marmarareceivelist``` komutu da kullanabilir. Bu komut ile Keşideci kendisine Hamil tarafından gelen isteklerin listesini görüntüleyebilir. Bu komutun kullanımı aşağıda verilmiştir.
 
-```marmarareceivelist``` method would be executed by the issuer by the following command:
+```marmarareceivelist``` komutu Keşideci tarafından aşağıdaki şekilde kullanılır:
 ```
 ./komodo-cli -ac_name=MCL marmarareceivelist pubkey
 
 ```
-> ```pubkey``` is the pubkey address of the issuer connected to the Marmara Chain
->The response of this command is a list of pair of txid's created by the respective pubkeys.
+> Burada yer alan ```pubkey``` Keşidecinin Marmara zincirine bağlı olan pubkey adresini ifade eder.
+>Bu komut ilgili pubkey tarafından oluşturulan işlem numaralarının listesini döndürür.
 
 - ```marmaraissue```
 
-```marmaraissue``` komutu yalnızca krediyi var eden ilk düğüm olan Keşideci tarafından kullanılır. Bu komut ile kredi, döngüde yer alan ikinci düğüm olan Hamile transfer edilir. Kredi döngüsüne ait koşullar Keşideci ile Hamil arasında belirlenmektedir. 
-
+```marmaraissue``` Sadece ilk düğüm noktası tarafından krediyi ilk var etmek yani kredi döngüsünü başlatmakta kullanılacak komuttur. Bu komutla kredi var edilir ve döngüdeki 2. Düğüme yani ilk hamile aktarılır. Kredi döngüsüne ait koşullar Keşideci ile Hamil arasında belirlenmektedir. 
+ 
 Kredi döngüsünün koşullarını içeren komut aşağıda yer almaktadır:
 
 ```
@@ -299,93 +302,98 @@ Kredi döngüsünün koşullarını içeren komut aşağıda yer almaktadır:
 >
 >```requesttxid``` is the txid generated by the holder communicated to the issuer. 
 
-A typical example of a ```marmaraissue``` command to complete the credit loop by the issuer is given below:
+ Keşideci tarafından kredi döngüsnün tamamlanabilmesi için ```marmaraissue``` yapılmalıdır. Bu komutun tipik bir örneği aşağıda veilmiştir:
 ```
 ./komodo-cli -ac_name=MCL marmaraissue receiverpk '{"avalcount":"0", "autosettlement":"true", "autoinsurance":"true", "disputeexpires":"0", "EscrowOn":"false", "BlockageAmount":"0" }' requesttxid
 ```
-This ```marmaraissue``` command in turn returns a hex code response, and now the issuer has to execute the sendrawtransaction method to get the transaction executed on the blockchain as follows:
+```marmaraissue``` komutu karşılığında bir hex kodu döndürür ve sonrasında Keşideci sendrawtransaction komutunu kullanarak bu işlemin blokzincirinde aşağıdaki şekilde işletilmesini sağlamalıdır:
 ```
 ./komodo-cli -ac_name=MCL sendrawtransaction HEXCODE
 
 ```
-This creates a credit loop between the issuer and the holder. The credits locked in a loop can be circulated to buy things during shopping. The issuer and the holder get 3 times of chances of staking on the MCL funds until the maturity of the credit loop.
+Böylelikle keşideci ile hamil arasında ilk döngü oluşturulmuş olur. Döngüde kilitlenen krediler mal veya hizmet alım sirkülasyonunda kullanılabilirler. Hamil ve keşideci bu şekilde döngünün vade süresi dolana kadar 3 kat staking yapma şansını yakalabilirler.
 - ```marmaracreditloop```
 
-To display the credit loop between the issuer and the holder, the following ```marmaracreditloop``` command may be executed:
+Hamil ile keşideci arasında gerçekleştirilen kredi döngüsünü gösterebilmek için ```marmaracreditloop``` komutu kullanılabilir. Komutun kullanımı aşağıda verilmektedir:
 ```
 ./komodo-cli -ac_name=MCL marmaracreditloop txid
 ```
-> ```txid``` is the baton transfer id of the Marmara Credit Loop.
+> ```txid``` Marmara Kredi Döngüsüne ait olan baton transfer id'sini verir.
 
 - ```marmaratransfer```
 
-**Scenario 2:** The holder from the previous scenario wishes to utilize the coins locked in loop by buying goods/services on the same credit loop created earlier. For such case, when the holder transfers a credit in a loop, that node immediately becomes an endorser. And in such way, the last node in a credit loop is always called the bearer (holder). In other words, all endorsers are previously holders.
-One should bear in mind that endorsers lose the 3x staking power when a credit is transferred to a new holder.
+**İkinci Senaryo:** Bir önceki senaryoda yer alan Hamil döngüde kilitlediği koinleri mal ve hizmet alarak değerlendirmek istemektedir. Bu durumda, Hamil Ciranta rolüne geçmektedir ve kredi döngüsünde son düğüme her zaman Hamil denilmektedir. Diğer bir deyişle bütün cirantalar önceki durumda hamil rolünü alırlar.
+Burada dikkate alınması gereken nokta cirantalar krediyi Hamile transfer ettikleri noktada 3 kat staking gücünü kaybetmeleri olacaktır.
 
-For this purpose, the new holder makes a ```marmarareceive``` request to the endorser to get the credit for selling the goods/services by the following command:
+Ciranta krediyi bir sonraki düğüme aktarmak için ```marmarareceive``` komutunu kullanır. Ciranta bu durumda artık hamil değildir.
+
 ```
 ./komodo-cli -ac_name=MCL marmarareceive senderpk batontxid '{"avalcount":"n"}'
 ```
->```senderpk``` is the pubkey address of the endorser (the one buying the product/service)
->```batontxid``` is the baton transaction id of the previously created credit loop
->```'{"avalcount":"n"}'``` is the number of avalists i.e. '{"avalcount":"0"}' for protocol 1.
+>```senderpk``` cirantanın pubkey adresidir.
+>```batontxid``` bir önceki kredi döngüsünde çıkan baton işlem numarasıdır.
+>```'{"avalcount":"n"}'``` avalistlerin sayısını belirtir. Protokol 1 için '{"avalcount":"0"}' şeklinde verilmelidir.
 
-This marmarareceive call generates a hex code. This HEXCODE needs to be verified by the new holder by executing the ```sendrawtransaction``` command:
+Bu marmarareceive komutu bir hex kodu üretir ve HEX KODU ```sendrawtransaction``` altında blokzincire ilgili işlemi kaydetmek için aşağıdaki şekilde gönderilir:
 ```
-./komodo-cli -ac_name=MCL sendrawtransaction HEXCODE
+./komodo-cli -ac_name=MCL sendrawtransaction HEXKODU
 
 ```
-Once this command is executed, a transaction id named ```txid``` gets generated. This ```txid``` along with the ```receiverpk``` needs to be communicated to the endorser to complete the credit loop. But, an alternative to this communication would be the use of ```marmarareceivelist``` method which could be used by the endorser to see the receive requests made to himself/herself.
-Then, the endorser executes the following ```marmaratransfer```command to get the credits transferred to the new holder:
+Bu komutun işlenmesinin ardından bir baton işlem numarası,```txid```, otomatik olarak oluşturulur. İşbu kredi döngüsünü tamamlamak için baton numarasının, ```txid```, ve yeni hamilin pubkey adresinin, ```receiverpk```, cirantaya iletilmesine ihtiyaç vardır. Fakat buna alternatif olarak ```marmarareceivelist``` komutu ciranta tarafından kullanılarak kendisine gelen istekler görüntülenebilir.
+
+Sonrasında, ciranta aşağıda yer alan ```marmaratransfer``` komutunu kullanarak kredinin yeni hamile geçmesini sağlayabilir:
 ```
 ./komodo-cli -ac_name=MCL marmaratransfer receiverpk '{"avalcount":"n"}' requesttxid
 ```
->```receiverpk``` is the pubkey of the receiver which is the new holder.
+>```receiverpk``` yeni hamilin pubkey adresidir. 
 >
->```"avalcount":"n"``` is the number of avalists i.e. '{"avalcount":"0"}' for protocol 1. 
+>```"avalcount":"n"``` avalistlerin sayısını belirtir. Protokol 1 için '{"avalcount":"0"}' şeklinde verilmelidir.
 >
->```requesttxid``` is the txid generated by the new holder communicated to the endorser. 
+>```requesttxid``` yeni hamil tarafından oluşturulan baton işlem numarasıdır.
 
-Then the endorser executes the ```sendrawtransaction``` command with the hex code resulting from ```marmaratransfer```command.
+İlgili işlemin blokzincirine kaydedilmesi için ciranta ```sendrawtransaction``` komutu ile yukarıdaki ```marmaratransfer``` komutunun döndürdüğü HEX KODUNU onaylar.
 
->Please Note that ```sendrawtransaction``` command is used after ```marmarareceive```, ```marmaraissue```, ```marmaratransfer``` and ```marmaralock``` to make the results of commands to be executed on blockchain. The usage is presented throughout the scenario 1 and 2.
+>**ÖNEMLİ NOT:** ```sendrawtransaction``` komutu ```marmarareceive```, ```marmaraissue```, ```marmaratransfer``` ve ```marmaralock``` komutlarının kullanımınından hemen sonra mutlaka kullanılmalıdır. Bunun amacı bu komutların sonuçlarının blokzincirinde işletilmesini sağlamaktır. Kullanımına yönelik örnekler Senaryo 1 ve Senaryo 2'de verilmektedir.
 
-**In this way, the credit loops can circulate up to 1000th node _within_ the maturity time to buy goods/services.**
+**Bu şekilde, belirlenen _vaad süresi_ boyunca kredi döngüleri bininci düğüme kadar mal ve hizmet karşılığında ekonomide sirküle edilebilir.**
 
 
-## Taking Backup of Wallet
+## Cüzdanın Yedeğinin Alınması
 
-Backing up the `wallet.dat` file is very essential as it holds the assets of one.
-On a Linux machine, the file could be found in: `~/.komodo/MCL/wallet.dat`
+Varlıkların tutulduğu cüzdanın (`wallet.dat` dosyasının) yedeğinin alınması yüksek önem arz etmektedir. 
 
-One method to backup this file is to archive a copy of the file.
+Linux makinasında ilgili dosya `~/.komodo/MCL/wallet.dat` uzantısında yer alabilir.
+
+Yedek alma yöntemlerinden biri bu dosyanın bir kopyasının arşivini almaktır. 
+
+Bunun için aşağıdaki 
 
 ```bash
-#Copy the wallet.dat file
+#wallet.dat dosyasının kopyası alınır
 cp -av ~/.komodo/MCL/wallet.dat ~/wallet.dat
 
-#Rename the wallet.dat file
+#wallet.dat dosyası yeniden adlandırılır
 mv ~/wallet.dat ~/2020-08-09-wallet_backup.dat
 
-# Make an archieve of the wallet.dat file
+# wallet.dat dosyasının arşivi alınır
 tar -czvf ~/2020-08-09-wallet_backup.dat.tgz ~/2020-08-09-wallet_backup.dat
 
-# Move the final file to a secure location
+# İlgili dosya güvenilir bir alana taşınır
 ```
 
 ### **NOT : [ Marmara Credit Loops Windows Kurulum ve Kullanım.](https://github.com/marmarachain/MarmaraChain/blob/master/win-mcl.md)**
 
 
-References
+Kaynakça
 ---
-For more detailed information on Komodo Antara Framework and its details, please refer to its extended [developer documentation](https://developers.komodoplatform.com/).
+Komodo Antara Çerçevesi ve detayları üzerine linkte yer alan [geliştirici dokümantasyonundan](https://developers.komodoplatform.com/) faydalanabilirsiniz.
 
-For more detailed information on how Marmara Credit Loops work, kindly refer to detailed article [here](https://medium.com/@drcetiner/how-marmara-credit-loops-mcl-work-31d1896190a5).
+Marmara Kredi Döngülerinin çalışma prensibi üzerine linkte verilen [makaleden](https://medium.com/@drcetiner/marmara-kredi-d%C3%B6ng%C3%BCleri-nas%C4%B1l-%C3%A7al%C4%B1%C5%9F%C4%B1r-201144573e7c) faydalanabilirsiniz. 
 
-License
+Lisans
 ---
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+Yukarıdaki telif hakkı bildirimi ve bu izin bildirimi, Yazılımın tüm kopyalarına veya önemli kısımlarına dahil edilecektir.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
