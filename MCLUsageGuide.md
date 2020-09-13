@@ -359,14 +359,16 @@ tar -czvf ~/2020-08-09-wallet_backup.dat.tgz ~/2020-08-09-wallet_backup.dat
 # Move the final file to a secure location
 ```
 
-### **NOT : [ Marmara Credit Loops Windows Kurulum ve Kullanım.](https://github.com/marmarachain/MarmaraChain/blob/master/win-mcl.md)**
-
-
 References
 ---
 For more detailed information on Komodo Antara Framework and its details, please refer to its extended [developer documentation](https://developers.komodoplatform.com/).
 
 For more detailed information on how Marmara Credit Loops work, kindly refer to detailed article [here](https://medium.com/@drcetiner/how-marmara-credit-loops-mcl-work-31d1896190a5).
+
+Important Notice
+---
+**Marmara Credit Loops is experimental and a work-in-progress.** Use at your own risk.
+
 
 License
 ---
