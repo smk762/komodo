@@ -227,15 +227,15 @@ Kredi döngüleri sadece aktif/kilitli koinler üzerinden oluşturulabilir.
 
 **Vade:** Mevcut bloktan başlayarak kredinin vadesinin kaç blok sonra bittiğini göstermektedir. Vade blokların çıkışına göre hesaplanır. Marmara zincirinde bir günde çıkan blok sayısı 1440'tır (Bir Saatte 60 blok çarpı 1 günde 24 saat sonucu). 100 günlük bir kredi için, Vade 1440x100 = 144,000 blok şeklinde hesaplanır.
 
-**Ödeşme, Mahsuplaşma (Settlement):** Bir kredinin vadesi dolduğunda, ödeme döngüde son düğüm olan hamile aktarılır. Vade tamamlanma durumunda mahsuplaşma otomatik veya manuel olarak yapılır.
+**Ödeşme (Settlement):** Bir kredinin vadesi dolduğunda, ödeme döngüde son düğüm olan hamile aktarılır. Vade tamamlanma durumunda ödeşme otomatik veya manuel olarak yapılır.
 
 **Aracı (Escrow):** Versiyon 2'de yer alacak olan güvene dayalı taraflardır. Eğer EscrowOn parametresi false ise bu durumda 100% karşılılık kullanılmakta olup settlement parametresi automatic değerini alır. Bunun sebebi Versiyon 1'in %100 teminatlandırılmış karşılığa dayalı, güven ihtiyacı gerektirmeyen bir blokzincir çözümü olmasıdır.
 
 **Avalist:** Aval veren kişiye avalist denir. Avalistler keşidecileri veya cirantaları MCL ile destekleyen ek teminat sağlayan taraflar olup destek karşılığında 3 katına kadar ödül kazanabilirler. Karşılıksızlık durumunda avalistlerin fonları kullanıma açılacaktır. Avalistler sadece Versiyon 2'de mevcutturlar, bu sebeple versiyon 1'de avalist parametresi her zaman 0'a eşittir.
 
-**BlockageAmount(Blokaj Miktarı):** Bu terim Versiyon 2'ye ait bir parametredir. Ciranta keşideciden karşılıksızlığa karşı teminat sağlaması için bir miktar koymasını isteyebilir. Bu durumda, Keşideci ortaya koyduğu teminata karşılık 3 kat kadar staking ile kazanma şansı elde eder.
+**Blokaj Miktarı(BlockageAmount):** Bu terim Versiyon 2'ye ait bir parametredir. Ciranta keşideciden karşılıksızlığa karşı teminat sağlaması için bir miktar koymasını isteyebilir. Bu durumda, Keşideci ortaya koyduğu teminata karşılık 3 kat kadar staking ile kazanma şansı elde eder.
 
-**Dispute Expiry:** Versiyon 2'de kredi döngülerinde olası bir karşılıksızlık problemini çözmede verilen süreye denir.             An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
+**Anlaşma Bitiş Tarihi (Dispute Expiry):** Versiyon 2'de kredi döngülerinde olası bir karşılıksızlık problemini çözmede verilen süreye denir. Bu tarihe kadar ödeşme (settlement) yapılmış olması gerekiyor. Bu tarihten sonra hamil hak iddia edemez.             An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
 
 ### Kredi Döngüsü Oluşturmak için Önemli Komutlar
 Marmara Kredi Döngüsünü gerçekleştirebilmek oldukça basittir. Sadece 4 komutu bilmeniz yeterlidir. Ancak kredi döngüsü var edebilmek veya bir sonraki düğüme aktarabilmek için yeterli aktif/kilitli koininiz olması gerekir. Bunun için kilitleme komutlarını kullanabilirsiniz.
@@ -301,7 +301,7 @@ Kredi döngüsünün koşullarını içeren komut aşağıda yer almaktadır:
 >
 >```requesttxid``` hamil tarafından oluşturulup keşideciye iletilen işlem numarasıdır (txid).
 
- Keşideci tarafından kredi döngüsünün tamamlanabilmesi için ```marmaraissue``` yapılmalıdır. Bu komutun tipik bir örneği aşağıda veilmiştir:
+Keşideci tarafından kredi döngüsünün tamamlanabilmesi için ```marmaraissue``` yapılmalıdır. Bu komutun tipik bir örneği aşağıda veilmiştir:
 ```
 ./komodo-cli -ac_name=MCL marmaraissue receiverpk '{"avalcount":"0", "autosettlement":"true", "autoinsurance":"true", "disputeexpires":"0", "EscrowOn":"false", "BlockageAmount":"0" }' requesttxid
 ```
@@ -389,10 +389,14 @@ Komodo Antara Çerçevesi ve detayları üzerine linkte yer alan [geliştirici d
 
 Marmara Kredi Döngülerinin çalışma prensibi üzerine linkte verilen [makaleden](https://medium.com/@drcetiner/marmara-kredi-d%C3%B6ng%C3%BCleri-nas%C4%B1l-%C3%A7al%C4%B1%C5%9F%C4%B1r-201144573e7c) faydalanabilirsiniz. 
 
+Önemli Not
+---
+İşbu dokümanda yer alan tüm komutların kullanımı kişinin kendi sorumluluğundadır. Bu uyarıyı dikkate alarak emin olmadığınız komutları **kullanmayınız!**
+
 Lisans
 ---
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-Yukarıdaki telif hakkı bildirimi ve bu izin bildirimi, Yazılımın tüm kopyalarına veya önemli kısımlarına dahil edilecektir.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
