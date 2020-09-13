@@ -13,15 +13,15 @@ Marmara zincirini asağıdaki parametrelerle başlatınız:
 ```
 ./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
 ```
-Bağlanıp senkronize olana bekleyiniz. Aşağıdaki komutu kullanarak nodunuzun zincire bağlanıp bağlanmadığını kontrol ediniz:
+Bağlanıp senkronize olana kadar bekleyiniz. Aşağıdaki komutu kullanarak düğümünüzün zincire bağlanıp bağlanmadığını kontrol edebilirsiniz:
 
 ```
 ./komodo-cli -ac_name=MCL getinfo
 ```
 
-**_Blokları Çekme_**
+**_İndeksleme: Blokları Çekme_**
 
-Yeni başlayanlar için bütün blokların çekilmesi ve senkronize olması adımı çok uzun vakit alabilir. Bu durumda, bu süreci hızlandırmak için [bootstrap](https://eu.bootstrap.dexstats.info/MCL-bootstrap.tar.gz) indirilip bu kullanılabilir.
+Yeni başlayanlar için bütün blokların çekilmesi düğüme çekilmesi ve zincir ile senkronize olma işlemi çok uzun vakit alabilir. Bu durumda, bu süreci hızlandırmak için [bootstrap](https://eu.bootstrap.dexstats.info/MCL-bootstrap.tar.gz) indirilip bu kullanılabilir.
 
 Bunun için öncelikle aşağıdaki komut ile Marmara Zinciri durdurulur:
 ```	
@@ -181,43 +181,43 @@ Aşağıda yer alan komutlar zincire bağlanan cüzdanınınız ve zincirle ilgi
 ```
 ```marmarainfo``` komutu ayrıntılı cüzdan incelemede kullanılmakta olup,  ```"myPubkeyNormalAmount"``` parametresi cüzdanınızda bulunan normal MARMARA miktarını;  ```"myActivatedAmount"``` parametresi aktif MARMARA koin miktarını; ```"Loops"``` parametresi gerçekleştirilen kredi döngülerini; ```"TotalLockedInLoop"``` parametresi kredi döngülerinde kilitlenen toplam MARMARA koin miktarını; ```"numclosed"``` parametresi toplamda kapatılan kredi döngüsü sayısını; ve ```"closed"``` parametresi kapatılan kredi döngülerinin detaylarını vermektedir.
 
-##Activating and Deactivating Coins
+## Koinleri Aktifleştirme(Kilitleme) veya Kilit Açma İşlemleri
 
-- ```marmaralock``` is used to activate the coins. Active coins are needed for staking and if there are none then even if the staking mode is on, no blocks would be found through staking. The entire command is given below and the **amount** is to be replaced by the amount of coins such as 1000.  
+- ```marmaralock``` komutu ile normal koinler aktif/kilitli hale getirilir. Kilitleme/AKtifleştirme işlemi staking veya kredi döngüsü yapabilmek için gerekli bir işlem olup, cüzdanınızda kilitli koin olmadığı takdirde staking modu açık olsa dahi herhangi bir kazanç elde edilemez. Staking modunda blok bulabilmek için kilitli hesabınızda bir miktar koin olması gerekir. İlgili kilitleme komutu aşağıda verilmiş olup, burada yer alan **miktar** alanına kilitlenecek koin yazılmalıdır.  
 ```  
-./komodo-cli -ac_name=MCL marmaralock amount
+./komodo-cli -ac_name=MCL marmaralock miktar
 ```
-This command in turn returns a JSON object with the result of the operation and the hex created for it. Note that the _**"hex"**_ given below is for demonstration purposes.
+Bu komut işlemin sonucunu gösteren bir JSON nesnesi döndürmekte olup, işlemin sonucunda bir hex kodu oluşturulmaktadır. Bu hex kodu, _**"hex"**_,  aşağıda gösterim amaçlı olarak verilmiştir.
 ```
 {
   "result": "success",
   "hex": "0400008085202f89020039b219200ae4b5c83d77bffce7a8af054d6fb..........e9181f6aac3e1beb1e260e9a1f49ed24e6ac00000000edeb04000000000000000000000000"
 }
 ```
-Now, in order to confirm this transaction, copy the hex returned through the JSON object and validate it through the ```sendrawtrasaction``` command given below.
+Bu işlemi blokzincirine kaydetmek amacıyla, ilgili hex kodu kopyalanıp ```sendrawtrasaction``` komutu ile işlem tamamlanır:
 ```  
 ./komodo-cli -ac_name=MCL sendrawtranscation 0400008085202f89020039b219200ae4b5c83d77bffce7a8af054d6fb..........e9181f6aac3e1beb1e260e9a1f49ed24e6ac00000000edeb04000000000000000000000000
 ```
-If the avove command gets successfully executed in the blockchain, it gives out a transaction id in response. One may check if this transaction is verified by searching the respective id in the [Marmara Explorer site](http://explorer.marmara.io).
-To see the activated coins, use ```marmarainfo``` command provided earlier and search for the value across the ```"myActivatedAmount"``` parameter. Note that the raw transactions are collected in the mempool and a few blocks may be needed to found to see the transaction recorded on the block.
+Yukarıdaki işlem blokzincirinde kaydedilirse bu durumda sonuç olarak bir işlem numarası döndürülür. İşlemin başarılı ile gerçekleşip gerçekleşmediğini teyit etmenin diğer yolu da döndürülen bu işlem numarasını [Marmara Explorer sitesinde](http://explorer.marmara.io) aramak olacaktır.
+Aktif/Kilitli koinleri görmek için ```marmarainfo``` komutu kullanılabilir. Komut sonucunda döndürülen sonuçta ```"myActivatedAmount"``` parametresinin karşısında kilitlenen koinlerinizi görebilirsiniz. Aktif koinlerinizi hemen göremeyebilirsiniz, bir kaç blok geçtikten sonra görülebilecektir.
 
 
-- ```marmaraunlock``` is used deactivate the coins i.e. turn them into normal amount. Normal Amount is utilized for sending payments directly to an address through```sendtoaddress``` command explained earlier. The **amount** is to be replaced by the amount of coins to be deactivated such as 500.   
+- ```marmaraunlock``` komutu kilitlenen koinlerin kilidini açmak için kullanılan bir komuttur. Bu işlemin sonucunda aktif olan koinler normal koine dönüşürler. Normal koinler ```sendtoaddress``` komutu ile direk hesaba yapılan ödemelerde kullanılmaktadır. Aşağıdaki komutta yer alan **miktar** kısmına kilidi kaldırılacak koin miktarı yazılır.
 ```  
-./komodo-cli -ac_name=MCL marmaraunlock amount
+./komodo-cli -ac_name=MCL marmaraunlock miktar
 ```
-In the same way explained earlier, this transaction needs to be validated through the ```sendrawtrasaction``` command given above. For this purpose, copy the hex returned by ```marmaraunlock``` command and use it with ```sendrawtrasaction``` command.
+Yukarıda daha önce de anlatıldığı üzere bu işlemin blokzincirine kayı edilmesi için ```sendrawtrasaction``` komutu kullanılması gerekmektedir. Bunun için ```marmaraunlock``` komutu sonucunda döndürülen hex kodunu ```sendrawtrasaction``` komutu ile birlikte kullanınız.
   
-- ```listaddressgroupings``` is used to list the pairs of wallet addresses and respective normal amounts in them. The usage is given in the command below.
+- ```listaddressgroupings``` komutu cüzdan adresleri ile birlikte bu cüzdanda yer alan normal koin miktarlarını göstermektedir. Komutun kullanımı aşağıda verilmektedir:
 ```
 ./komodo-cli -ac_name=MCL listaddressgroupings
 ```
 
 ## Marmara Kredi Döngüleri
  
-Mevcutta Marmara Kredi Döngüleri %100 karşılıksızlığı önleyen modda protokol 1 üzerine çalışmaktadır. %100 karşılıksızlık  colls made by issuer on behalf of both himself/herself and holder. Both issuer and holder have the 3x staking chance to get blockchain rewards. Issuer has the 3x staking chance until maturity date of credit whereas holder has the 3x staking chance until he/she endorses/transfers the credit to a new holder who will continue staking with the issuer. 
-The Credit loops can be made using only activated coins.
-### Kavramlar
+Mevcutta Marmara Kredi Döngüleri %100 karşılıklılığa dayanan Versiyon 1 üzerine çalışmaktadır. Kredi Döngülerinde kilitlenen koinler blokzinciri ödülleri çıkarılmasında 3 kata kadar staking şansı vermektedir. Krediyi ilk ortaya çıkaran keşideci ve sonrasında krediyi döndüren diğer cirantalar %100 teminatı sağlamanın karşılığında blokzincirinde staking'de 3 kat daha fazla şansla ödüllendirilmektedir. Kredi döngüsüne yeni katılan her ciranta ile Döngünün her anında %100 karşılık payı keşideci ve cirantalar arasında risk azaltacak şekilde paylaşılmaktadır.
+ 
+Kredi döngüleri sadece aktif/kilitli koinler üzerinden oluşturulabilir.
 
 **Keşideci:** Krediyi ilk çıkaran ve kredi döngüsünü başlatan kişi.
 
@@ -227,15 +227,15 @@ The Credit loops can be made using only activated coins.
 
 **Vade:** Mevcut bloktan başlayarak kredinin vadesinin kaç blok sonra bittiğini göstermektedir. Vade blokların çıkışına göre hesaplanır. Marmara zincirinde bir günde çıkan blok sayısı 1440'tır (Bir Saatte 60 blok çarpı 1 günde 24 saat sonucu). 100 günlük bir kredi için, Vade 1440x100 = 144,000 blok şeklinde hesaplanır.
 
-**Settlement:** Bir kredinin vadesi dolduğunda, ödeme döngüde son düğüm olan hamile aktarılır. Settlement may be automatic or manual.
+**Ödeşme, Mahsuplaşma (Settlement):** Bir kredinin vadesi dolduğunda, ödeme döngüde son düğüm olan hamile aktarılır. Vade tamamlanma durumunda mahsuplaşma otomatik veya manuel olarak yapılır.
 
-**Escrow:** Trust based parties for Protocol 2. If EscrowOn is false, then 100% collateralization is used and settlement is automatic. There is no need for escrows in protocol 1 which works as complete trustless version.
+**Aracı (Escrow):** Versiyon 2'de yer alacak olan güvene dayalı taraflardır. Eğer EscrowOn parametresi false ise bu durumda 100% karşılılık kullanılmakta olup settlement parametresi automatic değerini alır. Bunun sebebi Versiyon 1'in %100 teminatlandırılmış karşılığa dayalı, güven ihtiyacı gerektirmeyen bir blokzincir çözümü olmasıdır.
 
-**Avalist:** Avalists support issuer or endorsers with MCL as additional colletarization and can earn with 3x staking with those support. In case of non-redemption, their funds are utilized. Avalists are available only in Protocol 2. The parameter avalcount is always zero for protocol 1.
+**Avalist:** Aval veren kişiye avalist denir. Avalistler keşidecileri veya cirantaları MCL ile destekleyen ek teminat sağlayan taraflar olup destek karşılığında 3 katına kadar ödül kazanabilirler. Karşılıksızlık durumunda avalistlerin fonları kullanıma açılacaktır. Avalistler sadece Versiyon 2'de mevcutturlar, bu sebeple versiyon 1'de avalist parametresi her zaman 0'a eşittir.
 
-**BlockageAmount:** This is a term for protocol 2. An issuer may be asked to put some collateralization by a holder. In that case, the issuer gets benefit of 3x staking in protocol 2.
+**BlockageAmount(Blokaj Miktarı):** Bu terim Versiyon 2'ye ait bir parametredir. Ciranta keşideciden karşılıksızlığa karşı teminat sağlaması için bir miktar koymasını isteyebilir. Bu durumda, Keşideci ortaya koyduğu teminata karşılık 3 kat kadar staking ile kazanma şansı elde eder.
 
-**Dispute Expiry:** It is grace period for solving non-redemption problem in credit loops in protocol 2. An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
+**Dispute Expiry:** Versiyon 2'de kredi döngülerinde olası bir karşılıksızlık problemini çözmede verilen süreye denir.             An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
 
 ### Kredi Döngüsü Oluşturmak için Önemli Komutlar
 Marmara Kredi Döngüsünü gerçekleştirebilmek oldukça basittir. Sadece 4 komutu bilmeniz yeterlidir. Ancak kredi döngüsü var edebilmek veya bir sonraki düğüme aktarabilmek için yeterli aktif/kilitli koininiz olması gerekir. Bunun için kilitleme komutlarını kullanabilirsiniz.
@@ -261,13 +261,12 @@ Kredi talebinde bulunma komutu. Ciranta ve hamil durumda olanlar kullanırlar.
 >
 >```'{"avalcount":"n"}'``` avalistlerin sayısıdır. Marmara Kredi Döngülerinin birinci protokülü bazında avalist sayısı sıfıra eşittir. Örnekle, bu parametre için sıfır değeri verilmelidir. '{"avalcount":"0"}'
 
-Yukarıda verilen komut sonuç olarak bir hex kodu oluşturup döndürür. BU hex kodunun Hamil tarafından onaylanması gerekir, bunun 
-This marmarareceive call generates a hex code. This HEXCODE needs to be verified by the holder by executing the ```sendrawtransaction``` command:
+Yukarıda verilen komut sonuç olarak bir hex kodu oluşturup döndürür. BU hex kodunun Hamil tarafından blokzincirine kaydedilmesi gerekir, bunun için ```sendrawtransaction``` komutu kullanılır:
 ```
 ./komodo-cli -ac_name=MCL sendrawtransaction HEXKODU
 
 ```
-Bu komutun çalıştırılmasının ardından, ```txid``` şeklinde bir işlem numarası oluşturulur. Kredi döngüsünün tamamlanması için bu işlem numarası, ```txid```, ile Hamilin pubkey adresi,```receiverpk```, Keşideciye iletilmelidir. Bu iletişime alternatif olarak ```marmarareceivelist``` komutu da kullanabilir. Bu komut ile Keşideci kendisine Hamil tarafından gelen isteklerin listesini görüntüleyebilir. Bu komutun kullanımı aşağıda verilmiştir.
+Bu komutun çalıştırılmasının ardından, ```txid``` şeklinde bir işlem numarası oluşturulur. Kredi döngüsünün tamamlanması için bu işlem numarası, ```txid```, ile Hamilin pubkey adresi,```receiverpk```, Keşideciye iletilmelidir. Bu iletişime alternatif olarak ```marmarareceivelist``` komutu da kullanılabilir. Bu komut ile Keşideci kendisine Hamil tarafından gelen isteklerin listesini görüntüleyebilir. Bu komutun kullanımı aşağıda verilmiştir.
 
 ```marmarareceivelist``` komutu Keşideci tarafından aşağıdaki şekilde kullanılır:
 ```
@@ -290,19 +289,19 @@ Kredi döngüsünün koşullarını içeren komut aşağıda yer almaktadır:
 >
 >```"avalcount":"n"``` avalistlerin sayısıdır. Marmara Kredi Döngüleri Protokol 1 kapsamında bu parametre için sıfır değeri verilmelidir.
 >
->``` "autosettlement":"true"|"false"``` AutoSettlement is true due to 100% collateralization in Protocol 1.
+>``` "autosettlement":"true"|"false"``` Versiyon 1'de %100 karşılıklı olması nedeniyle parametrenin değeri "autosettlement":"true" şeklindedir.
 >
->```"autoinsurance":"true"|"false"``` Autoinsurance is true due to 100% collateralization in Protocol 1.
+>```"autoinsurance":"true"|"false"``` Versiyon 1'de %100 karşılıklı olması nedeniyle parametrenin değeri "autosettlement":"true" şeklindedir.
 >
->```"disputeexpires":"offset"```  Dispute expiry is set to 0 due to 100 collateralization in Protocol 1.
+>```"disputeexpires":"offset"```  Versiyon 1'de %100 karşılıklı olması nedeniyle parametrenin değeri 0'a eşitlenir.
 >
->```"EscrowOn":"true"|"false"``` EscrowOn is set to false due to 100% collateralization in Protocol 1.
+>```"EscrowOn":"true"|"false"``` Versiyon 1'de %100 karşılıklı olması nedeniyle parametrenin değeri "EscrowOn":"false" şeklindedir.
 >
->```"BlockageAmount":"amount" }``` blockage amount is set to 0 due to 100 collateralization in Protocol 1.
+>```"BlockageAmount":"amount" }``` Versiyon 1'de %100 karşılıklı olması nedeniyle parametrenin değeri 0'a eşitlenir.
 >
->```requesttxid``` is the txid generated by the holder communicated to the issuer. 
+>```requesttxid``` hamil tarafından oluşturulup keşideciye iletilen işlem numarasıdır (txid).
 
- Keşideci tarafından kredi döngüsnün tamamlanabilmesi için ```marmaraissue``` yapılmalıdır. Bu komutun tipik bir örneği aşağıda veilmiştir:
+ Keşideci tarafından kredi döngüsünün tamamlanabilmesi için ```marmaraissue``` yapılmalıdır. Bu komutun tipik bir örneği aşağıda veilmiştir:
 ```
 ./komodo-cli -ac_name=MCL marmaraissue receiverpk '{"avalcount":"0", "autosettlement":"true", "autoinsurance":"true", "disputeexpires":"0", "EscrowOn":"false", "BlockageAmount":"0" }' requesttxid
 ```
