@@ -113,6 +113,36 @@ Yukarıda döndürülen cüzdan adresini aşağıda verilen ```validateaddress``
 ``` 
 Bu yöntem ile alınan MCL pubkey adresi ile Marmara blokzinciri başlatılabilir.
 
+## Marmara Chain üzerinde Kendi Anahtar Kelimelerinizle Cüzdan Oluşturma
+Marmara zincirinde `./komodo-cli -ac_name=MCL getnewaddress` dedikten sonra cüzdan numarasını `./komodo-cli -ac_name=MCL validateaddress "RcuzdanNo"` ifadesiyle çağırdığınızda bunun sonucunda bir Privkey verilecektir.
+
+Verilen `Privkey` karmaşık olduğundan kullanıcı tarafından unutulma riski taşır. Buna karşın, kendi verdiğiniz anahtar kelimelerden unutmayacağınız bir Privkey üretmek mümkündür.
+
+Bunun için öncelikle kendinize bir anahtar kelime seti oluşturun. Anahtar kelime seti içinde **özel karakter kullanmayınız**. Örnekle şöyle olsun: `"kendi sectiginiz kelimelerden olusan bir anahtar cumle yapabilirsiniz ve kendi privkeyinizi uretebilirsiniz"`.
+
+Aşağıdaki komutu kullanabilirsiniz:
+```
+./komodo-cli -ac_name=MCL convertpassphrase "kendi sectiginiz kelimelerden olusan bir anahtar cumle yapabilirsiniz ve kendi privkeyinizi uretebilirsiniz" 
+``` 
+Komut tarafından aşağıdaki sonuç dondürülür:
+```
+{ 
+    "agamapassphrase": "kendi sectiginiz kelimelerden olusan bir anahtar cumle yapabilirsiniz ve kendi privkeyinizi uretebilirsiniz",
+    "address": "RB8v8b9yt9U6YSuznLieSU8ULCnT77YM8f",
+    "pubkey": "02b8aa5cb5ff919b773656b0701f8448bb226b62e966c8439dd90183c8c3efdc24", 
+    "privkey": "d83991e517c0d73846171c205ece9d66e548c1faa21ed8efbb9b6ffe4595446a", 
+    "wif": "UwFrdzVQ7iaLpzsyb2JWmPTV2JZAapkXFyDWtMEB8a6fv1nnoFmk"
+}
+```
+Daha sonrasında `importprivkey` metodu kullanılarak yukarıda döndürülen private adresin cüzdan adresine eklenmesi sağlanmalıdır:
+
+```
+./komodo-cli -ac_name=MCL importprivkey "UwFrdzVQ7iaLpzsyb2JWmPTV2JZAapkXFyDWtMEB8a6fv1nnoFmk"
+```
+
+Bu durumda privkey'i hatırlamak yerine artık kendi anahtar kelimelerinizi kullanarak istenilen zaman privkeyi üretebilirsiniz.
+**Burada dikkat edilmesi gereken nokta privkey adresinin her zaman için saklı tutulması gerektiği olup aynı şekilde anahtar kelimeler de kimse ile paylaşılmamalıdır!**
+
 ## Marmara Blokzincirini Madencilik veya Staking Modunda Çalıştırma
 
 Aşağıdaki komut ile makinenizda kurulu olan Marmara zincirinin çalışma modu kontrol edilebilmektedir:
@@ -227,7 +257,7 @@ Kredi döngüleri sadece aktif/kilitli koinler üzerinden oluşturulabilir.
 
 **Vade:** Mevcut bloktan başlayarak kredinin vadesinin kaç blok sonra bittiğini göstermektedir. Vade blokların çıkışına göre hesaplanır. Marmara zincirinde bir günde çıkan blok sayısı 1440'tır (Bir Saatte 60 blok çarpı 1 günde 24 saat sonucu). 100 günlük bir kredi için, Vade 1440x100 = 144,000 blok şeklinde hesaplanır.
 
-**Ödeşme (Settlement):** Bir kredinin vadesi dolduğunda, ödeme döngüde son düğüm olan hamile aktarılır. Vade tamamlanma durumunda ödeşme otomatik veya manuel olarak yapılır.
+**Mahsuplaşma (Settlement):** Bir kredinin vadesi dolduğunda, ödeme döngüde son düğüm olan hamile aktarılır. Vade tamamlanma durumunda mahsuplaşma otomatik veya manuel olarak yapılır.
 
 **Aracı (Escrow):** Versiyon 2'de yer alacak olan güvene dayalı taraflardır. Eğer EscrowOn parametresi false ise bu durumda 100% karşılılık kullanılmakta olup settlement parametresi automatic değerini alır. Bunun sebebi Versiyon 1'in %100 teminatlandırılmış karşılığa dayalı, güven ihtiyacı gerektirmeyen bir blokzincir çözümü olmasıdır.
 
@@ -235,7 +265,7 @@ Kredi döngüleri sadece aktif/kilitli koinler üzerinden oluşturulabilir.
 
 **Blokaj Miktarı(BlockageAmount):** Bu terim Versiyon 2'ye ait bir parametredir. Ciranta keşideciden karşılıksızlığa karşı teminat sağlaması için bir miktar koymasını isteyebilir. Bu durumda, Keşideci ortaya koyduğu teminata karşılık 3 kat kadar staking ile kazanma şansı elde eder.
 
-**Anlaşma Bitiş Tarihi (Dispute Expiry):** Versiyon 2'de kredi döngülerinde olası bir karşılıksızlık problemini çözmede verilen süreye denir. Bu tarihe kadar ödeşme (settlement) yapılmış olması gerekiyor. Bu tarihten sonra hamil hak iddia edemez.             An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
+**Zaman Aşımı (Dispute Expiry):** Versiyon 2'de kredi döngülerinde olası bir karşılıksızlık problemini çözmede verilen süreye denir. Bu tarihe kadar mashuplaşmanın (settlement) yapılmış olması gerekir. Bu tarihten sonra hamil hak iddia edemez.             An issuer may have this time as blocks when creating a credit under protocol 2 without or insufficient collateralization. Before this period expires, an escrow should do all actions according to aggrement with the issuer to solve non-redemption. Otherwise, the escrow is penalized in the system.
 
 ### Kredi Döngüsü Oluşturmak için Önemli Komutlar
 Marmara Kredi Döngüsünü gerçekleştirebilmek oldukça basittir. Sadece 4 komutu bilmeniz yeterlidir. Ancak kredi döngüsü var edebilmek veya bir sonraki düğüme aktarabilmek için yeterli aktif/kilitli koininiz olması gerekir. Bunun için kilitleme komutlarını kullanabilirsiniz.

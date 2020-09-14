@@ -107,6 +107,36 @@ Now, the wallet address can be validated through ```validateaddress``` to get th
 ``` 
 After getting the respective MCL pubkey from the response of the command above, relaunch the Marmara Chain with that pubkey.  
 
+## Creating a Wallet Address from One's own Words in Marmara Blockchain
+
+As previously explained, one can make use of the command `./komodo-cli -ac_name=MCL getnewaddress` in order to get a wallet address and then use the command `./komodo-cli -ac_name=MCL validateaddress "Rwalletno"` to get the respective Privkey.
+
+However, the `Privkey` received in this way consists of a hard to remember combination of letters and number. Note that keeping this privkey safe and secure and reachable only by you is very important and essential way to reach your assets. Hence, one can generate a privkey from his/her own set of words and keep a record of these words to generate the respective privkey whenerever needed.
+
+For this purpose, create a set of keywords that have **no special characters** in them. For instance: `"You can create your own keywords and generate a privkey from these whenever needed"`.
+
+Then use the following command to get the respective privkey generated:
+```
+./komodo-cli -ac_name=MCL convertpassphrase "You can create your own keywords and generate a privkey from these whenever needed"
+``` 
+The command in turn returns the following JSON Object:
+```
+{ 
+    "agamapassphrase": "You can create your own keywords and generate a privkey from these whenever needed",
+    "address": "RB8v8b9yt9U6YSuznLieSU8ULCnT77YM8f",
+    "pubkey": "02b8aa5cb5ff919b773656b0701f8448bb226b62e966c8439dd90183c8c3efdc24", 
+    "privkey": "d83991e517c0d73846171c105dely8e77e548c1faa21ed8efbb9b6ffe4595446a", 
+    "wif": "UwFidzXW7iaKozsyb2JWmPTV2JZAapkXFyDWtMEB8a6fv1nnoFmk"
+}
+```
+Later, one can use `importprivkey` method to add the respective private key to the wallet address:
+
+```
+./komodo-cli -ac_name=MCL importprivkey "UwFidzXW7iaKozsyb2JWmPTV2JZAapkXFyDWtMEB8a6fv1nnoFmk"
+```
+Now, the owner of the assets needs to keep a record of the keyword combination safely to generate the respective privkey whenever needed.
+**Remember that private keys should always be kept secret and so are the keywords!** 
+
 ## Checking the staking/mining mode of your node in Marmara Chain
 
 The following command helps to check the mode of the node:
