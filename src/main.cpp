@@ -2791,7 +2791,7 @@ bool CScriptCheck::operator()() {
     if (vout!=0)
     {
         ServerTransactionSignatureChecker checker(ptxTo, n, amount, cacheStore, evalcodeChecker, *txdata);
-        if (checker.CheckCryptoCondition(scriptPubKey.GetCCV2SPK())!=1)
+        if (checker.CheckCryptoCondition(scriptPubKey.GetCCV2SPK(),&error)!=1)
         {
             return ::error("CScriptCheck(): %s:%d CC validation failed: %s", ptxTo->GetHash().ToString(), n, ScriptErrorString(error));
         }
