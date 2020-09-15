@@ -5776,7 +5776,7 @@ UniValue channelsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk
     if ( ensure_CCrequirements(cp->evalcode) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     pubkey = ParseHex(params[0].get_str().c_str());
-    return(CCaddress(cp,(char *)"Channels",pubkey));
+    return(CCaddress(cp,(char *)"Channels",pubkey,true));
 }
 
 UniValue cclibaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
@@ -6051,7 +6051,7 @@ UniValue gatewaysaddress(const UniValue& params, bool fHelp, const CPubKey& mypk
         throw runtime_error(CC_REQUIREMENTS_MSG);
     if ( params.size() == 1 )
         pubkey = ParseHex(params[0].get_str().c_str());
-    return(CCaddress(cp,(char *)"Gateways",pubkey));
+    return(CCaddress(cp,(char *)"Gateways",pubkey,true));
 }
 
 UniValue heiraddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
@@ -6890,24 +6890,6 @@ UniValue oraclesv2info(const UniValue& params, bool fHelp, const CPubKey& mypk)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     txid = Parseuint256((char *)params[0].get_str().c_str());
     return(OracleV2Info(txid));
-}
-
-UniValue oraclesv2fund(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); uint256 txid;
-    if ( fHelp || params.size() != 1 )
-        throw runtime_error("oraclesv2fund oracletxid\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    Lock2NSPV(mypk);
-    txid = Parseuint256((char *)params[0].get_str().c_str());
-    result = OracleV2Fund(mypk,0,txid);
-    if ( result[JSON_HEXTX].getValStr().size() > 0  )
-    {
-        result.push_back(Pair("result", "success"));
-    }
-    Unlock2NSPV(mypk);
-    return(result);
 }
 
 UniValue oraclesv2register(const UniValue& params, bool fHelp, const CPubKey& mypk)
