@@ -24,7 +24,7 @@
 #define KMD_TADDR 0
 #define CC_MARKER_VALUE 1000
 #define CC_TXFEE 10000
-#ifndef GATEWAYS2CC_VERSION
+#ifndef GATEWAYSCC_VERSION
     #define GATEWAYSCC_VERSION 1
 #endif
 
@@ -389,8 +389,8 @@ bool ValidateGatewaysVin(struct CCcontract_info *cp,Eval* eval, const CTransacti
         return eval->Invalid("invalid vin."+std::to_string(index)+" tx OP_RETURN data!");
     else if (fromaddr!=0 && Getscriptaddress(tmpaddr,prevTx.vout[tx.vin[index].prevout.n].scriptPubKey) && strcmp(tmpaddr,fromaddr)!=0)
         return eval->Invalid("invalid vin."+std::to_string(index)+" address!");
-    else if (prevTx.GetHash()!=bindtxid && bindtxid!=tmp_txid) 
-        return eval->Invalid("invalid vin."+std::to_string(index)+" tx, different bidtxid("+ bindtxid.GetHex()+"!="+tmp_txid.GetHex()+")!");
+    else if (bindtxid!=zeroid && prevTx.GetHash()!=bindtxid && bindtxid!=tmp_txid) 
+        return eval->Invalid("invalid vin."+std::to_string(index)+" tx, different bindtxid("+ bindtxid.GetHex()+"!="+tmp_txid.GetHex()+")!");
     return (true);
 }
 
@@ -409,263 +409,282 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
         return eval->Invalid("no vouts");
     else
     {   
-            CCOpretCheck(eval,tx,true,true,true);
-            ExactAmounts(eval,tx,CC_TXFEE);
-            GatewaysExactAmounts(cp,eval,tx);
-            gatewayspk = GetUnspendable(cp,0);      
-            GetCCaddress(cp, gatewaysaddr, gatewayspk,true);  
-            GetTokensCCaddress(cp, gatewaystokensaddr, gatewayspk,true);      
-            if ( (funcid = DecodeGatewaysOpRet(tx.vout[numvouts-1].scriptPubKey,version,tmptxid)) != 0)
+        CCOpretCheck(eval,tx,true,true,true);
+        ExactAmounts(eval,tx,CC_TXFEE);
+        GatewaysExactAmounts(cp,eval,tx);
+        gatewayspk = GetUnspendable(cp,0);      
+        GetCCaddress(cp, gatewaysaddr, gatewayspk,true);  
+        GetTokensCCaddress(cp, gatewaystokensaddr, gatewayspk,true); 
+        cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);     
+        if ( (funcid = DecodeGatewaysOpRet(tx.vout[numvouts-1].scriptPubKey,version,tmptxid)) != 0)
+        {
+            switch ( funcid )
             {
-                switch ( funcid )
-                {
-                    case 'B':
-                        //vin.0: CC input of tokens
-                        //vin.m+: normal input
-                        //vout.0-99: CC vout of gateways tokens to gateways tokens CC address
-                        //vout.100: CC vout marker
-                        //vout.101: normal change
-                        //vout.102: opreturn - 'B' tokenid coin totalsupply oracletxid M N pubkeys taddr prefix prefix2 wiftype
-                        if (numvouts!=103)
-                            return eval->Invalid("invalid number of vouts for gatewaysbind!");
-                        if (DecodeGatewaysBindOpRet(depositaddr,tx.vout[numvouts-1].scriptPubKey,version,tokenid,refcoin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype)!='B')
-                            return eval->Invalid("invalid gatewaysbind OP_RETURN data!"); 
-                        if ( GatewaysBindExists(cp,gatewayspk,tokenid) != 0 )
-                            return eval->Invalid("Gateway bind."+refcoin+" ("+tokenid.GetHex()+") already exists");
-                        i=0;
-                        cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);
-                        while (i<numvins)
-                        {  
-                            if ((cpTokens->ismyvin)(tx.vin[i].scriptSig) && myGetTransactionCCV2(cpTokens,tx.vin[i].prevout.hash,tmptx,hashblock)!= 0 && (numvouts=tmptx.vout.size()) > 0 
-                                && (funcid=V2::DecodeTokenOpRet(tmptx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
-                                && ((funcid=='c' && tmptx.GetHash()==tokenid) || (funcid!='c' && tmptokenid==tokenid)))
+                case 'B':
+                    //vin.0: CC input of tokens
+                    //vin.m+: normal input
+                    //vout.0-99: CC vout of gateways tokens to gateways tokens CC address
+                    //vout.100: CC vout marker
+                    //vout.101: normal change
+                    //vout.102: opreturn - 'B' tokenid coin totalsupply oracletxid M N pubkeys taddr prefix prefix2 wiftype
+                    if (numvouts!=103)
+                        return eval->Invalid("invalid number of vouts for gatewaysbind!");
+                    if (DecodeGatewaysBindOpRet(depositaddr,tx.vout[numvouts-1].scriptPubKey,version,tokenid,refcoin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype)!='B')
+                        return eval->Invalid("invalid gatewaysbind OP_RETURN data!"); 
+                    if ( GatewaysBindExists(cp,gatewayspk,tokenid) != 0 )
+                        return eval->Invalid("Gateway bind."+refcoin+" ("+tokenid.GetHex()+") already exists");
+                    i=0;
+                    while (i<numvins)
+                    {  
+                        if ((cpTokens->ismyvin)(tx.vin[i].scriptSig) && myGetTransactionCCV2(cpTokens,tx.vin[i].prevout.hash,tmptx,hashblock)!= 0 && (numvouts=tmptx.vout.size()) > 0 
+                            && (funcid=V2::DecodeTokenOpRet(tmptx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
+                            && ((funcid=='c' && tmptx.GetHash()==tokenid) || (funcid!='c' && tmptokenid==tokenid)))
+                            i++;
+                        else break;
+                    }
+                    if (ValidateNormalVins(eval,tx,i) == 0 )
+                        return (false);
+                    for (i=0;i<100;i++) if ( ConstrainVout(tx.vout[i],1,gatewaystokensaddr,totalsupply/100)==0 )
+                        return eval->Invalid("vout."+std::to_string(i)+" is tokens to gateways global address or invalid amount for gatewaysbind!");
+                    if ( ConstrainVout(tx.vout[100],1,gatewaysaddr,CC_MARKER_VALUE)==0 )
+                        return eval->Invalid("vout.100 is marker to gateways pk for gatewaysbind!");
+                    if ( ConstrainVout(tx.vout[101],0,0,0)==0 )
+                        return eval->Invalid("vout.101 is normal change for gatewaysbind!");
+                    if ( N == 0 || N > 15 || M > N )
+                        return eval->Invalid("invalid MofN in gatewaysbind");
+                    if (pubkeys.size()!=N)
+                        return eval->Invalid("not enough pubkeys("+std::to_string(pubkey.size())+") for N."+std::to_string(N)+" gatewaysbind ");
+                    pubkeys.clear();
+                    cpOracles=CCinit(&COracles,EVAL_ORACLESV2);    
+                    CCtxidaddr_tweak(str,oracletxid);
+                    SetCCunspents(unspentOutputs,str,false);
+                    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
+                    {
+                        txid = it->first.txhash;
+                        if ( myGetTransactionCCV2(cpOracles,txid,tmptx,hashblock) != 0 && tmptx.vout.size() > 0
+                            && DecodeOraclesV2OpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmptxid,tmppubkey,datafee) == 'R' && oracletxid == tmptxid)
+                        {
+                            std::vector<CPubKey>::iterator it1 = std::find(pubkeys.begin(), pubkeys.end(), tmppubkey);
+                            if (it1 != pubkeys.end())
+                                if (std::find(publishers.begin(), publishers.end(), tmppubkey)==publishers.end()) publishers.push_back(tmppubkey);;
+                        }
+                    }
+                    if (pubkeys.size()!=publishers.size())
+                        return eval->Invalid("different number of bind and oracle pubkeys "+ std::to_string(publishers.size())+"!="+std::to_string(pubkeys.size()));
+                    for (i=0; i<N; i++)
+                    {
+                        Getscriptaddress(destaddr,CScript() << ParseHex(HexStr(pubkeys[i])) << OP_CHECKSIG);
+                        if ( CCaddress_balance(destaddr,0) == 0 )
+                            return eval->Invalid("M."+std::to_string(M)+"N."+std::to_string(N)+" but pubkeys["+std::to_string(i)+"] has no balance");
+                    }
+                    if ( totalsupply%100!=0)
+                        return eval->Invalid("token supply must be dividable by 100sat");
+                    if ( (fullsupply=CCfullsupplyV2(tokenid)) != totalsupply )
+                        return eval->Invalid("Gateway bind."+refcoin+" ("+tokenid.GetHex()+") globaladdr."+cp->unspendableCCaddr+" totalsupply "+std::to_string(totalsupply)+" != fullsupply "+std::to_string(fullsupply));
+                    if (myGetTransactionCCV2(cpOracles,oracletxid,tmptx,hashblock) == 0 || (numvouts=tmptx.vout.size()) <= 0 )
+                        return eval->Invalid("cant find oracletxid "+oracletxid.GetHex());
+                    if ( DecodeOraclesV2CreateOpRet(tmptx.vout[numvouts-1].scriptPubKey,version,name,description,format) != 'C' )
+                        return eval->Invalid("invalid oraclescreate OP_RETURN data");
+                    if (refcoin!=name)
+                        return eval->Invalid("mismatched oracle name "+name+" != "+refcoin);
+                    if (format.size()!=4 || strncmp(format.c_str(),"IhhL",4)!=0)
+                        return eval->Invalid("illegal format "+format+" != IhhL");
+                    break;
+                case 'D':
+                    //vin.0: CC input of gateways tokens
+                    //vin.m+: normal inputs
+                    //vout.0: CC vout of tokens from deposit amount to destination pubkey
+                    //vout.1: normal output marker to txidaddr                           
+                    //vout.2: CC vout change of gateways tokens to gateways tokens CC address
+                    //vout.3: normal change
+                    //vout.4: opreturn - 'C' tokenid bindtxid coin deposittxid destpub amount
+                    if (numvouts!=5)
+                        return eval->Invalid("invalid number of vouts for gatewaysdeposit tx!");
+                    if (DecodeGatewaysDepositOpRet(tx.vout[numvouts-1].scriptPubKey,version,tokenid,bindtxid,tmprefcoin,publishers,txids,height,cointxid,claimvout,hex,proof,pubkey,amount) != 'D')
+                        return eval->Invalid("invalid gatewaysdeposit OP_RETURN data!");
+                    if ( CCCointxidExists("gatewayscc-1",tx.GetHash(),cointxid) != 0 )
+                        return eval->Invalid("cointxid " + cointxid.GetHex() + " already processed with gatewaysdeposit!");
+                    i=0;
+                    while (i<numvins && (cp->ismyvin)(tx.vin[i].scriptSig) && ValidateGatewaysVin(cp,eval,tx,i,bindtxid,gatewaystokensaddr,0)!=0) i++;
+                    if (eval->state.IsInvalid())
+                        return (false);
+                    if ( ValidateNormalVins(eval,tx,i) == 0 )
+                        return (false);
+                    if (_GetCCaddress(destaddr,EVAL_TOKENSV2,pubkey,true)==0 || pubkey==gatewayspk || ConstrainVout(tx.vout[0],1,destaddr,amount)==0)
+                        return eval->Invalid("invalid vout.0 tokens to destpub for gatewaysdeposit!");
+                    if ( CCtxidaddr_tweak(destaddr,cointxid)==CPubKey() || ConstrainVout(tx.vout[1],0,destaddr,CC_MARKER_VALUE)==0)
+                        return eval->Invalid("invalid marker vout.1 for gatewaysdeposit!");
+                    if (GetTokensCCaddress(cp,destaddr,gatewayspk,true)==0 || ConstrainVout(tx.vout[2],1,destaddr,0)==0)
+                        return eval->Invalid("invalid vout.2 tokens change to gateways global address for gatewaysdeposit!");
+                    if ( ConstrainVout(tx.vout[3],0,0,0)==0 )
+                        return eval->Invalid("vout.3 is normal change for gatewaysdeposit!");
+                    if (myGetTransactionCCV2(cp,bindtxid,tmptx,hashblock) == 0)
+                        return eval->Invalid("invalid gatewaysbind txid!");
+                    if (DecodeGatewaysBindOpRet(depositaddr,tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmptokenid,refcoin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype) != 'B')
+                        return eval->Invalid("invalid gatewaysbind OP_RETURN data!"); 
+                    if (tmprefcoin!=refcoin)
+                        return eval->Invalid("refcoin different than in bind tx");
+                    if (tmptokenid!=tokenid)
+                        return eval->Invalid("tokenid different than in bind tx");
+                    if (!pubkey.IsFullyValid())
+                        return eval->Invalid("invalid deposit tx destination pubkey");
+                    if (amount>totalsupply)
+                        return eval->Invalid("deposit amount greater then bind total supply");                        
+                    int32_t m;                            
+                    merkleroot = zeroid;
+                    for (i=m=0; i<N; i++)
+                    {
+                        if ( (mhash= CCOraclesV2ReverseScan("gatewayscc-2",txid,height,oracletxid,OraclesV2Batontxid(oracletxid,pubkeys[i]))) != zeroid )
+                        {
+                            if ( merkleroot == zeroid )
+                                merkleroot = mhash, m = 1;
+                            else if ( mhash == merkleroot )
+                                m++;
+                            publishers.push_back(pubkeys[i]);
+                            txids.push_back(txid);
+                        }
+                    }                            
+                    if ( merkleroot == zeroid || m < N/2 )                            
+                        return eval->Invalid("couldnt find merkleroot for ht."+std::to_string(height)+" "+tmprefcoin+" oracle."+oracletxid.GetHex()+"  m."+std::to_string(m)+" vs N."+std::to_string(N));
+                    if (GatewaysVerify(depositaddr,oracletxid,claimvout,tmprefcoin,cointxid,hex,proof,merkleroot,pubkey,taddr,prefix,prefix2)!=amount)
+                        return eval->Invalid("external deposit not verified\n");
+                    if (komodo_txnotarizedconfirmed(bindtxid) == false)
+                        return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
+                    break;
+                case 'W':
+                    //vin.0: CC input of tokens        
+                    //vin.m+: normal inputs
+                    //vout.0: CC vout marker to gateways CC address                
+                    //vout.1: CC vout of gateways tokens back to gateways tokens CC address                  
+                    //vout.2: CC vout change of tokens back to owners pubkey                                               
+                    //vout.3: normal change                                               
+                    //vout.4: opreturn - 'W' tokenid bindtxid userpk refcoin withdrawpub amount
+                    if (numvouts!=5)
+                        return eval->Invalid("invalid number of vouts for gatewayswithdraw tx!");
+                    if (DecodeGatewaysWithdrawOpRet(tx.vout[numvouts-1].scriptPubKey,version,tokenid,bindtxid,tmppubkey,refcoin,destpub,amount)!='W')
+                        return eval->Invalid("invalid gatewayswithdraw OP_RETURN data!");
+                    i=0;
+                    while (i<numvins && (cpTokens->ismyvin)(tx.vin[i].scriptSig))
+                    {  
+                        if (myGetTransactionCCV2(cpTokens,tx.vin[i].prevout.hash,tmptx,hashblock)!= 0 && (numvouts=tmptx.vout.size()) > 0 
+                            && (funcid=V2::DecodeTokenOpRet(tmptx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
+                            && ((funcid=='c' && tmptx.GetHash()==tokenid) || (funcid!='c' && tmptokenid==tokenid)))
                                 i++;
-                            else break;
-                        }
-                        if (ValidateNormalVins(eval,tx,i) == 0 )
-                            return (false);
-                        for (i=0;i<100;i++) if ( ConstrainVout(tx.vout[i],1,gatewaystokensaddr,totalsupply/100)==0 )
-                            return eval->Invalid("vout."+std::to_string(i)+" is tokens to gateways global address or invalid amount for gatewaysbind!");
-                        if ( ConstrainVout(tx.vout[100],1,gatewaysaddr,CC_MARKER_VALUE)==0 )
-                            return eval->Invalid("vout.100 is marker to gateways pk for gatewaysbind!");
-                        if ( ConstrainVout(tx.vout[101],0,0,0)==0 )
-                            return eval->Invalid("vout.101 is normal change for gatewaysbind!");
-                        if ( N == 0 || N > 15 || M > N )
-                            return eval->Invalid("invalid MofN in gatewaysbind");
-                        if (pubkeys.size()!=N)
-                            return eval->Invalid("not enough pubkeys("+std::to_string(pubkey.size())+") for N."+std::to_string(N)+" gatewaysbind ");
-                        pubkeys.clear();
-                        cpOracles=CCinit(&COracles,EVAL_ORACLESV2);    
-                        CCtxidaddr_tweak(str,oracletxid);
-                        SetCCunspents(unspentOutputs,str,false);
-                        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
-                        {
-                            txid = it->first.txhash;
-                            if ( myGetTransactionCCV2(cpOracles,txid,tmptx,hashblock) != 0 && tmptx.vout.size() > 0
-                                && DecodeOraclesV2OpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmptxid,tmppubkey,datafee) == 'R' && oracletxid == tmptxid)
-                            {
-                                std::vector<CPubKey>::iterator it1 = std::find(pubkeys.begin(), pubkeys.end(), tmppubkey);
-                                if (it1 != pubkeys.end())
-                                    if (std::find(publishers.begin(), publishers.end(), tmppubkey)==publishers.end()) publishers.push_back(tmppubkey);;
-                            }
-                        }
-                        if (pubkeys.size()!=publishers.size())
-                            return eval->Invalid("different number of bind and oracle pubkeys "+ std::to_string(publishers.size())+"!="+std::to_string(pubkeys.size()));
-                        for (i=0; i<N; i++)
-                        {
-                            Getscriptaddress(destaddr,CScript() << ParseHex(HexStr(pubkeys[i])) << OP_CHECKSIG);
-                            if ( CCaddress_balance(destaddr,0) == 0 )
-                                return eval->Invalid("M."+std::to_string(M)+"N."+std::to_string(N)+" but pubkeys["+std::to_string(i)+"] has no balance");
-                        }
-                        if ( totalsupply%100!=0)
-                            return eval->Invalid("token supply must be dividable by 100sat");
-                        if ( (fullsupply=CCfullsupplyV2(tokenid)) != totalsupply )
-                            return eval->Invalid("Gateway bind."+refcoin+" ("+tokenid.GetHex()+") globaladdr."+cp->unspendableCCaddr+" totalsupply "+std::to_string(totalsupply)+" != fullsupply "+std::to_string(fullsupply));
-                        if (myGetTransactionCCV2(cpOracles,oracletxid,tmptx,hashblock) == 0 || (numvouts=tmptx.vout.size()) <= 0 )
-                            return eval->Invalid("cant find oracletxid "+oracletxid.GetHex());
-                        if ( DecodeOraclesV2CreateOpRet(tmptx.vout[numvouts-1].scriptPubKey,version,name,description,format) != 'C' )
-                            return eval->Invalid("invalid oraclescreate OP_RETURN data");
-                        if (refcoin!=name)
-                            return eval->Invalid("mismatched oracle name "+name+" != "+refcoin);
-                        if (format.size()!=4 || strncmp(format.c_str(),"IhhL",4)!=0)
-                            return eval->Invalid("illegal format "+format+" != IhhL");
-                        break;
-                    case 'D':
-                        //vin.0: CC input of gateways tokens
-                        //vin.m+: normal inputs
-                        //vout.0: CC vout of tokens from deposit amount to destination pubkey
-                        //vout.1: normal output marker to txidaddr                           
-                        //vout.2: CC vout change of gateways tokens to gateways tokens CC address
-                        //vout.3: normal change
-                        //vout.4: opreturn - 'C' tokenid bindtxid coin deposittxid destpub amount
-                        if (numvouts!=5)
-                            return eval->Invalid("invalid number of vouts for gatewaysdeposit tx!");
-                        if (DecodeGatewaysDepositOpRet(tx.vout[numvouts-1].scriptPubKey,version,tokenid,bindtxid,tmprefcoin,publishers,txids,height,cointxid,claimvout,hex,proof,pubkey,amount) != 'D')
-                            return eval->Invalid("invalid gatewaysdeposit OP_RETURN data!");
-                        if ( CCCointxidExists("gatewayscc-1",tx.GetHash(),cointxid) != 0 )
-                            return eval->Invalid("cointxid " + cointxid.GetHex() + " already processed with gatewaysdeposit!");
-                        i=0;
-                        while (i<numvins && (cp->ismyvin)(tx.vin[i].scriptSig) && ValidateGatewaysVin(cp,eval,tx,i,bindtxid,gatewaystokensaddr,0)!=0) i++;
-                        if (eval->state.IsInvalid()) return (false);
-                            return (false);
-                        if ( ValidateNormalVins(eval,tx,i) != 0 )
-                            return (false);
-                        if (_GetCCaddress(destaddr,EVAL_TOKENSV2,pubkey)==0 || pubkey==gatewayspk || ConstrainVout(tx.vout[0],1,destaddr,amount)==0)
-                            return eval->Invalid("invalid vout.0 tokens to destpub for gatewaysdeposit!");
-                        if ( CCtxidaddr_tweak(destaddr,cointxid)==CPubKey() || ConstrainVout(tx.vout[1],0,destaddr,CC_MARKER_VALUE)==0)
-                            return eval->Invalid("invalid marker vout.1 for gatewaysdeposit!");
-                        if (GetTokensCCaddress(cp,destaddr,gatewayspk)==0 || ConstrainVout(tx.vout[2],1,destaddr,0)==0)
-                            return eval->Invalid("invalid vout.2 tokens change to gateways global address for gatewaysdeposit!");
-                        if ( ConstrainVout(tx.vout[3],0,0,0)==0 )
-                            return eval->Invalid("vout.3 is normal change for gatewaysdeposit!");
-                        if (myGetTransactionCCV2(cp,bindtxid,tmptx,hashblock) == 0)
-                            return eval->Invalid("invalid gatewaysbind txid!");
-                        if (DecodeGatewaysBindOpRet(depositaddr,tmptx.vout[numvouts-1].scriptPubKey,version,tokenid,refcoin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype) != 'B')
-                            return eval->Invalid("invalid gatewaysbind OP_RETURN data!"); 
-                        if (tmprefcoin!=refcoin)
-                            return eval->Invalid("refcoin different than in bind tx");
-                        if (tmptokenid!=tokenid)
-                            return eval->Invalid("tokenid different than in bind tx");
-                        if (!pubkey.IsFullyValid())
-                            return eval->Invalid("invalid deposit tx destination pubkey");
-                        if (amount>totalsupply)
-                            return eval->Invalid("deposit amount greater then bind total supply");                        
-                        else 
-                        {
-                            int32_t m;                            
-                            merkleroot = zeroid;
-                            for (i=m=0; i<N; i++)
-                            {
-                                if ( (mhash= CCOraclesV2ReverseScan("gatewayscc-2",txid,height,oracletxid,OraclesV2Batontxid(oracletxid,pubkeys[i]))) != zeroid )
-                                {
-                                    if ( merkleroot == zeroid )
-                                        merkleroot = mhash, m = 1;
-                                    else if ( mhash == merkleroot )
-                                        m++;
-                                    publishers.push_back(pubkeys[i]);
-                                    txids.push_back(txid);
-                                }
-                            }                            
-                            if ( merkleroot == zeroid || m < N/2 )                            
-                                return eval->Invalid("couldnt find merkleroot for ht."+std::to_string(height)+" "+tmprefcoin+" oracle."+oracletxid.GetHex()+"  m."+std::to_string(m)+" vs N."+std::to_string(N));
-                            if (GatewaysVerify(depositaddr,oracletxid,claimvout,tmprefcoin,cointxid,hex,proof,merkleroot,pubkey,taddr,prefix,prefix2)!=amount)
-                                return eval->Invalid("external deposit not verified\n");
-                        }
-                        if (komodo_txnotarizedconfirmed(bindtxid) == false)
-                            return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
-                        break;
-                    case 'W':
-                        //vin.0: CC input of tokens        
-                        //vin.m+: normal inputs
-                        //vout.0: CC vout marker to gateways CC address                
-                        //vout.1: CC vout of gateways tokens back to gateways tokens CC address                  
-                        //vout.2: CC vout change of tokens back to owners pubkey                                               
-                        //vout.3: normal change                                               
-                        //vout.4: opreturn - 'W' tokenid bindtxid userpk refcoin withdrawpub amount
-                        if (numvouts!=5)
-                            return eval->Invalid("invalid number of vouts for gatewayswithdraw tx!");
-                        if (DecodeGatewaysWithdrawOpRet(tx.vout[numvouts-1].scriptPubKey,version,tokenid,bindtxid,tmppubkey,tmprefcoin,destpub,amount)!='W')
-                            return eval->Invalid("invalid gatewayswithdraw OP_RETURN data!");
-                        i=0;
-                        while (i<numvins && (cp->ismyvin)(tx.vin[i].scriptSig) && (ValidateGatewaysVin(cp,eval,tx,0,bindtxid,0,0)==0)) i++;
-                        if (eval->state.IsInvalid()) return (false);
-                            return (false);
-                        if (ValidateNormalVins(eval,tx,i) != 0)
-                            return (false);
-                        if ( ConstrainVout(tx.vout[0],1,cp->unspendableCCaddr,CC_MARKER_VALUE)==0)
-                            return eval->Invalid("invalid vout.0 marker for gatewayswithdraw!");
-                        if ( ConstrainVout(tx.vout[1],1,gatewaystokensaddr,amount)==0)
-                            return eval->Invalid("invalid vout.1 tokens back to gateways address or amount in gatewayswithdraw!");
-                        if ( _GetCCaddress(destaddr,EVAL_TOKENSV2,tmppubkey,true)==0 || tmppubkey==gatewayspk || ConstrainVout(tx.vout[2],1,destaddr,0)==0)
-                            return eval->Invalid("invalid vout.2 tokens back to users pubkey or amount in gatewayswithdraw!");
-                        if ( ConstrainVout(tx.vout[3],0,0,0)==0 )
-                            return eval->Invalid("vout.3 is normal change for gatewayswithdraw!");
-                        if (myGetTransactionCCV2(cp,bindtxid,tmptx,hashblock) == 0)
-                            return eval->Invalid("invalid gatewaysbind txid!");
-                        if (DecodeGatewaysBindOpRet(depositaddr,tmptx.vout[numvouts-1].scriptPubKey,version,tokenid,refcoin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype) != 'B')
-                            return eval->Invalid("invalid gatewaysbind OP_RETURN data!");
-                        if (tmprefcoin!=refcoin)
-                            return eval->Invalid("refcoin different than in withdraw tx"); 
-                        if (tmptokenid!=tokenid)
-                            return eval->Invalid("tokenid different than in bind tx");
-                        if (!destpub.IsFullyValid())
-                            return eval->Invalid("withdraw destination pubkey is invalid");
-                        if (komodo_txnotarizedconfirmed(bindtxid) == false)
-                            return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
-                        break;
-                    case 'S':          
-                        //vin.0: CC input of marker from previous tx (withdraw or withdrawsign)
-                        //vin.1+: normal inputs             
-                        //vout.0: CC vout marker to gateway CC address
-                        //vout.1: normalchange                  
-                        //vout.2: opreturn - 'S' withdrawtxid lasttxid signingpubkeys refcoin number_of_signs hex
-                        if (numvouts!=3)
-                            return eval->Invalid("invalid number of vouts for gatewayswithdrawsign tx!");
-                        if (DecodeGatewaysWithdrawSignOpRet(tx.vout[numvouts-1].scriptPubKey,version,withdrawtxid,lasttxid,signingpubkeys,refcoin,K,hex)!='S')
-                            return eval->Invalid("invalid gatewayswithdrawsign OP_RETURN data!");
-                        if (lasttxid!=withdrawtxid && myGetTransactionCCV2(cp,lasttxid,tmptx,hashblock) == 0)
-                            return eval->Invalid("invalid last txid!");
-                        if (lasttxid!=withdrawtxid && DecodeGatewaysWithdrawSignOpRet(tx.vout[numvouts-1].scriptPubKey,version,tmpwithdrawtxid,tmplasttxid,tmpsigningpubkeys,tmprefcoin,tmpK,tmphex)!='S')
-                            return eval->Invalid("invalid last gatewayswithdrawsign OP_RETURN data!");
-                        if (lasttxid!=withdrawtxid && CompareHexVouts(hex,tmphex)==0)
-                            return eval->Invalid("invalid gatewayswithdrawsign, modifying initial tx vouts in hex!");
-                        if (myGetTransactionCCV2(cp,withdrawtxid,tmptx,hashblock) == 0)
-                            return eval->Invalid("invalid gatewayswithdraw txid!");
-                        if (DecodeGatewaysWithdrawOpRet(tmptx.vout[numvouts-1].scriptPubKey,version,tokenid,bindtxid,tmppubkey,tmprefcoin,destpub,amount)!='W')
-                            return eval->Invalid("invalid gatewayswithdraw OP_RETURN data!"); 
-                        if (tmprefcoin!=refcoin)
-                            return eval->Invalid("refcoin different than in withdraw tx");                        
-                        if (tx.vin[0].prevout.hash!=lasttxid || ValidateGatewaysVin(cp,eval,tx,0,bindtxid,cp->unspendableCCaddr,CC_MARKER_VALUE) != 0)
-                            return (false);
-                        if (ValidateNormalVins(eval,tx,1) != 0)
-                            return (false);
-                        if (CheckVinPk(tx,1,pubkeys)==0)
-                            return eval->Invalid("vin.1 invalid, gatewayswithdrawsign must be created by one of the gateways pubkeys signers!");
-                        if (ConstrainVout(tx.vout[0],1,cp->unspendableCCaddr,CC_MARKER_VALUE) == 0 )
-                            return eval->Invalid("vout.0 invalid marker for gatewayswithdrawsign!");
-                        if ( ConstrainVout(tx.vout[1],0,0,0)==0 )
-                            return eval->Invalid("vout.1 is normal change for gatewayswithdrawsign!");
-                        if (std::find(pubkeys.begin(),pubkeys.end(),signingpubkeys[signingpubkeys.size()-1])==pubkeys.end())
-                            return eval->Invalid("invalid pubkey in gatewayswithdrawsign OP_RETURN, must be one of gateways pubkeys!");
-                        if (komodo_txnotarizedconfirmed(bindtxid) == false)
-                            return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
-                        if (komodo_txnotarizedconfirmed(withdrawtxid) == false)
-                            return eval->Invalid("gatewayswithdraw tx is not yet confirmed(notarised)!");
-                        break;                    
-                    case 'M':                        
-                        //vin.0: CC input of gatewaywithdrawsign tx marker to gateway CC address
-                        //vin.1: normal input
-                        //vout.0; marker value back to users pubkey 
-                        //vout.1: normal change                                              
-                        //vout.2: opreturn - 'M' withdrawtxid mypk refcoin withdrawsigntxid
-                        if (numvouts!=3)
-                            return eval->Invalid("invalid number of vouts for gatewaysmarkdone tx!");
-                        if (DecodeGatewaysMarkDoneOpRet(tx.vout[numvouts-1].scriptPubKey,version,withdrawtxid,pubkey,refcoin,withdrawsigntxid)!='M')
-                            return eval->Invalid("invalid gatewaysmarkdone OP_RETURN data!");
-                        if (myGetTransactionCCV2(cp,withdrawsigntxid,tmptx,hashblock) == 0)
-                            return eval->Invalid("invalid gatewayswithdrawsign txid!");
-                        if (DecodeGatewaysWithdrawSignOpRet(tmptx.vout[numvouts-1].scriptPubKey,version,withdrawtxid,tmplasttxid,signingpubkeys,tmprefcoin,K,hex)!='S')
-                            return eval->Invalid("invalid gatewayswithdrawsign OP_RETURN data!");
-                        if (myGetTransactionCCV2(cp,withdrawtxid,tmptx,hashblock) == 0)
-                            return eval->Invalid("invalid gatewayswithdraw txid!");
-                        if (DecodeGatewaysWithdrawOpRet(tmptx.vout[numvouts-1].scriptPubKey,version,tmptokenid,bindtxid,tmppubkey,tmprefcoin,destpub,amount)!='W')
-                            return eval->Invalid("invalid gatewayswithdraw OP_RETURN data!"); 
-                        if (tmprefcoin!=refcoin)
-                            return eval->Invalid("refcoin different than in withdraw tx");
-                        if (ValidateGatewaysVin(cp,eval,tx,0,bindtxid,cp->unspendableCCaddr,CC_MARKER_VALUE) != 0)
-                            return (false);
-                        if (ValidateNormalVins(eval,tx,1) != 0)
-                            return (false);
-                        if (CheckVinPk(tx,1,pubkeys)==0)
-                            return eval->Invalid("vin.1 invalid, gatewaysmarkdone must be created by one of the gateways pubkeys signers!");
-                        if (std::find(pubkeys.begin(),pubkeys.end(),signingpubkeys[signingpubkeys.size()-1])==pubkeys.end())
-                            return eval->Invalid("invalid pubkey in gatewaysmarkdone OP_RETURN, must be one of gateways pubkeys!");
-                        break;                      
-                }
+                        else break;
+                    }
+                    if (ValidateNormalVins(eval,tx,i) == 0)
+                        return (false);
+                    if ( ConstrainVout(tx.vout[0],1,cp->unspendableCCaddr,CC_MARKER_VALUE)==0)
+                        return eval->Invalid("invalid vout.0 marker for gatewayswithdraw!");
+                    if ( ConstrainVout(tx.vout[1],1,gatewaystokensaddr,amount)==0)
+                        return eval->Invalid("invalid vout.1 tokens back to gateways address or amount in gatewayswithdraw!");
+                    if ( _GetCCaddress(destaddr,EVAL_TOKENSV2,tmppubkey,true)==0 || tmppubkey==gatewayspk || ConstrainVout(tx.vout[2],1,destaddr,0)==0)
+                        return eval->Invalid("invalid vout.2 tokens back to users pubkey or amount in gatewayswithdraw!");
+                    if ( ConstrainVout(tx.vout[3],0,0,0)==0 )
+                        return eval->Invalid("vout.3 is normal change for gatewayswithdraw!");
+                    if (myGetTransactionCCV2(cp,bindtxid,tmptx,hashblock) == 0)
+                        return eval->Invalid("invalid gatewaysbind txid!");
+                    if (DecodeGatewaysBindOpRet(depositaddr,tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmptokenid,tmprefcoin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype) != 'B')
+                        return eval->Invalid("invalid gatewaysbind OP_RETURN data!");
+                    if (tmprefcoin!=refcoin)
+                        return eval->Invalid("refcoin different than in bind tx"); 
+                    if (tmptokenid!=tokenid)
+                        return eval->Invalid("tokenid different than in bind tx");
+                    if (!destpub.IsFullyValid())
+                        return eval->Invalid("withdraw destination pubkey is invalid");
+                    if (komodo_txnotarizedconfirmed(bindtxid) == false)
+                        return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
+                    break;
+                case 'S':          
+                    //vin.0: CC input of marker from previous tx (withdraw or withdrawsign)
+                    //vin.1+: normal inputs             
+                    //vout.0: CC vout marker to gateway CC address
+                    //vout.1: normalchange                  
+                    //vout.2: opreturn - 'S' withdrawtxid lasttxid signingpubkeys refcoin number_of_signs hex
+                    if (numvouts!=3)
+                        return eval->Invalid("invalid number of vouts for gatewayswithdrawsign tx!");
+                    if (DecodeGatewaysWithdrawSignOpRet(tx.vout[numvouts-1].scriptPubKey,version,withdrawtxid,lasttxid,signingpubkeys,refcoin,K,hex)!='S')
+                        return eval->Invalid("invalid gatewayswithdrawsign OP_RETURN data!");
+                    if (lasttxid!=withdrawtxid && myGetTransactionCCV2(cp,lasttxid,tmptx,hashblock) == 0)
+                        return eval->Invalid("invalid last txid!");
+                    if (lasttxid!=withdrawtxid && DecodeGatewaysWithdrawSignOpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmpwithdrawtxid,tmplasttxid,tmpsigningpubkeys,tmprefcoin,tmpK,tmphex)!='S')
+                        return eval->Invalid("invalid last gatewayswithdrawsign OP_RETURN data!");
+                    if (lasttxid!=withdrawtxid && CompareHexVouts(hex,tmphex)==0)
+                        return eval->Invalid("invalid gatewayswithdrawsign, modifying initial tx vouts in hex!");
+                    if (myGetTransactionCCV2(cp,withdrawtxid,tmptx,hashblock) == 0)
+                        return eval->Invalid("invalid gatewayswithdraw txid!");
+                    if (DecodeGatewaysWithdrawOpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tokenid,bindtxid,tmppubkey,tmprefcoin,destpub,amount)!='W')
+                        return eval->Invalid("invalid gatewayswithdraw OP_RETURN data!"); 
+                    if (tmprefcoin!=refcoin)
+                        return eval->Invalid("refcoin different than in withdraw tx");   
+                    if (myGetTransactionCCV2(cp,bindtxid,tmptx,hashblock) == 0)
+                        return eval->Invalid("invalid gatewaysbind txid!");
+                    if (DecodeGatewaysBindOpRet(depositaddr,tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmptokenid,tmprefcoin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype) != 'B')
+                        return eval->Invalid("invalid gatewaysbind OP_RETURN data!");                     
+                    if (tx.vin[0].prevout.hash!=lasttxid)
+                        return eval->Invalid("vin.0 is not coming from lasttxid vout");
+                    if (ValidateGatewaysVin(cp,eval,tx,0,zeroid,cp->unspendableCCaddr,CC_MARKER_VALUE) == 0)
+                        return (false);
+                    if (ValidateNormalVins(eval,tx,1) == 0)
+                        return (false);
+                    if (CheckVinPk(cp,tx,1,pubkeys)==0)
+                        return eval->Invalid("vin.1 invalid, gatewayswithdrawsign must be created by one of the gateways pubkeys signers!");
+                    if (ConstrainVout(tx.vout[0],1,cp->unspendableCCaddr,CC_MARKER_VALUE) == 0 )
+                        return eval->Invalid("vout.0 invalid marker for gatewayswithdrawsign!");
+                    if (ConstrainVout(tx.vout[1],0,0,0)==0)
+                        return eval->Invalid("vout.1 is normal change for gatewayswithdrawsign!");
+                    if (std::find(pubkeys.begin(),pubkeys.end(),signingpubkeys[signingpubkeys.size()-1])==pubkeys.end())
+                        return eval->Invalid("invalid pubkey in gatewayswithdrawsign OP_RETURN, must be one of gateways pubkeys!");
+                    if (komodo_txnotarizedconfirmed(bindtxid) == false)
+                        return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
+                    if (komodo_txnotarizedconfirmed(withdrawtxid) == false)
+                        return eval->Invalid("gatewayswithdraw tx is not yet confirmed(notarised)!");
+                    break;                    
+                case 'M':                        
+                    //vin.0: CC input of gatewaywithdrawsign tx marker to gateway CC address
+                    //vin.1: normal input
+                    //vout.0; marker value back to users pubkey 
+                    //vout.1: normal change                                              
+                    //vout.2: opreturn - 'M' withdrawtxid mypk refcoin withdrawsigntxid
+                    if (numvouts!=3)
+                        return eval->Invalid("invalid number of vouts for gatewaysmarkdone tx!");
+                    if (DecodeGatewaysMarkDoneOpRet(tx.vout[numvouts-1].scriptPubKey,version,withdrawtxid,pubkey,refcoin,withdrawsigntxid)!='M')
+                        return eval->Invalid("invalid gatewaysmarkdone OP_RETURN data!");
+                    if (myGetTransactionCCV2(cp,withdrawsigntxid,tmptx,hashblock) == 0)
+                        return eval->Invalid("invalid gatewayswithdrawsign txid!");
+                    if (DecodeGatewaysWithdrawSignOpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,withdrawtxid,tmplasttxid,signingpubkeys,tmprefcoin,K,hex)!='S')
+                        return eval->Invalid("invalid gatewayswithdrawsign OP_RETURN data!");
+                    if (myGetTransactionCCV2(cp,withdrawtxid,tmptx,hashblock) == 0)
+                        return eval->Invalid("invalid gatewayswithdraw txid!");
+                    if (DecodeGatewaysWithdrawOpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmptokenid,bindtxid,tmppubkey,tmprefcoin,destpub,amount)!='W')
+                        return eval->Invalid("invalid gatewayswithdraw OP_RETURN data!"); 
+                    if (tmprefcoin!=refcoin)
+                        return eval->Invalid("refcoin different than in withdraw tx");
+                    if (myGetTransactionCCV2(cp,bindtxid,tmptx,hashblock) == 0)
+                        return eval->Invalid("invalid gatewaysbind txid!");
+                    if (DecodeGatewaysBindOpRet(depositaddr,tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmptokenid,tmprefcoin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype) != 'B')
+                        return eval->Invalid("invalid gatewaysbind OP_RETURN data!");
+                    if (tx.vin[0].prevout.hash!=withdrawsigntxid)
+                        return eval->Invalid("vin.0 is not coming from withdrawsigntxid vout");
+                    if (ValidateGatewaysVin(cp,eval,tx,0,zeroid,cp->unspendableCCaddr,CC_MARKER_VALUE) == 0)
+                        return (false);
+                    if (ValidateNormalVins(eval,tx,1) == 0)
+                        return (false);
+                    if (CheckVinPk(cp,tx,1,pubkeys)==0)
+                        return eval->Invalid("vin.1 invalid, gatewaysmarkdone must be created by one of the gateways pubkeys signers!");
+                    if (ConstrainVout(tx.vout[1],0,0,0)==0)
+                        return eval->Invalid("vout.1 is normal change for gatewaysmarkdone!");
+                    if (std::find(pubkeys.begin(),pubkeys.end(),signingpubkeys[signingpubkeys.size()-1])==pubkeys.end())
+                        return eval->Invalid("invalid pubkey in gatewaysmarkdone OP_RETURN, must be one of gateways pubkeys!");
+                    if (komodo_txnotarizedconfirmed(bindtxid) == false)
+                        return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
+                    if (komodo_txnotarizedconfirmed(withdrawtxid) == false)
+                        return eval->Invalid("gatewayswithdraw tx is not yet confirmed(notarised)!");
+                    break;                      
             }
-            LOGSTREAM("gatewayscc",CCLOG_DEBUG1, stream << "Gateways tx validated" << std::endl);
-            return(true);
-        // }
+        }
+        LOGSTREAM("gatewayscc",CCLOG_DEBUG1, stream << "Gateways tx validated" << std::endl);
+        return(true);
     }
 }
 // end of consensus code
@@ -705,7 +724,7 @@ int64_t AddGatewaysInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CP
                         tmpbindtxid==bindtxid && tmprefcoin==refcoin && tmptokenid==tokenid)) && myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout)==0 && total != 0 && maxinputs != 0)
                     {
                         mtx.vin.push_back(CTxIn(txid,vout,CScript()));
-                        CCAddVintxCond(cp,V2::MakeTokensCCcond1(cp->evalcode,GetUnspendable(cp,0))); 
+                        CCAddVintxCond(cp,V2::MakeTokensCCcond1(cp->evalcode,GetUnspendable(cp,0)),cp->CCpriv); 
 
                         totalinputs += it->second.satoshis;
                         n++;
@@ -893,7 +912,7 @@ UniValue GatewaysWithdraw(const CPubKey& pk, uint64_t txfee,uint256 bindtxid,std
             CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "withdraw amount is not possible, deposit balance is lower than the amount!");
     if (komodo_txnotarizedconfirmed(bindtxid)==false)
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "gatewaysbind tx not yet confirmed/notarized");
-    if ((inputs = AddTokenCCInputs(cpTokens, mtx, mypk, tokenid, amount, 60)) >= amount)
+    if ((inputs = AddTokenCCInputs<V2>(cpTokens, mtx, mypk, tokenid, amount, 60, false)) >= amount)
     {
         if( AddNormalinputs(mtx, mypk, txfee+CC_MARKER_VALUE, 2,pk.IsValid()) >= txfee+CC_MARKER_VALUE )
         {
@@ -990,61 +1009,6 @@ UniValue GatewaysMarkDone(const CPubKey& pk, uint64_t txfee,uint256 withdrawsign
         return(FinalizeCCV2Tx(pk.IsValid(),0,cp,mtx,mypk,txfee,EncodeGatewaysMarkDoneOpRet('M',withdrawtxid,mypk,refcoin,withdrawsigntxid)));
     }
     CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "error adding funds for markdone");
-}
-
-UniValue GatewaysPendingDeposits(const CPubKey& pk, uint256 bindtxid,std::string refcoin)
-{
-    UniValue result(UniValue::VOBJ),pending(UniValue::VARR); CTransaction tx; std::string coin,hex,pub; 
-    CPubKey mypk,gatewayspk,destpub; std::vector<CPubKey> pubkeys,publishers; std::vector<uint256> txids;
-    uint256 tmpbindtxid,hashBlock,txid,tokenid,oracletxid,cointxid; uint8_t version,M,N,taddr,prefix,prefix2,wiftype;
-    char depositaddr[65],coinaddr[65],str[65],destaddr[65],txidaddr[65]; std::vector<uint8_t> proof;
-    int32_t numvouts,vout,claimvout,height; int64_t totalsupply,nValue,amount; struct CCcontract_info *cp,C;
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
-
-    cp = CCinit(&C,EVAL_GATEWAYS);
-    mypk = pk.IsValid()?pk:pubkey2pk(Mypubkey());
-    gatewayspk = GetUnspendable(cp,0);
-    _GetCCaddress(coinaddr,cp->evalcode,mypk,true);
-    if ( myGetTransactionCCV2(cp,bindtxid,tx,hashBlock) == 0 || (numvouts= tx.vout.size()) <= 0 )
-    {  
-        result.push_back(Pair("result","error"));
-        result.push_back(Pair("error",strprintf("cant find bindtxid %s",uint256_str(str,bindtxid))));     
-        return(result);
-    }
-    if ( DecodeGatewaysBindOpRet(depositaddr,tx.vout[numvouts-1].scriptPubKey,version,tokenid,coin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype) != 'B' || refcoin != coin)
-    {
-        result.push_back(Pair("result","error"));
-        result.push_back(Pair("error",strprintf("invalid bindtxid %s coin.%s",uint256_str(str,bindtxid),coin.c_str())));     
-        return(result);
-    }  
-    SetCCunspents(unspentOutputs,coinaddr,true);
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
-    {
-        txid = it->first.txhash;
-        vout = (int32_t)it->first.index;
-        nValue = (int64_t)it->second.satoshis;
-        if ( vout == 0 && nValue == CC_MARKER_VALUE && myGetTransactionCCV2(cp,txid,tx,hashBlock) != 0 && (numvouts=tx.vout.size())>0 &&
-            DecodeGatewaysDepositOpRet(tx.vout[numvouts-1].scriptPubKey,version,tokenid,tmpbindtxid,coin,publishers,txids,height,cointxid,claimvout,hex,proof,destpub,amount) == 'D'
-            && tmpbindtxid==bindtxid && refcoin == coin && myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0)
-        {   
-            UniValue obj(UniValue::VOBJ);
-            obj.push_back(Pair("cointxid",uint256_str(str,cointxid)));
-            obj.push_back(Pair("deposittxid",uint256_str(str,txid)));  
-            CCtxidaddr_tweak(txidaddr,txid);
-            obj.push_back(Pair("deposittxidaddr",txidaddr));              
-            _GetCCaddress(destaddr,EVAL_TOKENSV2,destpub,true);
-            obj.push_back(Pair("depositaddr",depositaddr));
-            obj.push_back(Pair("tokens_destination_address",destaddr));
-            pub=HexStr(destpub);
-            obj.push_back(Pair("claim_pubkey",pub));
-            obj.push_back(Pair("amount",(double)amount/COIN));
-            obj.push_back(Pair("confirmed_or_notarized",komodo_txnotarizedconfirmed(txid)));        
-            pending.push_back(obj);
-        }
-    }
-    result.push_back(Pair("coin",refcoin));
-    result.push_back(Pair("pending",pending));
-    return(result);
 }
 
 UniValue GatewaysPendingSignWithdraws(const CPubKey& pk, uint256 bindtxid,std::string refcoin)

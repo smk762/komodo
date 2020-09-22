@@ -25,7 +25,6 @@ UniValue GatewaysDeposit(const CPubKey& pk, uint64_t txfee,uint256 bindtxid,int3
 UniValue GatewaysWithdraw(const CPubKey& pk, uint64_t txfee,uint256 bindtxid,std::string refcoin,CPubKey withdrawpub,int64_t amount);
 UniValue GatewaysWithdrawSign(const CPubKey& pk, uint64_t txfee,uint256 lasttxid,std::string refcoin,std::string hex);
 UniValue GatewaysMarkDone(const CPubKey& pk, uint64_t txfee,uint256 completetxid,std::string refcoin);
-UniValue GatewaysPendingDeposits(const CPubKey& pk, uint256 bindtxid,std::string refcoin);
 UniValue GatewaysPendingSignWithdraws(const CPubKey& pk, uint256 bindtxid,std::string refcoin);
 UniValue GatewaysSignedWithdraws(const CPubKey& pk, uint256 bindtxid,std::string refcoin);
 

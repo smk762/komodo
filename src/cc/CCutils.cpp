@@ -371,8 +371,24 @@ CPubKey CCCustomtxidaddr(char *txidaddr,uint256 txid,uint8_t taddr,uint8_t prefi
     uint8_t buf33[33]; CPubKey pk;
     buf33[0] = 0x02;
     endiancpy(&buf33[1],(uint8_t *)&txid,32);
-    pk = buf2pk(buf33);
-    GetCustomscriptaddress(txidaddr,CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG,taddr,prefix,prefix2);
+    int maxtweaks = 256;
+    while (maxtweaks--) {
+        pk = buf2pk(buf33);
+        if (pk.IsFullyValid())
+            break;
+        buf33[sizeof(buf33)-1]++;
+    }
+
+    if (pk.IsFullyValid()) {
+        if (txidaddr != NULL)
+            GetCustomscriptaddress(txidaddr, CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG,taddr,prefix,prefix2);
+        return(pk);
+    }
+    else    {
+        if (txidaddr != NULL)
+            strcpy(txidaddr, "");
+        return CPubKey();
+    }
     return(pk);
 }
 
@@ -687,7 +703,7 @@ uint256 CCOraclesReverseScan(char const *logcategory,uint256 &txid,int32_t heigh
 
 uint256 CCOraclesV2ReverseScan(char const *logcategory,uint256 &txid,int32_t height,uint256 reforacletxid,uint256 batontxid)
 {
-    CTransaction tx; uint256 hash,mhash,bhash,hashBlock,oracletxid; int32_t len,len2,numvouts;
+    CTransaction tx; uint256 hash,mhash,bhash,hashBlock,oracletxid; int32_t len,len2,numvouts; uint8_t version;
     int64_t val,merkleht; CPubKey pk; std::vector<uint8_t>data; char str[65],str2[65]; struct CCcontract_info *cp,C;
     
     cp = CCinit(&C,EVAL_ORACLESV2);
@@ -696,7 +712,7 @@ uint256 CCOraclesV2ReverseScan(char const *logcategory,uint256 &txid,int32_t hei
     while ( myGetTransactionCCV2(cp,batontxid,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 )
     {
         LogPrint(logcategory,"check %s\n",uint256_str(str,batontxid));
-        if ( DecodeOraclesData(tx.vout[numvouts-1].scriptPubKey,oracletxid,bhash,pk,data) == 'D' && oracletxid == reforacletxid )
+        if ( DecodeOraclesV2Data(tx.vout[numvouts-1].scriptPubKey,version,oracletxid,bhash,pk,data) == 'D' && oracletxid == reforacletxid )
         {
             LogPrint(logcategory,"decoded %s\n",uint256_str(str,batontxid));
             if ( oracle_format(&hash,&merkleht,0,'I',(uint8_t *)data.data(),0,(int32_t)data.size()) == sizeof(int32_t) && merkleht == height )
@@ -747,12 +763,12 @@ int64_t CCOraclesGetDepositBalance(char const *logcategory,uint256 reforacletxid
 int64_t CCOraclesV2GetDepositBalance(char const *logcategory,uint256 reforacletxid,uint256 batontxid)
 {
     CTransaction tx; uint256 hash,prevbatontxid,hashBlock,oracletxid; int32_t len,len2,numvouts;
-    int64_t val,balance=0; CPubKey pk; std::vector<uint8_t>data; struct CCcontract_info *cp,C;
+    int64_t val,balance=0; CPubKey pk; std::vector<uint8_t>data; struct CCcontract_info *cp,C; uint8_t version;
 
     cp = CCinit(&C,EVAL_ORACLESV2);
     if ( myGetTransactionCCV2(cp,batontxid,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 )
     {
-        if ( DecodeOraclesData(tx.vout[numvouts-1].scriptPubKey,oracletxid,prevbatontxid,pk,data) == 'D' && oracletxid == reforacletxid )
+        if ( DecodeOraclesV2Data(tx.vout[numvouts-1].scriptPubKey,version,oracletxid,prevbatontxid,pk,data) == 'D' && oracletxid == reforacletxid )
         {
             if ( oracle_format(&hash,&balance,0,'L',(uint8_t *)data.data(),(int32_t)(sizeof(int32_t)+sizeof(uint256)*2),(int32_t)data.size()) == (int32_t)(sizeof(int32_t)+sizeof(uint256)*2+sizeof(int64_t)))
             {
@@ -820,7 +836,7 @@ int32_t CCCointxidExists(char const *logcategory,uint256 txid, uint256 cointxid)
 {
     char txidaddr[64]; std::string coin; int32_t numvouts; uint256 hashBlock;
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
-    CCtxidaddr(txidaddr,cointxid);
+    CCtxidaddr_tweak(txidaddr,cointxid);
     SetCCtxids(addressIndex,txidaddr,false);
     for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++)
     {
@@ -840,7 +856,7 @@ bool CompareHexVouts(std::string hex1, std::string hex2)
     return (true);
 }
 
-bool CheckVinPk(const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys)
+bool CheckVinPk(struct CCcontract_info *cp,const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys)
 {
     CTransaction vintx; uint256 blockHash; char destaddr[64],pkaddr[64];
 
@@ -849,7 +865,7 @@ bool CheckVinPk(const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys
     {
         for(int i=0;i<(int32_t)pubkeys.size();i++)
         {
-            pubkey2addr(pkaddr, (uint8_t *)pubkeys[i].begin());
+            pubkey2addr(pkaddr,(uint8_t *)pubkeys[i].begin());
             if (strcmp(pkaddr, destaddr) == 0) {
                 return (true);
             }

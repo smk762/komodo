@@ -6694,17 +6694,6 @@ UniValue gatewaysmarkdone(const UniValue& params, bool fHelp, const CPubKey& myp
     Unlock2NSPV(mypk);
     return(result);
 }
-UniValue gatewayspendingdeposits(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    uint256 bindtxid; std::string coin;
-    if ( fHelp || params.size() != 2 )
-        throw runtime_error("gatewayspendingdeposits bindtxid coin\n");
-    if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    bindtxid = Parseuint256((char *)params[0].get_str().c_str());
-    coin = params[1].get_str();
-    return(GatewaysPendingDeposits(mypk,bindtxid,coin));
-}
 
 UniValue gatewayspendingsignwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {

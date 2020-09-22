@@ -550,7 +550,6 @@ static const CRPCCommand vRPCCommands[] =
     { "gateways",       "gatewayswithdraw",  &gatewayswithdraw,     true },
     { "gateways",       "gatewayswithdrawsign",  &gatewayswithdrawsign,     true },
     { "gateways",       "gatewaysmarkdone",  &gatewaysmarkdone,     true },
-    { "gateways",       "gatewayspendingdeposits",   &gatewayspendingdeposits,      true },
     { "gateways",       "gatewayspendingsignwithdraws",   &gatewayspendingsignwithdraws,      true },
     { "gateways",       "gatewayssignedwithdraws",   &gatewayssignedwithdraws,      true },
 
