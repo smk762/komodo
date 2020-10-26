@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 ![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/Marmara-v.1.0/master/MCL-Logo.png "Marmara Credit Loops Logo")
 
 # Marmara v.1.0.1 Kullanım Kılavuzu
@@ -409,9 +408,6 @@ tar -czvf ~/2020-08-09-wallet_backup.dat.tgz ~/2020-08-09-wallet_backup.dat
 
 # İlgili dosya güvenilir bir alana taşınır
 ```
-
-### **NOT : [ Marmara Credit Loops Windows Kurulum ve Kullanım.](https://github.com/marmarachain/MarmaraChain/blob/master/win-mcl.md)**
-
 
 Kaynakça
 ---
