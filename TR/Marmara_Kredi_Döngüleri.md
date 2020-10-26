@@ -29,8 +29,8 @@ Dışarıdan herhangi bir müdahale veya herhangi bir etkileşim ile değiştiri
 
 ## Başlangıç
 
-- Marmara Kredi DÖngüleri Blokzincirini indirmek için [Marmara Kredi Döngüleri Kurulum Kılavuzu](https://github.com/marmarachain/Marmara-v.1.0/blob/master/MCLInstallationGuide_TR.md) sayfasını takip ediniz.
-- Marmara Kredi Döngülerini kulllanabilmek için [Marmara Kredi Döngüleri Kullanım Kılavuzu](https://github.com/marmarachain/Marmara-v.1.0/blob/master/MCLUsageGuide_TR.md) sayfasını takip ediniz.
+- Marmara Kredi DÖngüleri Blokzincirini indirmek için [Marmara Kredi Döngüleri Kurulum Kılavuzu](https://github.com/marmarachain/Marmara-v.1.0/blob/master/TR/MCL_Kurulum_Klavuzu.md) sayfasını takip ediniz.
+- Marmara Kredi Döngülerini kulllanabilmek için [Marmara Kredi Döngüleri Kullanım Kılavuzu](https://github.com/marmarachain/Marmara-v.1.0/blob/master/TR/MCL_Kullan%C4%B1m_Klavuzu.md) sayfasını takip ediniz.
 
 ### İletişim
 - B. Gültekin Çetiner [![twitter](https://img.shields.io/twitter/follow/drcetiner?style=social)](https://twitter.com/drcetiner )
