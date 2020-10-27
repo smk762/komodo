@@ -856,22 +856,22 @@ bool CompareHexVouts(std::string hex1, std::string hex2)
     return (true);
 }
 
-bool CheckVinPk(struct CCcontract_info *cp,const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys)
+CPubKey CheckVinPk(struct CCcontract_info *cp,const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys)
 {
     CTransaction vintx; uint256 blockHash; char destaddr[64],pkaddr[64];
 
-    if(myGetTransaction(tx.vin[n].prevout.hash, vintx, blockHash)==0) return (false);
+    if(myGetTransaction(tx.vin[n].prevout.hash, vintx, blockHash)==0) return (CPubKey());
     if( tx.vin[n].prevout.n < vintx.vout.size() && Getscriptaddress(destaddr, vintx.vout[tx.vin[n].prevout.n].scriptPubKey) != 0 )
     {
         for(int i=0;i<(int32_t)pubkeys.size();i++)
         {
             pubkey2addr(pkaddr,(uint8_t *)pubkeys[i].begin());
             if (strcmp(pkaddr, destaddr) == 0) {
-                return (true);
+                return (pubkeys[i]);
             }
         }
     }    
-    return (false);
+    return (CPubKey());
 }
 
 /* Get the block merkle root for a proof

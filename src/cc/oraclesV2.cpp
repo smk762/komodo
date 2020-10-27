@@ -615,9 +615,7 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                     if (numvouts!=5)
                         return eval->Invalid("invalid number of vouts for oraclesdata tx!");
                     if (DecodeOraclesV2Data(tx.vout[numvouts-1].scriptPubKey,version,oracletxid,batontxid,publisher,data)!='D')
-                        return eval->Invalid("invalid oraclesdata OP_RETURN data!"); 
-                    if (ValidateOraclesVin(cp,eval,tx,0,oracletxid,0,0)==0)
-                        return (false);
+                        return eval->Invalid("invalid oraclesdata OP_RETURN data!");
                     if (GetCCaddress(cp,tmpaddress,publisher,true)==0)
                         return eval->Invalid("invalid publisher pubkey!");
                     i=1;
@@ -631,6 +629,8 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                         return eval->Invalid("vout.0 is change to publishers OracleCC address for oraclesdata!");
                     if (myGetTransactionCCV2(cp,tx.vin[0].prevout.hash,tmptx,hashblock) == 0 || Getscriptaddress(tmpaddress,tmptx.vout[tx.vin[0].prevout.n].scriptPubKey)==0)
                         return eval->Invalid("invalid baton input tx!"); 
+                    if (ValidateOraclesVin(cp,eval,tx,0,oracletxid,tmpaddress,CC_MARKER_VALUE)==0)
+                        return (false);
                     if (ConstrainVout(tx.vout[1],1,tmpaddress,CC_MARKER_VALUE)==0)
                         return eval->Invalid("vout.1 is baton for oraclesdata!");
                     if (Getscriptaddress(tmpaddress,CScript() << ParseHex(HexStr(publisher)) << OP_CHECKSIG)==0 || ConstrainVout(tx.vout[2],0,tmpaddress,OracleV2Datafee(oracletxid,publisher))==0)

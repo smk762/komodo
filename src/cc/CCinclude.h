@@ -813,7 +813,7 @@ int32_t CCCointxidExists(char const *logcategory,uint256 txid,uint256 cointxid);
 /// @private
 bool CompareHexVouts(std::string hex1, std::string hex2);
 /// @private
-bool CheckVinPk(struct CCcontract_info *cp,const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys);
+CPubKey CheckVinPk(struct CCcontract_info *cp,const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys);
 /// @private
 uint256 BitcoinGetProofMerkleRoot(const std::vector<uint8_t> &proofData, std::vector<uint256> &txids);
 
