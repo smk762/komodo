@@ -6595,21 +6595,18 @@ UniValue gatewaysbind(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue gatewaysdeposit(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int32_t i,claimvout,height; int64_t amount; std::string coin,deposithex; uint256 bindtxid,cointxid; std::vector<uint8_t>proof,destpub,pubkey;
-    if ( fHelp || params.size() != 9 )
-        throw runtime_error("gatewaysdeposit bindtxid height coin cointxid markervout deposithex proof destpubkey amount\n");
+    if ( fHelp || params.size() != 7 )
+        throw runtime_error("gatewaysdeposit bindtxid height coin deposithex proof destpubkey amount\n");
     if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     Lock2NSPV(mypk);
     bindtxid = Parseuint256((char *)params[0].get_str().c_str());
     height = atoi((char *)params[1].get_str().c_str());
     coin = params[2].get_str();
-    cointxid = Parseuint256((char *)params[3].get_str().c_str());
-    claimvout = atoi((char *)params[4].get_str().c_str());
-    deposithex = params[5].get_str();
-    proof = ParseHex(params[6].get_str());
-    destpub = ParseHex(params[7].get_str());
-    //amount = atof((char *)params[8].get_str().c_str()) * COIN + 0.00000000499999;
-    amount = AmountFromValue(params[8]);
+    deposithex = params[3].get_str();
+    proof = ParseHex(params[4].get_str());
+    destpub = ParseHex(params[5].get_str());
+    amount = AmountFromValue(params[6]);
     if ( amount <= 0 || claimvout < 0 )
     {
         Unlock2NSPV(mypk);
@@ -6620,7 +6617,7 @@ UniValue gatewaysdeposit(const UniValue& params, bool fHelp, const CPubKey& mypk
         Unlock2NSPV(mypk);
         throw runtime_error("invalid destination pubkey");
     }
-    result = GatewaysDeposit(mypk,0,bindtxid,height,coin,cointxid,claimvout,deposithex,proof,pubkey2pk(destpub),amount);
+    result = GatewaysDeposit(mypk,0,bindtxid,height,coin,deposithex,proof,pubkey2pk(destpub),amount);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
@@ -6890,8 +6887,7 @@ UniValue oraclesv2register(const UniValue& params, bool fHelp, const CPubKey& my
         throw runtime_error(CC_REQUIREMENTS_MSG);
     Lock2NSPV(mypk);
     txid = Parseuint256((char *)params[0].get_str().c_str());
-    if ( (datafee= atol((char *)params[1].get_str().c_str())) == 0 )
-        datafee = atof((char *)params[1].get_str().c_str()) * COIN + 0.00000000499999;
+    datafee = atof((char *)params[1].get_str().c_str()) * COIN + 0.00000000499999;
     result = OracleV2Register(mypk,0,txid,datafee);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
