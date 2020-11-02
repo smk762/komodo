@@ -1,4 +1,4 @@
-![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/Marmara-v.1.0/master/MCL-Logo.png "Marmara Credit Loops Logo")
+![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/marmara/master/MCL-Logo.png "Marmara Credit Loops Logo")
 
 # Marmara v.1.0.1 Kullanım Kılavuzu
 
@@ -10,7 +10,7 @@ Marmara Kredi Döngüleri yazılımı kaynağından indirilip yüklendiyse bu du
 Marmara zincirini asağıdaki parametrelerle başlatınız:
 
 ```
-./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
 ```
 Bağlanıp senkronize olana kadar bekleyiniz. Aşağıdaki komutu kullanarak düğümünüzün zincire bağlanıp bağlanmadığını kontrol edebilirsiniz:
 
