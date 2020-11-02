@@ -1,4 +1,4 @@
-![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/Marmara-v.1.0/master/MCL-Logo.png "Marmara Credit Loops Logo")
+![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/marmara/master/MCL-Logo.png "Marmara Credit Loops Logo")
 
 # Marmara v.1.0.1 Kurulum
 
@@ -46,7 +46,7 @@ Tamamlandığında, Marmara Kredi Döngüleri blokzinirini kurmak için aşağı
 #### Marmara Kredi Döngüleri Reposunun Klonlanması
 ```	
 cd ~
-git clone https://github.com/marmarachain/Marmara-v.1.0 komodo --branch master --single-branch
+git clone https://github.com/marmarachain/marmara komodo --branch master --single-branch
 ```
 >8 GB RAM veya üstüne sahipseniz aşağıdaki adımları atlayarak **__Zcash Parametrelerinin Çekilmesi__** adımına geçiniz.
 
