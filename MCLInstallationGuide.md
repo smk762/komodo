@@ -1,4 +1,4 @@
-![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/Marmara-v.1.0/master/MCL-Logo.png "Marmara Credit Loops Logo")
+![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/marmara/master/MCL-Logo.png "Marmara Credit Loops Logo")
 
 # Marmara v.1.0.1 Installation
 
@@ -47,7 +47,7 @@ Once completed, follow the steps below to install Marmara Credit Loops smart cha
 #### Clone the Marmara Credit Loops Repository
 ```	
 cd ~
-git clone https://github.com/marmarachain/Marmara-v.1.0 komodo --branch master --single-branch
+git clone https://github.com/marmarachain/marmara komodo --branch master --single-branch
 ```
 >Skip the following steps and jump to **__Fetch the Zcash Parameters__** step if the system you are using has 8 GB or more RAM.
 
