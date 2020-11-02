@@ -9,9 +9,9 @@
 [![gitstars](https://img.shields.io/github/stars/komodoplatform/komodo?style=social)](https://github.com/KomodoPlatform/komodo/stargazers)
 [![twitter](https://img.shields.io/twitter/follow/marmarachain?style=social)](https://twitter.com/marmarachain)
 [![discord](https://img.shields.io/discord/412898016371015680)](https://discord.gg/QZNMw73)
-[![https://img.shields.io/badge/LANGUAGE-TR-blue](https://img.shields.io/badge/LANGUAGE-TR-blue)](https://github.com/marmarachain/Marmara-v.1.0/blob/master/TR/Marmara_Kredi_D%C3%B6ng%C3%BCleri.md)
+[![https://img.shields.io/badge/LANGUAGE-TR-blue](https://img.shields.io/badge/LANGUAGE-TR-blue)](https://github.com/marmarachain/marmara/blob/master/TR/Marmara_Kredi_D%C3%B6ng%C3%BCleri.md)
 
-![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/Marmara-v.1.0/master/MCL-Logo.png "Marmara Credit Loops Logo")
+![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/marmara/master/MCL-Logo.png "Marmara Credit Loops Logo")
 
 ## Marmara Credit Loops
 
