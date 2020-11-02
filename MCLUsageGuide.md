@@ -1,5 +1,4 @@
-<<<<<<< Updated upstream
-![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/Marmara-v.1.0/master/MCL-Logo.png "Marmara Credit Loops Logo")
+![MarmaraCreditLoops Logo](https://raw.githubusercontent.com/marmarachain/marmara/master/MCL-Logo.png "Marmara Credit Loops Logo")
 
 # Marmara v.1.0.1 Usage Guide
 
@@ -10,7 +9,7 @@ If you have downloaded and build MCL from source then you can run the commands u
 
 Launch the Marmara Chain with the following parameters:
 ```
-./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addnode=46.4.238.65 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
 ```
 Wait until it connects and synchronizes. You may check if the node sychronized to the chain by executing the following: 
 ```
