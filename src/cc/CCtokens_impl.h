@@ -205,7 +205,8 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
         if (probecond.first != nullptr)
         {
             // add probe cc and kogs priv to spend from kogs global pk
-            CCAddVintxCond(cp, probecond.first, probecond.second);
+            std::shared_ptr<CC> cond(probecond.first);
+            CCAddVintxCond(cp, cond, probecond.second);
         }
 
         CScript opret = V::EncodeTokenOpRet(tokenid, destpubkeys, {});
@@ -341,8 +342,10 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
 
             // add optional probe conds to non-usual sign vins
             for (const auto &p : probeconds)
-                CCAddVintxCond(cp, p.first, p.second);
-
+            {
+                std::shared_ptr<CC> cond(p.first);
+                CCAddVintxCond(cp, cond, p.second);
+            }
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
 			UniValue sigData = V::FinalizeCCTx(isRemote, 0LL, cp, mtx, mypk, txfee, V::EncodeTokenOpRet(tokenid, voutTokenPubkeys, {} )); 

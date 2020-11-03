@@ -753,7 +753,8 @@ int64_t AddGatewaysInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CP
                         tmpbindtxid==bindtxid && tmprefcoin==refcoin && tmptokenid==tokenid)) && myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout)==0 && total != 0 && maxinputs != 0)
                     {
                         mtx.vin.push_back(CTxIn(txid,vout,CScript()));
-                        CCAddVintxCond(cp,V2::MakeTokensCCcond1(cp->evalcode,GetUnspendable(cp,0)),cp->CCpriv); 
+                        std::shared_ptr<CC> cond(V2::MakeTokensCCcond1(cp->evalcode,GetUnspendable(cp,0)));
+                        CCAddVintxCond(cp,cond,cp->CCpriv); 
 
                         totalinputs += it->second.satoshis;
                         n++;
@@ -845,7 +846,8 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "Gateway bind." << coin << " (" << tokenid.GetHex() << ") already exists");
     if (AddTokenCCInputs<V2>(cpTokens, mtx, mypk, tokenid, totalsupply, 64, false)==totalsupply)
     {
-        CCAddVintxCond(cp,MakeCCcond1(cpTokens->evalcode,mypk)); 
+        std::shared_ptr<CC> cond(MakeCCcond1(cpTokens->evalcode,mypk));
+        CCAddVintxCond(cp,cond); 
         if ( AddNormalinputs(mtx,mypk,txfee+CC_MARKER_VALUE,2,pk.IsValid()) >= txfee+CC_MARKER_VALUE )
         {
             for (int i=0; i<100; i++) mtx.vout.push_back(V2::MakeTokensCC1vout(cp->evalcode,totalsupply/100,gatewayspk));       
