@@ -2607,7 +2607,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
 
             CC *probeCond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, opretpk);
             // use the global pk (instead of privkey for user's pubkey from the wallet):
-            CCAddVintxCond(cp, probeCond, marmarapriv/*privkey.begin()*/);    //add probe condition to sign vintx 1of2 utxo
+            //CCAddVintxCond(cp, probeCond, marmarapriv/*privkey.begin()*/);    //add probe condition to sign vintx 1of2 utxo
             cc_free(probeCond);
 
             //if (lastVoutOpretDiscontinued)
@@ -2630,7 +2630,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
             LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "found locked-in-loop opret in staking vintx" << std::endl);
 
             CC *probeCond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, createtxidPk);
-            CCAddVintxCond(cp, probeCond, marmarapriv); //add probe condition to sign vintx 1of2 utxo
+            //CCAddVintxCond(cp, probeCond, marmarapriv); //add probe condition to sign vintx 1of2 utxo
             cc_free(probeCond);
 
             //if (lastVoutOpretDiscontinued)
@@ -2760,7 +2760,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                     GetCCaddress1of2(cp, lockInLoop1of2addr, Marmarapk, createtxidPk);  // 1of2 lock-in-loop address
 
                     CC *lockInLoop1of2cond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, createtxidPk);
-                    CCAddVintxCond(cp, lockInLoop1of2cond, marmarapriv); //add probe condition to spend from the lock-in-loop address
+                    //CCAddVintxCond(cp, lockInLoop1of2cond, marmarapriv); //add probe condition to spend from the lock-in-loop address
                     cc_free(lockInLoop1of2cond);
 
                     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "calling AddMarmaraCCInputs for lock-in-loop addr=" << lockInLoop1of2addr << " adding amount=" << loopData.amount << std::endl);
@@ -3174,7 +3174,7 @@ static int32_t redistribute_lcl_remainder(CMutableTransaction &mtx, struct CCcon
             }
 
             CC *lockInLoop1of2cond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, createtxidPk);  
-            CCAddVintxCond(cp, lockInLoop1of2cond, marmarapriv); //add probe condition to spend from the lock-in-loop address
+            //CCAddVintxCond(cp, lockInLoop1of2cond, marmarapriv); //add probe condition to spend from the lock-in-loop address
             cc_free(lockInLoop1of2cond);
 
         }
@@ -3281,7 +3281,7 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
                         if (endorsersNumber < 1 || redistribute_lcl_remainder(mtx, cp, creditloop, batontxid, amountToLock) >= 0)  // if there are issuers already then distribute and return amount / n value
                         {
                             CC* activated1of2cond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, mypk);  // create vintx probe 1of2 cond
-                            CCAddVintxCond(cp, activated1of2cond);      // add the probe to cp, it is copied and we can cc_free it
+                            //CCAddVintxCond(cp, activated1of2cond);      // add the probe to cp, it is copied and we can cc_free it
                             cc_free(activated1of2cond);
 
                             CScript opret;
@@ -4010,7 +4010,7 @@ std::string MarmaraReleaseActivatedCoins(CWallet *pwalletMain, const std::string
                 GetCCaddress1of2(cp, activated1of2addr, marmarapk, pk);
 
                 CC *probeCond = MakeCCcond1of2(EVAL_MARMARA, marmarapk, pk);  //add probe condition
-                CCAddVintxCond(cp, probeCond, key.begin());
+                //CCAddVintxCond(cp, probeCond, key.begin());
                 cc_free(probeCond);
 
                 std::vector<CPubKey> pubkeys;
@@ -4073,7 +4073,7 @@ std::string MarmaraUnlockActivatedCoins(CAmount amount)
         GetCCaddress1of2(cp, activated1of2addr, marmarapk, mypk);
 
         CC *probeCond = MakeCCcond1of2(EVAL_MARMARA, marmarapk, mypk);  //add probe condition
-        CCAddVintxCond(cp, probeCond, NULL);
+        //CCAddVintxCond(cp, probeCond, NULL);
 
         std::vector<CPubKey> pubkeys;
         if (amount == 0)
