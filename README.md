@@ -20,7 +20,7 @@ This is the official Marmara Credit Loops sourcecode repository based on https:/
 ## Resources
 
 - Marmara Credit Loops Website: [Marmara Website](http://marmara.io/)
-- Marmara Credit Loops Blockexplorer: [Marmara Explorer](http://explorer.marmara.io/)
+- Marmara Credit Loops Blockexplorer: [Marmara Explorer](https://explorer.marmara.io/)
 - Marmara Credit Loops Discord: [MCL Discord](https://discord.com/invite/DZDPAd)
 - Mail: [marmarachain@gmail.com](mailto:marmarachain@gmail.com)
 - Whitepaper: [Marmara Whitepaper](http://marmara.io/IMSS2019_WhitePaper_English.pdf)
@@ -45,8 +45,8 @@ More details are available under http://marmara.io/
 
 ## Getting Started
 
-- To install/download Marmara Credit Loops, follow the [Marmara Credit Loops Instructions](https://github.com/marmarachain/marmara/blob/master/MCLInstallationGuide.md).
-- To use Marmara Credit Loops, follow the [Marmara Credit Loops Usage Guidelines](https://github.com/marmarachain/marmara/blob/master/MCLUsageGuide.md).
+- To install/download Marmara Credit Loops, follow the [Marmara Credit Loops Instructions](https://github.com/marmarachain/marmara/wiki).
+- To get started with Marmara Credit Loops, follow the [Marmara Credit Loops Usage Guidelines](https://github.com/marmarachain/marmara/wiki/Getting-Started-with-Marmara) and to make Marmara Credit Loops, follow the [Making Marmara Credit Loops](https://github.com/marmarachain/marmara/wiki/How-to-make-Marmara-Credit-Loops?) guide.
 
 ## Marmara Evolvement
 ### Marmara v.1.0.1 Hardfork Change log
