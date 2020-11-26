@@ -30,14 +30,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
 {"gatewayswithdrawsign", true},{"gatewaysmarkdone", true},{"gatewayspendingsignwithdraws", true},{"gatewayssignedwithdraws", true},
 {"gatewaysinfo", false},{"gatewayslist", false},{"faucetfund", true},{"faucetget", true},{"pegscreate", true},{"pegsfund", true},{"pegsget", true},{"pegsclose", true},
 {"pegsclose", true},{"pegsredeem", true},{"pegsexchange", true},{"pegsliquidate", true},{"pegsaccounthistory", true},{"pegsaccountinfo", true},{"pegsworstaccounts", true},
-{"pegsinfo", true},{ "marmaralock", false },{ "marmaraissue", false },{ "marmaratransfer", true },{ "marmarareceive", true },{ "marmarainfo", true },{ "marmaracreditloop", true },
-    // kogs:
-    { "kogskoglist", true }, { "kogscreategameconfig", true }, { "kogsstartgame", true }, {  "kogscreateplayer", true }, { "kogscreatekogs", true }, { "kogscreateslammers", true }, 
-    { "kogscreatepack", true }, { "kogsunsealpack", true }, { "kogscreatecontainer", true }, { "kogsdepositcontainer", true }, { "kogsaddkogstocontainer",  true },
-    { "kogsremovekogsfromcontainer",  true }, { "kogsaddress", true }, { "kogsburntoken", true }, { "kogspacklist", true }, { "kogskoglist", true },
-    { "kogsslammerlist", true }, { "kogscontainerlist", true }, { "kogsdepositedcontainerlist",  true }, { "kogsplayerlist", true }, { "kogsgameconfiglist", true },
-    { "kogsgamelist", true }, { "kogsremoveobject", true }, { "kogsslamdata",  true }, { "kogsobjectinfo", true }, { "kogsadvertiseplayer", true },{ "kogsstopadvertiseplayer", true }, { "kogsadvertisedplayerlist", true },
-    { "kogsbalance", true },
+{"pegsinfo", true},
     // tokens:
     { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokencancelask", true }, { "tokencancelbid", true }, 
     { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }

@@ -51,9 +51,8 @@ void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
 template <class V>
 CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool)
 {
-	CAmount /*threshold, price,*/ totalinputs = 0; 
+	CAmount totalinputs = 0; 
     int32_t n = 0; 
-	//std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 	std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
     if (cp->evalcode != V::EvalCode())
@@ -68,18 +67,13 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
             cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
     }
 
-    
     SetCCunspentsCCIndex(unspentOutputs, tokenaddr, tokenid);
-    std::cerr << __func__ << " non mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
-
     if (useMempool)  {
         AddCCunspentsCCIndexMempool(unspentOutputs, tokenaddr, tokenid);
-        std::cerr << __func__ << " with mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
     }
         
 	// threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);   // let's not use threshold
     LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found unspentOutputs=" << unspentOutputs.size() << std::endl);
-	//for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
 	for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
 	{
         CTransaction tx;
@@ -167,7 +161,7 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
 }
 
 template<class V>
-UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<CC*, uint8_t*> &probecond, CAmount amount, bool useMempool)
+UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<CCwrapper, uint8_t*> &probecond, CAmount amount, bool useMempool)
 {
     if (V::EvalCode() == EVAL_TOKENS)   {
         if (!TokensIsVer1Active(NULL))
@@ -205,8 +199,7 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
         if (probecond.first != nullptr)
         {
             // add probe cc and kogs priv to spend from kogs global pk
-            std::shared_ptr<CC> cond(probecond.first);
-            CCAddVintxCond(cp, cond, probecond.second);
+            CCAddVintxCond(cp, probecond.first, probecond.second);
         }
 
         CScript opret = V::EncodeTokenOpRet(tokenid, destpubkeys, {});
@@ -283,7 +276,7 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
 // total - token amount to transfer
 // returns: signed transfer tx in hex
 template <class V>
-UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
+UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CAmount CCchange = 0, inputs = 0;  
@@ -343,8 +336,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
             // add optional probe conds to non-usual sign vins
             for (const auto &p : probeconds)
             {
-                std::shared_ptr<CC> cond(p.first);
-                CCAddVintxCond(cp, cond, p.second);
+                CCAddVintxCond(cp, p.first, p.second);
             }
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
@@ -559,6 +551,7 @@ UniValue TokenInfo(uint256 tokenid)
 	result.push_back(Pair("owner", HexStr(origpubkey)));
 	result.push_back(Pair("name", name));
 
+
     CAmount supply = 0, output;
     for (int v = 0; v < tokenbaseTx.vout.size(); v++)
         if ((output = IsTokensvout<V>(false, true, cpTokens, NULL, tokenbaseTx, v, tokenid)) > 0)
@@ -566,11 +559,12 @@ UniValue TokenInfo(uint256 tokenid)
 	result.push_back(Pair("supply", supply));
 	result.push_back(Pair("description", description));
 
-    //GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vopretNonfungible);
     if (oprets.size() > 0)
         vopretNonfungible = oprets[0];
     if( !vopretNonfungible.empty() )    
         result.push_back(Pair("data", HexStr(vopretNonfungible)));
+    result.push_back(Pair("version", DecodeTokenOpretVersion(tokenbaseTx.vout.back().scriptPubKey)));
+    result.push_back(Pair("IsMixed", V::EvalCode() == V2::EvalCode() ? "yes" : "no"));
 
     if (tokenbaseTx.IsCoinImport()) { // if imported token
         ImportProof proof;

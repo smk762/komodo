@@ -390,11 +390,11 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     {
         vuint8_t vnftData;
         GetNonfungibleData(tokenid, vnftData);
-        CC *probeCond;
+        CCwrapper probeCond;
         if (vnftData.size() > 0)
-            probeCond = V::MakeTokensCCcond1(vnftData[0], mypk);
+            probeCond.reset( V::MakeTokensCCcond1(vnftData[0], mypk) );
         else
-            probeCond = MakeCCcond1(V::EvalCode(), mypk);
+            probeCond.reset( MakeCCcond1(V::EvalCode(), mypk) );
 
         uint8_t mypriv[32];
         Myprivkey(mypriv);
@@ -413,7 +413,7 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     if (ResultHasTx(sigData) > 0)
         result = sigData;
     else
-        result = MakeResultError("could not transfer token: " + ResultGetError(sigData) );
+        result = MakeResultError("could not transfer token: " + ResultGetError(sigData));
     return result;
 }
 
@@ -785,7 +785,6 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remote
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
-  // Marmara
      // tokens & assets
 	{ "tokens",       "assetsaddress",    &assetsaddress,      true },
     { "tokens",       "tokeninfo",        &tokeninfo,         true },
