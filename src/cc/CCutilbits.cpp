@@ -153,7 +153,8 @@ bool CCtoAnon(const CC *cond)
     for (int i=0; i<cond->size;i++)
             if (cc_typeId(cond->subconditions[i])==CC_Threshold)
             {
-                cond->subconditions[i]=cc_anon(cond->subconditions[i]);
+                CCwrapper tmp(cond->subconditions[i]);
+                cond->subconditions[i]=cc_anon(tmp.get());
                 return (true);
             }
     return (false);
