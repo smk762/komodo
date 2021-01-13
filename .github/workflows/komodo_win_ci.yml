@@ -92,9 +92,12 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
+          vcpkg install curl openssl
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install wheel
+          python.exe -m pip install pycurl==7.43.0.5
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: Base RPC Test (Windows)
@@ -122,9 +125,12 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
+          vcpkg install curl openssl
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install wheel
+          python.exe -m pip install pycurl==7.43.0.5
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: CC Dice Faucet Tokens Rewards (Windows)
@@ -152,9 +158,12 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
+          vcpkg install curl openssl
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install wheel
+          python.exe -m pip install pycurl==7.43.0.5
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: CC Oracles (Windows)
@@ -182,9 +191,12 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
+          vcpkg install curl openssl
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install wheel
+          python.exe -m pip install pycurl==7.43.0.5
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: CC Heir (Windows)
@@ -212,9 +224,12 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
+          vcpkg install curl openssl
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install wheel
+          python.exe -m pip install pycurl==7.43.0.5
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: ChannelsCC (Windows)
