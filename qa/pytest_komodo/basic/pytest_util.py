@@ -87,7 +87,7 @@ def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx 
                 return True
         except KeyError as e:
             print("\ntx is in mempool still probably, let's wait a little bit more\nError: ", e)
-            time.sleep(5)
+            time.sleep(6)
             attempts += 1
             if attempts < 100:
                 pass
