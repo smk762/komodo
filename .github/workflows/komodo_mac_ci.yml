@@ -182,4 +182,4 @@ jobs:
           tar xzvf komodo-macos.tar.gz
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
-          ./ci_setup.sh cc_modules/test_heir.py
+          # ./ci_setup.sh cc_modules/test_heir.py
