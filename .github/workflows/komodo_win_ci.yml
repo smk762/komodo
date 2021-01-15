@@ -199,11 +199,11 @@ jobs:
           python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
-      - name: CC Heir (Windows)
-        shell: cmd
-        run: |
-          cd qa\pytest_komodo
-          # start_ci.bat cc_modules\test_heir.py
+      # - name: CC Heir (Windows)
+      #   shell: cmd
+      #   run: |
+      #     cd qa\pytest_komodo
+      #     start_ci.bat cc_modules\test_heir.py
   windows-test-channels-cc:
 
     name: Test (Win/ChannelsCC)
