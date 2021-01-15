@@ -105,39 +105,39 @@ jobs:
         run: |
           cd qa\pytest_komodo
           start_ci.bat basic
-  windows-test-dice-faucet-tok-rewCC:
+  # windows-test-dice-faucet-tok-rewCC:
 
-    name: Test (Win/Dice Faucet Token Rewards)
-    runs-on: windows-latest
-    needs: windows-build
+  #   name: Test (Win/Dice Faucet Token Rewards)
+  #   runs-on: windows-latest
+  #   needs: windows-build
 
-    steps:
-      - uses: actions/checkout@v2
+  #   steps:
+  #     - uses: actions/checkout@v2
 
-      - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
-        with:
-          name: komodod_win
+  #     - name: Download komodo_win.zip
+  #       uses: actions/download-artifact@v1
+  #       with:
+  #         name: komodod_win
 
-      - name: Install deps (MainCC)
-        shell: cmd
-        run: |
-          move komodod_win\komodod_win.zip
-          7z e komodod_win.zip
-          move komodod.exe src\
-          vcpkg install curl openssl
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install wheel
-          python.exe -m pip install pycurl==7.43.0.5
-          python.exe -m pip install pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
-          zcutil\fetch-params.bat
-      - name: CC Dice Faucet Tokens Rewards (Windows)
-        shell: cmd
-        run: |
-          cd qa\pytest_komodo
-          start_ci.bat cc_modules\test_dice.py cc_modules\test_faucet.py cc_modules\test_token.py cc_modules\test_rewards.py
+  #     - name: Install deps (MainCC)
+  #       shell: cmd
+  #       run: |
+  #         move komodod_win\komodod_win.zip
+  #         7z e komodod_win.zip
+  #         move komodod.exe src\
+  #         vcpkg install curl openssl
+  #         python.exe -m pip install --upgrade setuptools
+  #         python.exe -m pip install --upgrade pip
+  #         python.exe -m pip install wheel
+  #         python.exe -m pip install pycurl==7.43.0.5
+  #         python.exe -m pip install pytest wget jsonschema
+  #         python.exe -m pip install slick-bitcoinrpc
+  #         zcutil\fetch-params.bat
+  #     - name: CC Dice Faucet Tokens Rewards (Windows)
+  #       shell: cmd
+  #       run: |
+  #         cd qa\pytest_komodo
+  #         start_ci.bat cc_modules\test_dice.py cc_modules\test_faucet.py cc_modules\test_token.py cc_modules\test_rewards.py
   windows-test-oracles-cc:
 
     name: Test (Win/OraclesCC)
@@ -171,34 +171,34 @@ jobs:
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_oracles.py
-  windows-test-heir-cc:
+  # windows-test-heir-cc:
 
-    name: Test (Win/HeirCC)
-    runs-on: windows-latest
-    needs: windows-build
+  #   name: Test (Win/HeirCC)
+  #   runs-on: windows-latest
+  #   needs: windows-build
 
-    steps:
-      - uses: actions/checkout@v2
+  #   steps:
+  #     - uses: actions/checkout@v2
 
-      - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
-        with:
-          name: komodod_win
+  #     - name: Download komodo_win.zip
+  #       uses: actions/download-artifact@v1
+  #       with:
+  #         name: komodod_win
 
-      - name: Install deps (CC Heir)
-        shell: cmd
-        run: |
-          move komodod_win\komodod_win.zip
-          7z e komodod_win.zip
-          move komodod.exe src\
-          vcpkg install curl openssl
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install wheel
-          python.exe -m pip install pycurl==7.43.0.5
-          python.exe -m pip install pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
-          zcutil\fetch-params.bat
+  #     - name: Install deps (CC Heir)
+  #       shell: cmd
+  #       run: |
+  #         move komodod_win\komodod_win.zip
+  #         7z e komodod_win.zip
+  #         move komodod.exe src\
+  #         vcpkg install curl openssl
+  #         python.exe -m pip install --upgrade setuptools
+  #         python.exe -m pip install --upgrade pip
+  #         python.exe -m pip install wheel
+  #         python.exe -m pip install pycurl==7.43.0.5
+  #         python.exe -m pip install pytest wget jsonschema
+  #         python.exe -m pip install slick-bitcoinrpc
+  #         zcutil\fetch-params.bat
       # - name: CC Heir (Windows)
       #   shell: cmd
       #   run: |
@@ -206,34 +206,34 @@ jobs:
       #     start_ci.bat cc_modules\test_heir.py
   windows-test-channels-cc:
 
-    name: Test (Win/ChannelsCC)
-    runs-on: windows-latest
-    needs: windows-build
+    # name: Test (Win/ChannelsCC)
+    # runs-on: windows-latest
+    # needs: windows-build
 
-    steps:
-      - uses: actions/checkout@v2
+    # steps:
+    #   - uses: actions/checkout@v2
 
-      - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
-        with:
-          name: komodod_win
+    #   - name: Download komodo_win.zip
+    #     uses: actions/download-artifact@v1
+    #     with:
+    #       name: komodod_win
 
-      - name: Install deps (ChannelsCC)
-        shell: cmd
-        run: |
-          move komodod_win\komodod_win.zip
-          7z e komodod_win.zip
-          move komodod.exe src\
-          vcpkg install curl openssl
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install wheel
-          python.exe -m pip install pycurl==7.43.0.5
-          python.exe -m pip install pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
-          zcutil\fetch-params.bat
-      - name: ChannelsCC (Windows)
-        shell: cmd
-        run: |
-          cd qa\pytest_komodo
-          start_ci.bat cc_modules\test_channels.py
+    #   - name: Install deps (ChannelsCC)
+    #     shell: cmd
+    #     run: |
+    #       move komodod_win\komodod_win.zip
+    #       7z e komodod_win.zip
+    #       move komodod.exe src\
+    #       vcpkg install curl openssl
+    #       python.exe -m pip install --upgrade setuptools
+    #       python.exe -m pip install --upgrade pip
+    #       python.exe -m pip install wheel
+    #       python.exe -m pip install pycurl==7.43.0.5
+    #       python.exe -m pip install pytest wget jsonschema
+    #       python.exe -m pip install slick-bitcoinrpc
+    #       zcutil\fetch-params.bat
+    #   - name: ChannelsCC (Windows)
+    #     shell: cmd
+    #     run: |
+    #       cd qa\pytest_komodo
+    #       start_ci.bat cc_modules\test_channels.py

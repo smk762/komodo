@@ -43,34 +43,34 @@ jobs:
           name: komodo-macos
           path: ./komodo-macos.tar.gz
 
-  macos-test-dice-token-reards-faucet-cc:
+  # macos-test-dice-token-reards-faucet-cc:
 
-    name: Test (MacOS/Dice, Token, Faucet, Rewards)
-    runs-on: macos-latest
-    needs: macos-build
+  #   name: Test (MacOS/Dice, Token, Faucet, Rewards)
+  #   runs-on: macos-latest
+  #   needs: macos-build
 
-    steps:
-      - uses: actions/checkout@v2
+  #   steps:
+  #     - uses: actions/checkout@v2
 
-      - name: Install deps (Dice, Token, Faucet, Rewards CC)
-        run: |
-          brew install curl
-          python3 -m pip install setuptools wheel
-          python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
+  #     - name: Install deps (Dice, Token, Faucet, Rewards CC)
+  #       run: |
+  #         brew install curl
+  #         python3 -m pip install setuptools wheel
+  #         python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
 
-      - name: Download komodo-macos.tar.gz
-        uses: actions/download-artifact@v1
-        with:
-          name: komodo-macos
+  #     - name: Download komodo-macos.tar.gz
+  #       uses: actions/download-artifact@v1
+  #       with:
+  #         name: komodo-macos
 
-      - name: Test CC (MacOS)
-        run: |
-          mv komodo-macos/komodo-macos.tar.gz .
-          mkdir -p src
-          tar xzvf komodo-macos.tar.gz
-          ./zcutil/fetch-params.sh
-          cd qa/pytest_komodo
-          ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_token.py cc_modules/test_rewards.py"
+  #     - name: Test CC (MacOS)
+  #       run: |
+  #         mv komodo-macos/komodo-macos.tar.gz .
+  #         mkdir -p src
+  #         tar xzvf komodo-macos.tar.gz
+  #         ./zcutil/fetch-params.sh
+  #         cd qa/pytest_komodo
+  #         ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_token.py cc_modules/test_rewards.py"
 
   macos-test-oracles:
 
@@ -156,30 +156,30 @@ jobs:
           cd qa/pytest_komodo
           ./ci_setup.sh cc_modules/test_channels.py
 
-  macos-test-heir:
+  # macos-test-heir:
 
-    name: Test (macos/HeirCC)
-    runs-on: macos-latest
-    needs: macos-build
+  #   name: Test (macos/HeirCC)
+  #   runs-on: macos-latest
+  #   needs: macos-build
 
-    steps:
-      - uses: actions/checkout@v2
+  #   steps:
+  #     - uses: actions/checkout@v2
 
-      - name: Install deps (HeirCC)
-        run: |
-          brew install curl
-          python3 -m pip install setuptools wheel
-          python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
-      - name: Download komodo-macos.tar.gz
-        uses: actions/download-artifact@v1
-        with:
-          name: komodo-macos
+  #     - name: Install deps (HeirCC)
+  #       run: |
+  #         brew install curl
+  #         python3 -m pip install setuptools wheel
+  #         python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
+  #     - name: Download komodo-macos.tar.gz
+  #       uses: actions/download-artifact@v1
+  #       with:
+  #         name: komodo-macos
 
-      - name: Heir Test (macos)
-        run: |
-          mv komodo-macos/komodo-macos.tar.gz .
-          mkdir -p src
-          tar xzvf komodo-macos.tar.gz
-          ./zcutil/fetch-params.sh
-          cd qa/pytest_komodo
-          # ./ci_setup.sh cc_modules/test_heir.py
+  #     - name: Heir Test (macos)
+  #       run: |
+  #         mv komodo-macos/komodo-macos.tar.gz .
+  #         mkdir -p src
+  #         tar xzvf komodo-macos.tar.gz
+  #         ./zcutil/fetch-params.sh
+  #         cd qa/pytest_komodo
+  #         ./ci_setup.sh cc_modules/test_heir.py
