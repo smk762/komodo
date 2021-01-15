@@ -157,32 +157,32 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install deps (ChannelsCC)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -q \
-                 curl \
-                 python3 \
-                 python3-dev \
-                 python3-setuptools \
-                 python3-pip \
-                 libcurl4-openssl-dev \
-                 libssl-dev -y
-          python3 -m pip install setuptools wheel
-          python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
-      - name: Download komodo-linux.tar.gz
-        uses: actions/download-artifact@v1
-        with:
-          name: komodo-linux
+      # - name: Install deps (ChannelsCC)
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -q \
+      #            curl \
+      #            python3 \
+      #            python3-dev \
+      #            python3-setuptools \
+      #            python3-pip \
+      #            libcurl4-openssl-dev \
+      #            libssl-dev -y
+      #     python3 -m pip install setuptools wheel
+      #     python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
+      # - name: Download komodo-linux.tar.gz
+      #   uses: actions/download-artifact@v1
+      #   with:
+      #     name: komodo-linux
 
-      - name: Channels Test (Linux)
-        run: |
-          mv komodo-linux/komodo-linux.tar.gz .
-          mkdir -p src
-          tar xzvf komodo-linux.tar.gz
-          ./zcutil/fetch-params.sh
-          cd qa/pytest_komodo
-          ./ci_setup.sh cc_modules/test_channels.py
+      # - name: Channels Test (Linux)
+      #   run: |
+      #     mv komodo-linux/komodo-linux.tar.gz .
+      #     mkdir -p src
+      #     tar xzvf komodo-linux.tar.gz
+      #     ./zcutil/fetch-params.sh
+      #     cd qa/pytest_komodo
+      #     ./ci_setup.sh cc_modules/test_channels.py
   # linux-test-heir:
 
   #   name: Test (Linux/HeirCC)

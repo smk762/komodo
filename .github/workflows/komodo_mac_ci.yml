@@ -128,33 +128,33 @@ jobs:
           cd qa/pytest_komodo
           ./ci_setup.sh basic
 
-  macos-test-channels:
+  # macos-test-channels:
 
-    name: Test (macos/ChannelsCC)
-    runs-on: macos-latest
-    needs: macos-build
+  #   name: Test (macos/ChannelsCC)
+  #   runs-on: macos-latest
+  #   needs: macos-build
 
-    steps:
-      - uses: actions/checkout@v2
+  #   steps:
+  #     - uses: actions/checkout@v2
 
-      - name: Install deps (ChannelsCC)
-        run: |
-          brew install curl
-          python3 -m pip install setuptools wheel
-          python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
-      - name: Download komodo-macos.tar.gz
-        uses: actions/download-artifact@v1
-        with:
-          name: komodo-macos
+  #     - name: Install deps (ChannelsCC)
+  #       run: |
+  #         brew install curl
+  #         python3 -m pip install setuptools wheel
+  #         python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
+  #     - name: Download komodo-macos.tar.gz
+  #       uses: actions/download-artifact@v1
+  #       with:
+  #         name: komodo-macos
 
-      - name: Channels Test (macos)
-        run: |
-          mv komodo-macos/komodo-macos.tar.gz .
-          mkdir -p src
-          tar xzvf komodo-macos.tar.gz
-          ./zcutil/fetch-params.sh
-          cd qa/pytest_komodo
-          ./ci_setup.sh cc_modules/test_channels.py
+  #     - name: Channels Test (macos)
+  #       run: |
+  #         mv komodo-macos/komodo-macos.tar.gz .
+  #         mkdir -p src
+  #         tar xzvf komodo-macos.tar.gz
+  #         ./zcutil/fetch-params.sh
+  #         cd qa/pytest_komodo
+  #         ./ci_setup.sh cc_modules/test_channels.py
 
   # macos-test-heir:
 
