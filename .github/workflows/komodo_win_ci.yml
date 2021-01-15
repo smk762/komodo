@@ -204,7 +204,7 @@ jobs:
       #   run: |
       #     cd qa\pytest_komodo
       #     start_ci.bat cc_modules\test_heir.py
-  windows-test-channels-cc:
+  #windows-test-channels-cc:
 
     # name: Test (Win/ChannelsCC)
     # runs-on: windows-latest
