@@ -357,8 +357,8 @@ bool ImportGatewayValidate(struct CCcontract_info *cp,Eval *eval,const CTransact
                             return eval->Invalid("importgatewaybind tx is not yet confirmed(notarised)!");
                         else if (IsCCInput(tx.vin[0].scriptSig) != 0)
                             return eval->Invalid("vin.0 is normal for importgatewaywithdrawsign!");
-                        else if (CheckVinPk(tx,0,pubkeys)==0)
-                            return eval->Invalid("vin.0 invalid, importgatewaywithdrawsign must be created by one of the importgateway pubkeys owner!");
+                        // else if (CheckVinPk(cp,tx,0,pubkeys)==0)
+                        //     return eval->Invalid("vin.0 invalid, importgatewaywithdrawsign must be created by one of the importgateway pubkeys owner!");
                         else if ((*cp->ismyvin)(tx.vin[1].scriptSig) == 0 || myGetTransaction(tx.vin[1].prevout.hash,tmptx,hashblock)==0 || tmptx.vout[tx.vin[1].prevout.n].nValue!=CC_MARKER_VALUE)
                             return eval->Invalid("vin.1 is CC marker for importgatewaywithdrawsign or invalid marker amount!");
                         else if (ConstrainVout(tx.vout[0],1,cp->unspendableCCaddr,CC_MARKER_VALUE) == 0 )
@@ -407,8 +407,8 @@ bool ImportGatewayValidate(struct CCcontract_info *cp,Eval *eval,const CTransact
                             return eval->Invalid("importgatewaybind tx is not yet confirmed(notarised)!");
                         else if ( IsCCInput(tx.vin[0].scriptSig) != 0 )
                             return eval->Invalid("vin.0 is normal for importgatewaymarkdone!");
-                        else if (CheckVinPk(tx,0,pubkeys)==0)
-                            return eval->Invalid("vin.0 invalid, importgatewaymarkdone must be created by one of the importgateway pubkeys owner!");
+                        // else if (CheckVinPk(cp,tx,0,pubkeys)==0)
+                        //     return eval->Invalid("vin.0 invalid, importgatewaymarkdone must be created by one of the importgateway pubkeys owner!");
                         else if ((*cp->ismyvin)(tx.vin[1].scriptSig) == 0 || myGetTransaction(tx.vin[1].prevout.hash,tmptx,hashblock)==0 || tmptx.vout[tx.vin[1].prevout.n].nValue!=CC_MARKER_VALUE)
                             return eval->Invalid("vin.1 is CC marker for importgatewaymarkdone or invalid marker amount!");
                         else if (std::find(pubkeys.begin(),pubkeys.end(),signingpubkeys[signingpubkeys.size()-1])==pubkeys.end())

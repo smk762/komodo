@@ -665,7 +665,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                             return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
                         else if (IsCCInput(tx.vin[0].scriptSig) != 0)
                             return eval->Invalid("vin.0 is normal for gatewayswithdrawsign!");
-                        else if (CheckVinPk(tx,0,pubkeys)==0)
+                        else if (CheckVinPk(cp,tx,0,pubkeys)==0)
                             return eval->Invalid("vin.0 invalid, gatewayswithdrawsign must be created by one of the gateways pubkeys owner!");
                         else if ((*cp->ismyvin)(tx.vin[1].scriptSig) == 0 || myGetTransaction(tx.vin[1].prevout.hash,tmptx,hashblock)==0 || tmptx.vout[tx.vin[1].prevout.n].nValue!=CC_MARKER_VALUE)
                             return eval->Invalid("vin.1 is CC marker for gatewayswithdrawsign or invalid marker amount!");
@@ -715,7 +715,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                             return eval->Invalid("gatewaysbind tx is not yet confirmed(notarised)!");
                         else if ( IsCCInput(tx.vin[0].scriptSig) != 0 )
                             return eval->Invalid("vin.0 is normal for gatewaysmarkdone!");
-                        else if (CheckVinPk(tx,0,pubkeys)==0)
+                        else if (CheckVinPk(cp,tx,0,pubkeys)==0)
                             return eval->Invalid("vin.0 invalid, gatewaysmarkdone must be created by one of the gateways pubkeys owner!");
                         else if ((*cp->ismyvin)(tx.vin[1].scriptSig) == 0 || myGetTransaction(tx.vin[1].prevout.hash,tmptx,hashblock)==0 || tmptx.vout[tx.vin[1].prevout.n].nValue!=CC_MARKER_VALUE)
                             return eval->Invalid("vin.1 is CC marker for gatewaysmarkdone or invalid marker amount!");

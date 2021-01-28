@@ -258,6 +258,15 @@ extern UniValue oraclessubscribe(const UniValue& params, bool fHelp, const CPubK
 extern UniValue oraclesdata(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue oraclessample(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue oraclessamples(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2address(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2list(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2info(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2create(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2register(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2subscribe(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2data(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2sample(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue oraclesv2samples(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pricesaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue priceslist(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue mypriceslist(const UniValue& params, bool fHelp, const CPubKey& mypk);
@@ -286,7 +295,6 @@ extern UniValue gatewaysdeposit(const UniValue& params, bool fHelp, const CPubKe
 extern UniValue gatewayswithdraw(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewayswithdrawsign(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewaysmarkdone(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue gatewayspendingdeposits(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewayspendingsignwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue gatewayssignedwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue channelslist(const UniValue& params, bool fHelp, const CPubKey& mypk);

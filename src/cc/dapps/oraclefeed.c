@@ -727,7 +727,7 @@ char *createrawtx(char *refcoin,char *acname,char *depositaddr,char *withdrawadd
     }
     if ( (retjson= get_cli(refcoin,&retstr,acname,"getinfo","","","","")) != 0 )
     {
-        locktime=jint(retjson,"tiptime");
+        locktime=jint(retjson,"tiptime")-1200;
         free_json(retjson);
     }
     sprintf(array,"\'[\"%s\"]\'",depositaddr);
@@ -1146,7 +1146,7 @@ int32_t main(int32_t argc,char **argv)
     M = N = 0;
     refcoin[0] = 0;
     retstr = 0;
-    if ((clijson= get_cli(refcoin,&retstr,acname,"oraclesinfo",oraclestr,"","","")) != 0 )
+    if ((clijson= get_cli(refcoin,&retstr,acname,"oraclesv2info",oraclestr,"","","")) != 0 )
     {
         if ( refcoin[0] == 0 && jstr(clijson,"name") != 0 )
         {
@@ -1184,7 +1184,7 @@ int32_t main(int32_t argc,char **argv)
                     {
                         if (prevheight < (get_coinheight(refcoin,"") - 10) && (height= get_oracledata(refcoin,"",prevheight,depositaddr,hexstr,sizeof(hexstr),format)) != 0 )
                         {
-                            if ( (clijson2= get_cli(refcoin,&retstr2,acname,"oraclesdata",oraclestr,hexstr,"","")) != 0 )
+                            if ( (clijson2= get_cli(refcoin,&retstr2,acname,"oraclesv2data",oraclestr,hexstr,"","")) != 0 )
                             {
                                 txid = broadcasttx(refcoin,acname,clijson2);
                                 if ( bits256_nonz(txid) != 0 )

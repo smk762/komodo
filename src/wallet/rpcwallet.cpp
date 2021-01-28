@@ -5604,17 +5604,17 @@ int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits
 #include "../cc/CClotto.h"
 #include "../cc/CCchannels.h"
 #include "../cc/CCOracles.h"
+#include "../cc/CCOraclesV2.h"
 #include "../cc/CCGateways.h"
 #include "../cc/CCPrices.h"
 #include "../cc/CCHeir.h"
-#include "../cc/CCMarmara.h"
 #include "../cc/CCPayments.h"
 #include "../cc/CCPegs.h"
 
 int32_t ensure_CCrequirements(uint8_t evalcode)
 {
     CCerror = "";
-    if ( ASSETCHAINS_CCDISABLES[evalcode] != 0 || (evalcode == EVAL_MARMARA && ASSETCHAINS_MARMARA == 0) )
+    if ( ASSETCHAINS_CCDISABLES[evalcode] != 0 )
     {
         // check if a height activation has been set. 
         fprintf(stderr, "evalcode.%i activates at height. %i current height.%i\n", evalcode, mapHeightEvalActivate[evalcode], komodo_currentheight());
@@ -5640,74 +5640,6 @@ int32_t ensure_CCrequirements(uint8_t evalcode)
         return(-1);
     }
     else return(0);
-}
-
-UniValue CCaddress(struct CCcontract_info *cp,char *name,std::vector<unsigned char> &pubkey)
-{
-    UniValue result(UniValue::VOBJ); char destaddr[64],str[64]; CPubKey mypk,pk;
-    pk = GetUnspendable(cp,0);
-    GetCCaddress(cp,destaddr,pk);
-    if ( strcmp(destaddr,cp->unspendableCCaddr) != 0 )
-    {
-        uint8_t priv[32];
-        Myprivkey(priv); // it is assumed the CC's normal address'es -pubkey was used
-        fprintf(stderr,"fix mismatched CCaddr %s -> %s\n",cp->unspendableCCaddr,destaddr);
-        strcpy(cp->unspendableCCaddr,destaddr);
-        memset(priv,0,32);
-    }
-    result.push_back(Pair("result", "success"));
-    sprintf(str,"%sCCAddress",name);
-    result.push_back(Pair(str,cp->unspendableCCaddr));
-    sprintf(str,"%sCCBalance",name);
-    result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(cp->unspendableCCaddr,1))));
-    sprintf(str,"%sNormalAddress",name);
-    result.push_back(Pair(str,cp->normaladdr));
-    sprintf(str,"%sNormalBalance",name);
-    result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(cp->normaladdr,0))));
-    if (strcmp(name,"Gateways")==0) result.push_back(Pair("GatewaysPubkey","03ea9c062b9652d8eff34879b504eda0717895d27597aaeb60347d65eed96ccb40"));
-    if ((strcmp(name,"Channels")==0 || strcmp(name,"Heir")==0) && pubkey.size() == 33)
-    {
-        sprintf(str,"%sCC1of2Address",name);
-        mypk = pubkey2pk(Mypubkey());
-        GetCCaddress1of2(cp,destaddr,mypk,pubkey2pk(pubkey));
-        result.push_back(Pair(str,destaddr));
-        if (GetTokensCCaddress1of2(cp,destaddr,mypk,pubkey2pk(pubkey))>0)
-        {
-            sprintf(str,"%sCC1of2TokensAddress",name);
-            result.push_back(Pair(str,destaddr));
-        }
-    }
-    else if (strcmp(name,"Tokens")!=0)
-    {
-        if (GetTokensCCaddress(cp,destaddr,pk)>0)
-        {
-            sprintf(str,"%sCCTokensAddress",name);
-            result.push_back(Pair(str,destaddr));
-        }
-    }
-    if ( pubkey.size() == 33 )
-    {
-        if ( GetCCaddress(cp,destaddr,pubkey2pk(pubkey)) != 0 )
-        {
-            sprintf(str,"PubkeyCCaddress(%s)",name);
-            result.push_back(Pair(str,destaddr));
-            sprintf(str,"PubkeyCCbalance(%s)",name);
-            result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,0))));
-        }
-    }
-    if ( GetCCaddress(cp,destaddr,pubkey2pk(Mypubkey())) != 0 )
-    {
-        sprintf(str,"myCCAddress(%s)",name);
-        result.push_back(Pair(str,destaddr));
-        sprintf(str,"myCCbalance(%s)",name);
-        result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,1))));
-    }
-    if ( Getscriptaddress(destaddr,(CScript() << Mypubkey() << OP_CHECKSIG)) != 0 )
-    {
-        result.push_back(Pair("myaddress",destaddr));
-        result.push_back(Pair("mybalance",ValueFromAmount(CCaddress_balance(destaddr,0))));
-    }
-    return(result);
 }
 
 bool pubkey2addr(char *destaddr,uint8_t *pubkey33);
@@ -5843,7 +5775,7 @@ UniValue channelsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk
     if ( ensure_CCrequirements(cp->evalcode) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     pubkey = ParseHex(params[0].get_str().c_str());
-    return(CCaddress(cp,(char *)"Channels",pubkey));
+    return(CCaddress(cp,(char *)"Channels",pubkey,true));
 }
 
 UniValue cclibaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
@@ -6045,6 +5977,19 @@ UniValue oraclesaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(CCaddress(cp,(char *)"Oracles",pubkey));
 }
 
+UniValue oraclesv2address(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    struct CCcontract_info *cp,C; std::vector<unsigned char> pubkey;
+    cp = CCinit(&C,EVAL_ORACLESV2);
+    if ( fHelp || params.size() > 1 )
+        throw runtime_error("oraclesv2address [pubkey]\n");
+    if ( ensure_CCrequirements(cp->evalcode) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    if ( params.size() == 1 )
+        pubkey = ParseHex(params[0].get_str().c_str());
+    return(CCaddress(cp,(char *)"Oracles V2",pubkey, true));
+}
+
 UniValue pricesaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); struct CCcontract_info *cp,C,*assetscp,C2; std::vector<unsigned char> pubkey; CPubKey pk,planpk,pricespk; char myaddr[64],houseaddr[64],exposureaddr[64];
@@ -6105,7 +6050,7 @@ UniValue gatewaysaddress(const UniValue& params, bool fHelp, const CPubKey& mypk
         throw runtime_error(CC_REQUIREMENTS_MSG);
     if ( params.size() == 1 )
         pubkey = ParseHex(params[0].get_str().c_str());
-    return(CCaddress(cp,(char *)"Gateways",pubkey));
+    return(CCaddress(cp,(char *)"Gateways",pubkey,true));
 }
 
 UniValue heiraddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
@@ -6649,21 +6594,18 @@ UniValue gatewaysbind(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue gatewaysdeposit(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int32_t i,claimvout,height; int64_t amount; std::string coin,deposithex; uint256 bindtxid,cointxid; std::vector<uint8_t>proof,destpub,pubkey;
-    if ( fHelp || params.size() != 9 )
-        throw runtime_error("gatewaysdeposit bindtxid height coin cointxid markervout deposithex proof destpubkey amount\n");
+    if ( fHelp || params.size() != 7 )
+        throw runtime_error("gatewaysdeposit bindtxid height coin deposithex proof destpubkey amount\n");
     if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     Lock2NSPV(mypk);
     bindtxid = Parseuint256((char *)params[0].get_str().c_str());
     height = atoi((char *)params[1].get_str().c_str());
     coin = params[2].get_str();
-    cointxid = Parseuint256((char *)params[3].get_str().c_str());
-    claimvout = atoi((char *)params[4].get_str().c_str());
-    deposithex = params[5].get_str();
-    proof = ParseHex(params[6].get_str());
-    destpub = ParseHex(params[7].get_str());
-    //amount = atof((char *)params[8].get_str().c_str()) * COIN + 0.00000000499999;
-    amount = AmountFromValue(params[8]);
+    deposithex = params[3].get_str();
+    proof = ParseHex(params[4].get_str());
+    destpub = ParseHex(params[5].get_str());
+    amount = AmountFromValue(params[6]);
     if ( amount <= 0 || claimvout < 0 )
     {
         Unlock2NSPV(mypk);
@@ -6674,7 +6616,7 @@ UniValue gatewaysdeposit(const UniValue& params, bool fHelp, const CPubKey& mypk
         Unlock2NSPV(mypk);
         throw runtime_error("invalid destination pubkey");
     }
-    result = GatewaysDeposit(mypk,0,bindtxid,height,coin,cointxid,claimvout,deposithex,proof,pubkey2pk(destpub),amount);
+    result = GatewaysDeposit(mypk,0,bindtxid,height,coin,deposithex,proof,pubkey2pk(destpub),amount);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
@@ -6747,17 +6689,6 @@ UniValue gatewaysmarkdone(const UniValue& params, bool fHelp, const CPubKey& myp
     }
     Unlock2NSPV(mypk);
     return(result);
-}
-UniValue gatewayspendingdeposits(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    uint256 bindtxid; std::string coin;
-    if ( fHelp || params.size() != 2 )
-        throw runtime_error("gatewayspendingdeposits bindtxid coin\n");
-    if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    bindtxid = Parseuint256((char *)params[0].get_str().c_str());
-    coin = params[1].get_str();
-    return(GatewaysPendingDeposits(mypk,bindtxid,coin));
 }
 
 UniValue gatewayspendingsignwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk)
@@ -6918,6 +6849,129 @@ UniValue oraclescreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
     description = params[1].get_str();
     format = params[2].get_str();
     result = OracleCreate(mypk,0,name,description,format);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2list(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    if ( fHelp || params.size() > 0 )
+        throw runtime_error("oraclesv2list\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    return(OraclesV2List());
+}
+
+UniValue oraclesv2info(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    uint256 txid;
+    if ( fHelp || params.size() != 1 )
+        throw runtime_error("oraclesv2info oracletxid\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    return(OracleV2Info(txid));
+}
+
+UniValue oraclesv2register(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid; int64_t datafee;
+    if ( fHelp || params.size() != 2 )
+        throw runtime_error("oraclesv2register oracletxid datafee\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    datafee = atof((char *)params[1].get_str().c_str()) * COIN + 0.00000000499999;
+    result = OracleV2Register(mypk,0,txid,datafee);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2subscribe(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid; int64_t amount; std::vector<unsigned char> pubkey;
+    if ( fHelp || params.size() != 3 )
+        throw runtime_error("oraclesv2subscribe oracletxid publisher amount\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    pubkey = ParseHex(params[1].get_str().c_str());
+    amount = atof((char *)params[2].get_str().c_str()) * COIN + 0.00000000499999;
+    result = OracleV2Subscribe(mypk,0,txid,pubkey2pk(pubkey),amount);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2sample(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 oracletxid,txid; int32_t num; char *batonaddr;
+    if ( fHelp || params.size() != 2 )
+        throw runtime_error("oraclesv2sample oracletxid txid\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    oracletxid = Parseuint256((char *)params[0].get_str().c_str());
+    txid = Parseuint256((char *)params[1].get_str().c_str());
+    return(OracleV2DataSample(oracletxid,txid));
+}
+
+UniValue oraclesv2samples(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid; int32_t num; char *batonaddr;
+    if ( fHelp || params.size() != 3 )
+        throw runtime_error("oraclesv2samples oracletxid batonaddress num\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    batonaddr = (char *)params[1].get_str().c_str();
+    num = atoi((char *)params[2].get_str().c_str());
+    return(OracleV2DataSamples(txid,batonaddr,num));
+}
+
+UniValue oraclesv2data(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid; std::vector<unsigned char> data;
+    if ( fHelp || params.size() != 2 )
+        throw runtime_error("oraclesv2data oracletxid hexstr\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    data = ParseHex(params[1].get_str().c_str());
+    result = OracleV2Data(mypk,0,txid,data);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2create(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); std::string name,description,format;
+    if ( fHelp || params.size() != 3 )
+        throw runtime_error("oraclesv2create name description format\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    name = params[0].get_str();
+    description = params[1].get_str();
+    format = params[2].get_str();
+    result = OracleV2Create(mypk,0,name,description,format);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));

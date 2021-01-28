@@ -311,12 +311,12 @@ libbitcoin_server_a_SOURCES = \
   cc/heir.cpp \
   cc/old/heir_v0.cpp \
   cc/oracles.cpp \
+  cc/oraclesV2.cpp \
   cc/prices.cpp \
   cc/pegs.cpp \
-  cc/marmara.cpp \
   cc/payments.cpp \
-  cc/gateways.cpp \
-  cc/channels.cpp \
+  cc/gatewaysV2.cpp \
+  cc/channelsV2.cpp \
   cc/auction.cpp \
   cc/betprotocol.cpp \
   cc/pricesfeed.cpp \
@@ -358,7 +358,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   rpc/tokensrpc.cpp \
   rpc/pricesrpc.cpp \
-  rpc/marmararpc.cpp \
+  rpc/ccutilsrpc.cpp \
   script/serverchecker.cpp \
   script/sigcache.cpp \
   timedata.cpp \

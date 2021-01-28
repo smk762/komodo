@@ -72,6 +72,7 @@ Details.
 #include "../komodo_nSPV_defs.h"
 #include "../komodo_cJSON.h"
 #include "../init.h"
+#include "../unspentccindex.h"
 #include "rpc/server.h"
 
 #define CC_BURNPUBKEY "02deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddead" //!< 'dead' pubkey in hex for burning tokens (if tokens are sent to it, they become 'burned')
@@ -137,43 +138,76 @@ struct CC_meta
 };
 /// \endcond
 
-// dimxy
-// class CCWrapper encapsulates and stores cryptocondition encoded in json
-// stored cc is used as probe in FinalizeCCtx to find vintx cc vout and make matching tx.vin.scriptSig
-class CCwrapper {
+// class CCWrapper encapsulates and stores cryptocondition and mimics unique_ptr interface
+// allows to init, assign and compare, does auto cc_free for the encapsulated cc
+// also used as probe in FinalizeCCtx to find spent cc vouts and make the matching tx.vin.scriptSig
+class CCwrapper 
+{
 public:
-    CCwrapper() { }
+    CCwrapper() : m_cond(NULL)
+    {
+    }
 
-    void setCC(CC *cond) {
-      
-        if (cond)
-        {
-            char *jsonstr = cc_conditionToJSONString(cond);
-            if (jsonstr) {
-                ccJsonString = jsonstr;
-                free(jsonstr);
-            }
-            //std::cerr << "CCwrapper setCC setting ccJsonString" << std::endl;
+    CCwrapper(const CC* cond) 
+    {
+        m_cond = (CC*)cond;
+    }
+
+    CCwrapper(const CCwrapper &condWrapped)
+    {
+        m_cond = NULL;
+        if (condWrapped.get() != NULL)   {
+            CC *cc = cc_copy(condWrapped.get());
+            reset(cc);
         }
     }
 
-    CC *getCC() {
-        char err[1024] = "";
-        CC *cond = NULL;
-        
-        if (!ccJsonString.empty())
-            cond = cc_conditionFromJSONString(ccJsonString.c_str(), err);  // caller, please don't forget to cc_free the returned cond!
-
-        // debug logging if parse not successful:
-        //std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
-        // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
-        return cond;
+    bool operator==(const CC *cond) const {
+        return this->get() == cond;
     }
 
-    ~CCwrapper() { }
+    bool operator!=(const CC *cond) const {
+        return this->get() != cond;
+    }
 
+    bool operator==(const CCwrapper &condWrapped) const {
+        return this->get() == condWrapped.get();
+    }
+
+    bool operator!=(const CCwrapper &condWrapped) const {
+        return this->get() != condWrapped.get();
+    }
+
+    CCwrapper operator=(const CCwrapper &src)
+    {
+        CCwrapper dst;
+        if (src.get() != NULL)
+            dst.reset(cc_copy(src.get()));
+        return dst;
+    }
+
+    void reset(const CC* cond)
+    {
+        if (m_cond) {
+            cc_free(m_cond);
+        }
+        m_cond = (CC*)cond;
+    }
+
+    CC *get() const
+    {
+        return m_cond;
+    }
+
+    ~CCwrapper()
+    {
+        if (m_cond) {
+            cc_free(m_cond);
+        }
+    }
+    //friend std::ostream& operator<<(std::ostream& os, const CCwrapper& cc);
 private:
-    std::string ccJsonString;
+    CC *m_cond;  // do not use const as non-const CC* is used all through the code
 };
 
 // struct with cc and privkey 
@@ -182,7 +216,15 @@ private:
 struct CCVintxProbe {
     CCwrapper CCwrapped;
     uint8_t   CCpriv[32];
-    ~CCVintxProbe() { memset(CCpriv, '\0', sizeof(CCpriv)); }
+
+    CCVintxProbe(CCwrapper condWrapped, const uint8_t *priv) : CCwrapped(condWrapped) {
+        memset(CCpriv, '\0', sizeof(CCpriv));
+        if (priv)
+            memcpy(CCpriv, priv, sizeof(CCpriv));
+    }
+    ~CCVintxProbe() { 
+        memset(CCpriv, '\0', sizeof(CCpriv)); 
+    }
 };
 /// CC contract (Antara module) info structure that contains data used for signing and validation of cc contract transactions
 struct CCcontract_info
@@ -370,7 +412,7 @@ int64_t CCgettxout(uint256 txid,int32_t vout,int32_t mempoolflag,int32_t lockfla
 
 /// \cond INTERNAL
 bool myIsutxo_spentinmempool(uint256 &spenttxid,int32_t &spentvini,uint256 txid,int32_t vout);
-bool myAddtomempool(CTransaction &tx, CValidationState *pstate = NULL, bool fSkipExpiry = false);
+bool myAddtomempool(const CTransaction &tx, CValidationState *pstate = NULL, bool fSkipExpiry = false);
 bool mytxid_inmempool(uint256 txid);
 int32_t myIsutxo_spent(uint256 &spenttxid,uint256 txid,int32_t vout);
 int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_t funcid);
@@ -415,9 +457,13 @@ bool GetCCParams(Eval* eval, const CTransaction &tx, uint32_t nIn,
 int64_t OraclePrice(int32_t height,uint256 reforacletxid,char *markeraddr,char *format);
 uint256 OracleMerkle(int32_t height,uint256 reforacletxid,char *format,std::vector<struct oracle_merklepair>publishers);
 uint256 OraclesBatontxid(uint256 oracletxid,CPubKey pk);
+uint256 OraclesV2Batontxid(uint256 oracletxid,CPubKey pk);
 uint8_t DecodeOraclesCreateOpRet(const CScript &scriptPubKey,std::string &name,std::string &description,std::string &format);
+uint8_t DecodeOraclesV2CreateOpRet(const CScript &scriptPubKey,uint8_t &version,std::string &name,std::string &description,std::string &format);
 uint8_t DecodeOraclesOpRet(const CScript &scriptPubKey,uint256 &oracletxid,CPubKey &pk,int64_t &num);
+uint8_t DecodeOraclesV2OpRet(const CScript &scriptPubKey,uint8_t &version,uint256 &oracletxid,CPubKey &pk,int64_t &num);
 uint8_t DecodeOraclesData(const CScript &scriptPubKey,uint256 &oracletxid,uint256 &batontxid,CPubKey &pk,std::vector <uint8_t>&data);
+uint8_t DecodeOraclesV2Data(const CScript &scriptPubKey,uint8_t &version,uint256 &oracletxid,uint256 &batontxid,CPubKey &pk,std::vector <uint8_t>&data);
 int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t *data,int32_t offset,int32_t datalen);
 /// \endcond
 
@@ -480,6 +526,44 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
 /// @returns funcid ('c' if creation tx or 't' if token transfer tx) or NULL if errors
 uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::vector<CPubKey> &voutPubkeys, std::vector<vscript_t>  &oprets);
 
+// token 2 opreturn functions:
+
+/// Creates opreturn scriptPubKey for token 2 creation transaction. Normally this function is called internally by the tokencreate rpc. You might need to call it to create a customized token.
+/// The total opreturn length should not exceed 10001 byte
+/// @param funcid should be set to 'c' character
+/// @param origpubkey token creator pubkey as byte array
+/// @param name token name (no more than 32 char)
+/// @param description token description (no more than 4096 char)
+/// @param oprets vector of additional data added to the token opret
+/// @returns scriptPubKey with OP_RETURN script
+CScript EncodeTokenCreateOpRetV2(const std::vector<uint8_t> &origpubkey, const std::string &name, const std::string &description, const std::vector<vscript_t> &oprets);
+
+/// Creates opreturn scriptPubKey for token 2 transfer transaction. Normally this function is called internally by the token rpcs. You might call this function if your module create token transactions.
+/// The total opreturn length should not exceed 10001 byte
+/// @param tokenid id of the token
+/// @param oprets vector of pairs of additional opreturn data added to the token opret. Could be empty. The first element in the pair is opretid enum, the second is the data as byte array
+/// @returns scriptPubKey with OP_RETURN script
+CScript EncodeTokenOpRetV2(uint256 tokenid, const std::vector<vscript_t> &oprets);
+
+/// Decodes opreturn scriptPubKey of token 2 creation transaction and also returns additional data blobs. 
+/// Normally this function is called internally by the token rpcs. You might want to call this function if your module should create a customized token.
+/// @param scriptPubKey OP_RETURN script to decode
+/// @param[out] origpubkey creator public key as a byte array
+/// @param[out] name token name 
+/// @param[out] description token description 
+/// @param[out] oprets vector of opreturn data added to the token opret. Could be empty if not set
+/// @returns funcid ('c') or NULL if errors
+uint8_t DecodeTokenCreateOpRetV2(const CScript &scriptPubKey, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description, std::vector<vscript_t>  &oprets);
+
+/// Decodes opreturn scriptPubKey of token 2 transfer transaction, also returns additional data blobs stored in the opreturn. 
+/// Normally this function is called internally by different token rpc. You might want to call if your module created a customized token.
+/// @param scriptPubKey OP_RETURN script to decode
+/// @param[out] evalCodeTokens should be EVAL_TOKENS
+/// @param[out] tokenid id of token 
+/// @param[out] oprets vector of additional opreturn data added to the token opret. Could be empty if not set
+/// @returns funcid ('c' if creation tx or 't' if token transfer tx) or NULL if errors
+uint8_t DecodeTokenOpRetV2(const CScript scriptPubKey, uint256 &tokenid, std::vector<vscript_t>  &oprets);
+
 
 /// @private
 int64_t AddCClibtxfee(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk);
@@ -535,6 +619,12 @@ CTxOut MakeCC1vout(uint8_t evalcode,CAmount nValue,CPubKey pk, std::vector<std::
 /// @param vData pointer to vector of vectors of unsigned char data to be added to the created vout for application needs
 /// @returns vout object
 CTxOut MakeCC1of2vout(uint8_t evalcode,CAmount nValue,CPubKey pk,CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL);
+
+bool CCtoAnon(const CC *cond);
+
+CTxOut MakeCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData = NULL);
+CTxOut MakeCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<unsigned char> *vData = NULL);
+
 
 /// @private
 int32_t has_opret(const CTransaction &tx, uint8_t evalcode);
@@ -605,6 +695,10 @@ int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode);
 /// @returns true if the scriptSig object contains a cryptocondition
 bool IsCCInput(CScript const& scriptSig);
 
+bool myGetTransactionCCV2(struct CCcontract_info const *cp,const uint256 &hash, CTransaction &txOut, uint256 &hashBlock);
+bool IsTxCCV2(struct CCcontract_info const *cp, const CTransaction &tx);
+bool IsTxCCV2Validated(struct CCcontract_info const *cp, uint256 txid);
+
 /// CheckTxFee checks if queried transaction fee value is not less than the actual transaction fee of a real transaction
 /// @param tx transaction object which actual txfee to check
 /// @param txfee transaction fee to check
@@ -637,11 +731,13 @@ CPubKey pubkey2pk(std::vector<uint8_t> vpubkey);
 /// CCfullsupply returns token initial supply
 /// @param tokenid id of token (id of token creation tx)
 int64_t CCfullsupply(uint256 tokenid);
+int64_t CCfullsupplyV2(uint256 tokenid);
 
 /// CCtoken_balance returns token balance for an address
 /// @param destaddr address to search the balance on
 /// @param tokenid id of the token
 int64_t CCtoken_balance(char *destaddr,uint256 tokenid);
+int64_t CCtoken_balanceV2(char *destaddr,uint256 tokenid);
 
 /// @private
 int64_t CCtoken_balance2(char *destaddr,uint256 tokenid);
@@ -650,7 +746,7 @@ int64_t CCtoken_balance2(char *destaddr,uint256 tokenid);
 /// @param[out] destaddr the address for the cc scriptPubKey. Should have at least 64 char buffer space
 /// @param evalcode eval code for which cryptocondition will be made
 /// @param pk pubkey for which cryptocondition will be made
-bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk);
+bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk, bool mixed=false);
 
 /// GetCCaddress retrieves the address for the scriptPubKey for the cryptocondition that is made for eval code and public key.
 /// The evalcode is taken from the cp object
@@ -658,7 +754,7 @@ bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk);
 /// @param[out] destaddr the address for the cc scriptPubKey. Should have at least 64 char buffer space
 /// @param pk pubkey for which cryptocondition will be made
 /// @see CCcontract_info
-bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk);
+bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk, bool mixed=false);
 
 /// GetCCaddress1of2 retrieves the address for the scriptPubKey for the 1of2 cryptocondition that is made for eval code and two public keys.
 /// The evalcode is taken from the cp object
@@ -667,20 +763,20 @@ bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk);
 /// @param pk first pubkey 1of2 cryptocondition 
 /// @param pk2 second pubkey of 1of2 cryptocondition 
 /// @see CCcontract_info
-bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2);
+bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed=false);
 
 /// Gets adddress for token cryptocondition vout
 /// @param cp CCcontract_info structure initialized with EVAL_TOKENS eval code
 /// @param[out] destaddr retrieved address
 /// @param pk public key to create the cryptocondition
-bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk);
+bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, bool mixed = false);
 
 /// Gets adddress for token 1of2 cc vout
 /// @param cp CCcontract_info structure initialized with EVAL_TOKENS eval code
 /// @param[out] destaddr retrieved address
 /// @param pk first public key to create the cryptocondition
 /// @param pk2 second public key to create the cryptocondition
-bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2);
+bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2, bool mixed = false);
 
 /// CCaddrTokens1of2set sets pubkeys, private key and cc addr for spending from 1of2 token cryptocondition vout
 /// @param cp contract info structure where the private key is set
@@ -731,16 +827,32 @@ int64_t CCduration(int32_t &numblocks,uint256 txid);
 bool ExactAmounts(Eval* eval, const CTransaction &tx, uint64_t txfee);
 bool CCOpretCheck(Eval* eval, const CTransaction &tx, bool no_burn, bool no_multi, bool last_vout);
 
+/// decodes cc transaction vout basic data: evalcode, funcid, version, creationId
+/// first tries to find cc data in vout's opdrop then in the last vout opreturn
+/// cc data must follow the common format: evalcode funcid version creationId
+/// if tx does not have evalcode cc vins the function treats the tx as the creation tx and sets creationId to tx.GetHash() 
+/// @param tx cc transaction
+/// @param n vout number to check
+/// @param[out] evalcode
+/// @param[out] funcid
+/// @param[out] version
+/// @param[out] creationId uint256 value euther from cc data or tx id itself
+/// @returns true if decoded okay
+bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_t &funcid, uint8_t &version, uint256 &creationId);
+
+
 /// @private
 uint256 CCOraclesReverseScan(char const *logcategory,uint256 &txid,int32_t height,uint256 reforacletxid,uint256 batontxid);
+uint256 CCOraclesV2ReverseScan(char const *logcategory,uint256 &txid,int32_t height,uint256 reforacletxid,uint256 batontxid);
 /// @private
 int64_t CCOraclesGetDepositBalance(char const *logcategory,uint256 reforacletxid,uint256 batontxid);
+int64_t CCOraclesV2GetDepositBalance(char const *logcategory,uint256 reforacletxid,uint256 batontxid);
 /// @private
 int32_t CCCointxidExists(char const *logcategory,uint256 txid,uint256 cointxid);
 /// @private
 bool CompareHexVouts(std::string hex1, std::string hex2);
 /// @private
-bool CheckVinPk(const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys);
+CPubKey CheckVinPk(struct CCcontract_info *cp,const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys);
 /// @private
 uint256 BitcoinGetProofMerkleRoot(const std::vector<uint8_t> &proofData, std::vector<uint256> &txids);
 
@@ -757,6 +869,8 @@ CPubKey check_signing_pubkey(CScript scriptSig);
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey);
 
 extern std::vector<CPubKey> NULL_pubkeys; //!< constant value for use in functions where such value might be passed @see FinalizeCCTx
+#define FINALIZECCTX_NO_CHANGE 0x1
+#define FINALIZECCTX_NO_CHANGE_WHEN_ZERO 0x2
 
 /// overload old-style FinalizeCCTx for compatibility
 /// @param skipmask parameter is not used
@@ -789,11 +903,37 @@ std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTr
 /// @returns signed transaction in hex encoding
 UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
 
+UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret);
+
 /// SetCCunspents returns a vector of unspent outputs on an address 
 /// @param[out] unspentOutputs vector of pairs of address key and amount
 /// @param coinaddr address where unspent outputs are searched
 /// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
-void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool CCflag = true);
+void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr,bool CCflag = true);
+
+/// SetCCunspentsWithMempool returns a vector of unspent outputs on an address, including outputs in mempool
+/// outputs that spent in mempool are removed 
+/// @param[out] unspentOutputs vector of pairs of address key and amount
+/// @param coinaddr address where unspent outputs are searched
+/// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
+void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag = true);
+
+/// SetCCunspents returns a vector of unspent outputs for a cc address and creationid of cc instance
+/// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
+/// @param coinaddr cc address where unspent outputs are searched
+/// @param creationid cc instance creationid for which outputs are searched
+void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
+
+/// SetCCunspents returns a vector of unspent outputs for a cc address
+/// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
+/// @param coinaddr cc address where unspent outputs are searched
+void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr);
+
+/// Adds mempool outputs to a vector of unspent outputs for a cc address
+/// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
+/// @param coinaddr cc address where unspent outputs are searched
+/// @param creationId txid of cc instance creation tx, might be empty to return all txns on coinaddr 
+void AddCCunspentsCCIndexMempool(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
 
 /// SetCCtxids returns a vector of all outputs on an address
 /// @param[out] addressIndex vector of pairs of address index key and amount
@@ -852,7 +992,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
 /// @param total amount of inputs to add. If total equals to 0 the function does not add inputs but returns amount of all available normal inputs in the wallet
 /// @param maxinputs maximum number of inputs to add
 /// @returns amount of added normal inputs or amount of all normal inputs in the wallet
-int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs);
+int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs, bool mempool = false);
 
 /// CCutxovalue returns amount of an utxo. The function does this without loading the utxo transaction, by using address index only
 /// @param coinaddr address where the utxo is searched
@@ -866,10 +1006,22 @@ int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCf
 int32_t CC_vinselect(int32_t *aboveip, int64_t *abovep, int32_t *belowip, int64_t *belowp, struct CC_utxo utxos[], int32_t numunspents, int64_t value);
 
 /// @private
-void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, const uint8_t *priv = NULL);
+void CCAddVintxCond(struct CCcontract_info *cp, const CCwrapper &condWrapped, const uint8_t *priv = NULL);
 
 /// @private
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
+
+bool ValidateNormalVins(Eval* eval, const CTransaction& tx,int32_t index);
+
+int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t *data,int32_t offset,int32_t datalen);
+int32_t oracle_parse_data_format(std::vector<uint8_t> data,std::string format);
+int64_t _correlate_price(int64_t *prices,int32_t n,int64_t price);
+int64_t OracleCorrelatedPrice(int32_t height,std::vector <int64_t> origprices);
+int32_t oracleprice_add(std::vector<struct oracleprice_info> &publishers,CPubKey pk,int32_t height,std::vector <uint8_t> data,int32_t maxheight);
+UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatlen);
+
+/// @private
+bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret);
 
 /*! \cond INTERNAL */
 // curve25519 and sha256
@@ -988,7 +1140,7 @@ bool IsRemoteRPCCall();
 /*! \endcond */
 
 /*! \cond INTERNAL */
-UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
+UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vector<unsigned char> &pubkey, bool mixed = false);
 /*! \endcond */
 
 #define RETURN_IF_ERROR(CCerror) if ( CCerror != "" ) { UniValue result(UniValue::VOBJ); ERR_RESULT(CCerror); return(result); }
