@@ -27,20 +27,20 @@
 /// Returns non-fungible data of token if this is a NFT
 /// @param tokenid id of token
 /// @param vopretNonfungible non-fungible token data. The first byte is the evalcode of the contract that validates the NFT-data
-void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible);
+//void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible);
 
 // CCcustom
 bool TokensValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
 bool Tokensv2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
 
-bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, std::string &errorStr);
+//bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, std::string &errorStr);
 
 // wrappers for tokens cc v1 or v2
-std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData);
-bool IsTokenMarkerVout(CTxOut vout);
+////std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData);
+//bool IsTokenMarkerVout(CTxOut vout);
 
-int64_t GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool = false);
-UniValue TokenInfo(uint256 tokenid);
+//int64_t GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool = false);
+//UniValue TokenInfo(uint256 tokenid);
 UniValue TokenList();
 UniValue TokenV2List();
 
@@ -61,7 +61,7 @@ UniValue TokenV2List();
 /// @param total amount to add (if total==0 no inputs are added and all available amount is returned)
 /// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
 /// @see AddTokenCCInputs
-CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
+//CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
 /// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set evalCodeNFT variable in the cp object to the eval code from tokencreate tx NFT data to spend NFT outputs properly
 /// @param cp CCcontract_info structure
@@ -70,7 +70,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 /// @param tokenid id of token which inputs to add
 /// @param total amount to add (if total==0 no inputs are added and all available amount is returned)
 /// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
-CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
+//CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
 /// @private overload used in old assets
 // CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, vscript_t &vopretNonfungible);
@@ -85,7 +85,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 /// @param v vout number (starting from 0)
 /// @param reftokenid id of the token. The vout is checked if it has this tokenid
 /// @returns true if vout is true token with the reftokenid id
-CAmount IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid);
+//CAmount IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid);
 
 template <class V> CAmount IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid);
 
@@ -272,7 +272,7 @@ bool TokensIsVer1Active(const Eval *eval);
 const char cctokens_log[] = "cctokens";
 
 // old tokens specific functions
-class V1 {
+class TokensV1 {
 public:
     static uint8_t EvalCode() { return EVAL_TOKENS; }
     static bool IsMixed() { return false; }
@@ -344,7 +344,7 @@ public:
 };
 
 // tokens 2 specific functions
-class V2 {
+class TokensV2 {
 public:
     static uint8_t EvalCode() { return EVAL_TOKENSV2; }
     static bool IsMixed() { return true; }

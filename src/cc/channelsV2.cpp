@@ -109,7 +109,7 @@ CScript EncodeChannelsOpRet(uint8_t funcid,uint256 tokenid,uint256 opentxid,CPub
     vopret = E_MARSHAL(ss << evalcode << funcid << opentxid << srcpub << destpub << numpayments << payment << hashchain << version << confirmation);
     if (tokenid!=zeroid)
     {
-        return(V2::EncodeTokenOpRet(tokenid, {}, { vopret }));
+        return(TokensV2::EncodeTokenOpRet(tokenid, {}, { vopret }));
     }
     opret << OP_RETURN << vopret;
     return(opret);
@@ -123,7 +123,7 @@ uint8_t DecodeChannelsOpRet(const CScript &scriptPubKey, uint256 &tokenid, uint2
 
     version=0;
     confirmation=100;
-    if (V2::DecodeTokenOpRet(scriptPubKey,tokenid,pubkeys,oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
+    if (TokensV2::DecodeTokenOpRet(scriptPubKey,tokenid,pubkeys,oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
     {
         vopret=vOpretExtra;
     }
@@ -297,7 +297,7 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                         while (i<channelOpenTx.vin.size())
                         {  
                             if ((cpTokens->ismyvin)(tx.vin[i].scriptSig) && myGetTransaction(channelOpenTx.vin[i].prevout.hash,prevTx,hashblock)!= 0 
-                                && (numvouts=prevTx.vout.size()) > 0 && (funcid=V2::DecodeTokenOpRet(prevTx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
+                                && (numvouts=prevTx.vout.size()) > 0 && (funcid=TokensV2::DecodeTokenOpRet(prevTx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
                                 && ((funcid=='c' && prevTx.GetHash()==tokenid) || (funcid!='c' && tmptokenid==tokenid)))
                                 i++;
                             else break;
@@ -532,7 +532,7 @@ int64_t AddChannelsInputs(struct CCcontract_info *cp,CMutableTransaction &mtx, C
         mtx.vin.push_back(CTxIn(txid,0,CScript()));
         if (tokenid!=zeroid)
         {
-            CCwrapper cond(V2::MakeTokensCCcond1of2(cp->evalcode,srcpub,destpub));
+            CCwrapper cond(TokensV2::MakeTokensCCcond1of2(cp->evalcode,srcpub,destpub));
             CCAddVintxCond(cp,cond,0);
         }
         else
@@ -568,8 +568,8 @@ UniValue ChannelOpen(const CPubKey& pk, uint64_t txfee,CPubKey destpub,int32_t n
     funds = numpayments * payment;
     if (tokenid!=zeroid)
     {
-        tokens=AddTokenCCInputs<V2>(cpTokens, mtx, mypk, tokenid, funds, 64, false);   
-        CCwrapper cond(V2::MakeTokensCCcond1(cpTokens->evalcode,mypk));
+        tokens=AddTokenCCInputs<TokensV2>(cpTokens, mtx, mypk, tokenid, funds, 64, false);   
+        CCwrapper cond(TokensV2::MakeTokensCCcond1(cpTokens->evalcode,mypk));
         CCAddVintxCond(cp,cond); 
         amount=AddNormalinputs(mtx,mypk,txfee+2*CC_MARKER_VALUE,5,pk.IsValid());
     }
@@ -584,11 +584,11 @@ UniValue ChannelOpen(const CPubKey& pk, uint64_t txfee,CPubKey destpub,int32_t n
             memcpy(hash,hashdest,32);
         }
         endiancpy((uint8_t *)&hashchain,hashdest,32);
-        if (tokenid!=zeroid) mtx.vout.push_back(V2::MakeTokensCC1of2vout(EVAL_CHANNELS,funds,mypk,destpub));
+        if (tokenid!=zeroid) mtx.vout.push_back(TokensV2::MakeTokensCC1of2vout(EVAL_CHANNELS,funds,mypk,destpub));
         else mtx.vout.push_back(MakeCC1of2voutMixed(EVAL_CHANNELS,funds,mypk,destpub));
         mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,mypk));
         mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,destpub));
-        if (tokenid!=zeroid && tokens>=funds) mtx.vout.push_back(V2::MakeTokensCC1vout(EVAL_TOKENSV2,tokens-funds,mypk));
+        if (tokenid!=zeroid && tokens>=funds) mtx.vout.push_back(TokensV2::MakeTokensCC1vout(EVAL_TOKENSV2,tokens-funds,mypk));
         return(FinalizeCCV2Tx(pk.IsValid(),0,cp,mtx,mypk,txfee,EncodeChannelsOpRet('O',tokenid,zeroid,mypk,destpub,numpayments,payment,hashchain,CHANNELCC_VERSION,confirmation)));
     }
     CCERR_RESULT("channelscc",CCLOG_INFO, stream << "error adding funds");
@@ -667,11 +667,11 @@ UniValue ChannelPayment(const CPubKey& pk, uint64_t txfee,uint256 opentxid,int64
             }
             else 
                 CCERR_RESULT("channelscc",CCLOG_INFO, stream << "invalid previous tx");
-            if (tokenid!=zeroid) mtx.vout.push_back(V2::MakeTokensCC1of2vout(EVAL_CHANNELS, change, srcpub, destpub));
+            if (tokenid!=zeroid) mtx.vout.push_back(TokensV2::MakeTokensCC1of2vout(EVAL_CHANNELS, change, srcpub, destpub));
             else mtx.vout.push_back(MakeCC1of2voutMixed(EVAL_CHANNELS, change, srcpub, destpub));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,srcpub));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,destpub));
-            if (tokenid!=zeroid) mtx.vout.push_back(V2::MakeTokensCC1vout(EVAL_TOKENSV2, amount, destpub));
+            if (tokenid!=zeroid) mtx.vout.push_back(TokensV2::MakeTokensCC1vout(EVAL_TOKENSV2, amount, destpub));
             else mtx.vout.push_back(CTxOut(amount, CScript() << ParseHex(HexStr(destpub)) << OP_CHECKSIG));
             return (FinalizeCCV2Tx(pk.IsValid(), 0, cp, mtx, mypk, txfee, EncodeChannelsOpRet('P', tokenid, opentxid, srcpub, destpub, prevdepth-numpayments, numpayments, secret, CHANNELCC_VERSION, confirmation)));
         }
@@ -704,7 +704,7 @@ UniValue ChannelClose(const CPubKey& pk, uint64_t txfee,uint256 opentxid)
     {
         if ( AddNormalinputs(mtx,mypk,txfee+CC_MARKER_VALUE,3,pk.IsValid()) >= txfee+CC_MARKER_VALUE )
         {
-            if (tokenid!=zeroid) mtx.vout.push_back(V2::MakeTokensCC1of2vout(EVAL_CHANNELS, funds, mypk, destpub));
+            if (tokenid!=zeroid) mtx.vout.push_back(TokensV2::MakeTokensCC1of2vout(EVAL_CHANNELS, funds, mypk, destpub));
             else mtx.vout.push_back(MakeCC1of2voutMixed(EVAL_CHANNELS, funds, mypk, destpub));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,mypk));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,destpub));

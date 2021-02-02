@@ -532,18 +532,21 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
                         if (t.CCwrapped.get() != NULL) {
                             CCwrapper anonCond = t.CCwrapped;
                             CCtoAnon(anonCond.get());
-                            Getscriptaddress(coinaddr, CCPubKey(anonCond.get(),true));
+                            Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), true));
                             if (strcmp(destaddr, coinaddr) == 0) {
                                 if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
                                     privkey = t.CCpriv;
                                 else
                                     privkey = myprivkey;
                                 cond = t.CCwrapped;
+                                std::cerr << __func__ << " cond.get()=" << cond.get() << " t.CCwrapped.get()=" << t.CCwrapped.get() << std::endl;
+
                                 break;
                             }
                         }
                     }
                 }
+                std::cerr << __func__ << " cond.get()=" << cond.get() << " i=" << i << std::endl;
                 if (cond.get() == NULL)
                 {
                     fprintf(stderr, "vini.%d has CC signing error address.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
@@ -552,7 +555,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
                 }
                 if (!remote)  // we have privkey in the wallet
                 {
-                    uint256 sighash = SignatureHash(CCPubKey(cond.get()), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
+                    uint256 sighash = SignatureHash(CCPubKey(cond.get()), mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
                     if (cc_signTreeSecp256k1Msg32(cond.get(), privkey, sighash.begin()) != 0)
                     {
                         mtx.vin[i].scriptSig = CCSig(cond.get());
@@ -906,7 +909,7 @@ int64_t CCfullsupplyV2(uint256 tokenid)
     if ( myGetTransactionCCV2(cp,tokenid,tx,hashBlock) != 0 )
     {
         std::vector<vscript_t> oprets;
-        if (V2::DecodeTokenCreateOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,origpubkey,name,description,oprets))
+        if (TokensV2::DecodeTokenCreateOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,origpubkey,name,description,oprets))
         {
             return(tx.vout[1].nValue);
         }
@@ -955,7 +958,7 @@ int64_t CCtoken_balanceV2(char *coinaddr,uint256 reftokenid)
             char str[65];
 			std::vector<CPubKey> voutTokenPubkeys;
             std::vector<vscript_t>  oprets;
-            if ( reftokenid==txid || (V2::DecodeTokenOpRet(tx.vout[tx.vout.size()-1].scriptPubKey, tokenid, voutTokenPubkeys, oprets) != 0 && reftokenid == tokenid))
+            if ( reftokenid==txid || (TokensV2::DecodeTokenOpRet(tx.vout[tx.vout.size()-1].scriptPubKey, tokenid, voutTokenPubkeys, oprets) != 0 && reftokenid == tokenid))
             {
                 sum += it->second.satoshis;
             }

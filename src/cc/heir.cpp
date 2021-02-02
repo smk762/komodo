@@ -541,7 +541,7 @@ template <class Helper> int64_t Add1of2AddressInputs(struct CCcontract_info* cp,
             if ((txid == fundingtxid || fundingTxidInOpret == fundingtxid) &&
                 funcId != 0 &&
                 isMyFuncId(funcId) &&
-                (typeid(Helper) != typeid(TokenHelper) || IsTokensvout(true, true, cp, nullptr, heirtx, voutIndex, tokenid) > 0) && // token validation logic
+                (typeid(Helper) != typeid(TokenHelper) || IsTokensvout<TokensV1>(true, true, cp, nullptr, heirtx, voutIndex, tokenid) > 0) && // token validation logic
                 //(voutValue = IsHeirFundingVout<Helper>(cp, heirtx, voutIndex, ownerPubkey, heirPubkey)) > 0 &&		// heir contract vout validation logic - not used since we moved to 2-eval vouts
                 !myIsutxo_spentinmempool(ignoretxid,ignorevin,txid, voutIndex))
             {
@@ -590,7 +590,7 @@ template <class Helper> int64_t LifetimeHeirContractFunds(struct CCcontract_info
             if (funcId != 0 &&
                 (txid == fundingtxid || fundingTxidInOpret == fundingtxid) &&
                 isMyFuncId(funcId) && !isSpendingTx(funcId) &&
-                (typeid(Helper) != typeid(TokenHelper) || IsTokensvout(true, true, cp, nullptr, heirtx, ivout, tokenid) > 0) &&
+                (typeid(Helper) != typeid(TokenHelper) || IsTokensvout<TokensV1>(true, true, cp, nullptr, heirtx, ivout, tokenid) > 0) &&
                 !myIsutxo_spentinmempool(ignoretxid,ignorevin,txid, ivout)) // exclude tx in mempool
             {
                 total += it->second; // dont do this: tx.vout[ivout].nValue; // in vin[0] always is the pay to 1of2 addr (funding or change)
