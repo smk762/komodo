@@ -291,9 +291,8 @@ libbitcoin_server_a_SOURCES = \
   cc/eval.cpp \
   cc/import.cpp \
   cc/importgateway.cpp \
-  cc/CCassetsCore.cpp \
+  cc/CCassetsUtils.cpp \
   cc/old/CCassetsCore_v0.cpp \
-  cc/CCassetstx.cpp \
   cc/old/CCassetstx_v0.cpp \
   cc/CCcustom.cpp \
   cc/CCtx.cpp \

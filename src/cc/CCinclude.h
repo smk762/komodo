@@ -178,12 +178,10 @@ public:
         return this->get() != condWrapped.get();
     }
 
-    CCwrapper operator=(const CCwrapper &src)
+    void operator=(const CCwrapper &src)
     {
-        CCwrapper dst;
         if (src.get() != NULL)
-            dst.reset(cc_copy(src.get()));
-        return dst;
+            reset(cc_copy(src.get()));
     }
 
     void reset(const CC* cond)
@@ -208,6 +206,7 @@ public:
     //friend std::ostream& operator<<(std::ostream& os, const CCwrapper& cc);
 private:
     CC *m_cond;  // do not use const as non-const CC* is used all through the code
+    void operator=(const CC *cond); // disable CC* assignment to prevent accidental CC pointer sharing
 };
 
 // struct with cc and privkey 
