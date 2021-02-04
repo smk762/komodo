@@ -206,7 +206,7 @@ public:
     //friend std::ostream& operator<<(std::ostream& os, const CCwrapper& cc);
 private:
     CC *m_cond;  // do not use const as non-const CC* is used all through the code
-    void operator=(const CC *cond); // disable CC* assignment to prevent accidental CC pointer sharing
+    void operator=(const CC *cond); // disable direct CC* assignment to prevent accidental CC pointer sharing
 };
 
 // struct with cc and privkey 
@@ -789,6 +789,7 @@ void CCaddrTokens1of2set(struct CCcontract_info *cp, CPubKey pk1, CPubKey pk2, u
 
 /// @private
 bool ConstrainVout(CTxOut vout,int32_t CCflag,char *cmpaddr,int64_t nValue);
+bool ConstrainVoutV2(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue, uint8_t evalCode);
 
 /// @private
 bool PreventCC(Eval* eval,const CTransaction &tx,int32_t preventCCvins,int32_t numvins,int32_t preventCCvouts,int32_t numvouts);

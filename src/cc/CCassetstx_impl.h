@@ -366,8 +366,11 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
     // add normal inputs only from my mypk (not from any pk in the wallet) to validate the ownership of the canceller
     if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)
     {
+        uint256 spendingtxid;
+        int32_t spendingvin, h;
+
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if (myGetTransaction(bidtxid, vintx, hashBlock) && vintx.vout.size() > ASSETS_GLOBALADDR_VOUT)
+        if (CCgetspenttxid(spendingtxid, spendingvin, h, bidtxid, ASSETS_GLOBALADDR_VOUT) != 0 && myGetTransaction(bidtxid, vintx, hashBlock) && vintx.vout.size() > ASSETS_GLOBALADDR_VOUT)
         {
             uint8_t dummyEvalCode; uint256 dummyAssetid, dummyAssetid2; int64_t dummyPrice; std::vector<uint8_t> dummyOrigpubkey;
 
@@ -422,8 +425,11 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 a
     // add normal inputs only from my mypk (not from any pk in the wallet) to validate the ownership
     if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)
     {
+        uint256 spendingtxid;
+        int32_t spendingvin, h;
+
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if (myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > 0)
+        if (CCgetspenttxid(spendingtxid, spendingvin, h, asktxid, ASSETS_GLOBALADDR_VOUT) != 0 && myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > 0)
         {
             uint8_t dummyEvalCode; 
             uint256 dummyAssetid, dummyAssetid2; 
@@ -455,13 +461,15 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 a
             //CCaddr2set(cpTokens, EVAL_ASSETS, mypk, myPrivkey, myCCaddr);  //do we need this? Seems FinalizeCCTx can attach to any evalcode cc addr by calling Getscriptaddress 
 
             uint8_t unspendableAssetsPrivkey[32];
-            char unspendableAssetsAddr[KOMODO_ADDRESS_BUFSIZE];
+            //char unspendableAssetsAddr[KOMODO_ADDRESS_BUFSIZE];
             // init assets 'unspendable' privkey and pubkey
             CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
-            GetCCaddress(cpAssets, unspendableAssetsAddr, unspendableAssetsPk, A::IsMixed());
+            //GetCCaddress(cpAssets, unspendableAssetsAddr, unspendableAssetsPk, A::IsMixed());
 
             // add additional eval-tokens unspendable assets privkey:
-            CCaddr2set(cpAssets, T::EvalCode(), unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
+            //CCaddr2set(cpAssets, T::EvalCode(), unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
+            CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), cpAssets->evalcodeNFT, unspendableAssetsPk));
+            CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
                 T::EncodeTokenOpRet(assetid, { mypk },
@@ -486,7 +494,7 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
     CTransaction vintx; 
 	uint256 hashBlock; 
 	std::vector<uint8_t> origpubkey; 
-	int32_t bidvout = ASSETS_GLOBALADDR_VOUT; 
+	const int32_t bidvout = ASSETS_GLOBALADDR_VOUT; 
 	uint64_t mask; 
 	int64_t orig_units, unit_price, bid_amount, paid_amount, remaining_units, inputs, CCchange=0; 
 	struct CCcontract_info *cpTokens, tokensC;
@@ -504,8 +512,11 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
 
     if (AddNormalinputs(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000, IsRemoteRPCCall()) > 0)
     {
+        uint256 spendingtxid;
+        int32_t spendingvin, h;
+
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if (myGetTransaction(bidtxid, vintx, hashBlock) != 0 && vintx.vout.size() > bidvout)
+        if (CCgetspenttxid(spendingtxid, spendingvin, h, bidtxid, bidvout) != 0 && myGetTransaction(bidtxid, vintx, hashBlock) != 0 && vintx.vout.size() > bidvout)
         {
             bid_amount = vintx.vout[bidvout].nValue;
             uint8_t funcid = SetAssetOrigpubkey<A>(origpubkey, unit_price, vintx);  // get orig pk, orig units
@@ -525,7 +536,10 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                     return ("");
                 }
 
-                SetBidFillamounts(unit_price, paid_amount, bid_amount, fill_units, orig_units, paid_unit_price);
+                if (!SetBidFillamounts(unit_price, paid_amount, bid_amount, fill_units, orig_units, paid_unit_price)) {
+                    CCerror = "incorrect units or price";
+                    return ("");
+                }
 
                 if (inputs > fill_units)
                     CCchange = (inputs - fill_units);
@@ -549,12 +563,15 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
 
                 //fprintf(stderr, "%s remaining_units %lld -> origpubkey\n", __func__, (long long)remaining_units);
 
-                char unspendableAssetsAddr[KOMODO_ADDRESS_BUFSIZE];
-                cpAssets = CCinit(&assetsC, A::EvalCode());
-                GetCCaddress(cpAssets, unspendableAssetsAddr, unspendableAssetsPk, A::IsMixed());
+                //char unspendableAssetsAddr[KOMODO_ADDRESS_BUFSIZE];
+                //cpAssets = CCinit(&assetsC, A::EvalCode());
+                //GetCCaddress(cpAssets, unspendableAssetsAddr, unspendableAssetsPk, A::IsMixed());
 
                 // add additional unspendable addr from Assets:
-                CCaddr2set(cpTokens, A::EvalCode(), unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
+                //CCaddr2set(cpTokens, A::EvalCode(), unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
+                
+                CCwrapper wrCond(MakeCCcond1(A::EvalCode(), unspendableAssetsPk));
+                CCAddVintxCond(cpTokens, wrCond, unspendableAssetsPrivkey);
 
                 UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), mask, cpTokens, mtx, mypk, txfee,
                     T::EncodeTokenOpRet(assetid, { pubkey2pk(origpubkey) },
@@ -588,7 +605,7 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
 	std::vector<uint8_t> origpubkey; 
 	//double dprice; 
 	uint64_t mask = 0; 
-	int32_t askvout = ASSETS_GLOBALADDR_VOUT; 
+	const int32_t askvout = ASSETS_GLOBALADDR_VOUT; 
 	int64_t unit_price, orig_assetoshis, paid_nValue, inputs, CCchange = 0LL; 
 	struct CCcontract_info *cpAssets, assetsC;
 
@@ -613,8 +630,10 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
 
     if (txfee == 0)
         txfee = 10000;
+    uint256 spendingtxid;
+    int32_t spendingvin, h;
 
-    if (myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > askvout)
+    if (CCgetspenttxid(spendingtxid, spendingvin, h, asktxid, askvout) != 0 && myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > askvout)
     {
         orig_assetoshis = vintx.vout[askvout].nValue;
         uint8_t funcid = SetAssetOrigpubkey<A>(origpubkey, unit_price, vintx); // get orig pk, orig value
@@ -653,8 +672,12 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
             
 			if (assetid2 != zeroid)
                 ; // SetSwapFillamounts(orig_unit_price, fillunits, orig_assetoshis, paid_nValue, orig_nValue);  //not implemented correctly yet
-            else 
-				SetAskFillamounts(unit_price, fillunits, orig_assetoshis, paid_nValue);
+            else  {
+				if (!SetAskFillamounts(unit_price, fillunits, orig_assetoshis, paid_nValue)) {
+                    CCerror = "incorrect units or price";
+                    return "";
+                }
+            }
 
             if (paid_nValue == 0) {
                 CCerror = "ask totally filled";
@@ -687,10 +710,10 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
 			}
 
 			uint8_t unspendableAssetsPrivkey[32];
-			char unspendableAssetsAddr[KOMODO_ADDRESS_BUFSIZE];
+			// char unspendableAssetsAddr[KOMODO_ADDRESS_BUFSIZE];
 			// init assets 'unspendable' privkey and pubkey
 			CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
-			GetCCaddress(cpAssets, unspendableAssetsAddr, unspendableAssetsPk, A::IsMixed());
+			//GetCCaddress(cpAssets, unspendableAssetsAddr, unspendableAssetsPk, A::IsMixed());
 
 			// add additional eval-tokens unspendable assets privkey:
 			//CCaddr2set(cpAssets, T::EvalCode(), unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
