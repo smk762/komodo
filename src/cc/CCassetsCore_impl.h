@@ -134,7 +134,7 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
 
 	if (vintxFuncId == 's' || vintxFuncId == 'S' || vintxFuncId == 'b' || vintxFuncId == 'B') {
         cpTokens->evalcodeNFT = cp->evalcodeNFT;  // add non-fungible evalcode if present
-        if (!GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey)), A::IsMixed())  // tokens to single-eval token or token+nonfungible
+        if (!GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey), A::IsMixed()))  // tokens to single-eval token or token+nonfungible
             return false;
 	}
 	else  {
@@ -179,7 +179,6 @@ int64_t AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
         return eval->Invalid("could not load previous tx or it has too few vouts");
     }
     else if (vinTx.vout.size() < 1 || (vinFuncId = A::DecodeAssetTokenOpRet(vinTx.vout.back().scriptPubKey, vinEvalCode, vinAssetId, vinAssetId2, vinPrice, vinOrigpubkey)) == 0) {
-        std::cerr << __func__ << " vini=" << vini << " vinTx=" << vinTx.GetHash().GetHex() << std::endl;
         return eval->Invalid("could not find assets opreturn in previous tx");
     }
 	// if fillSell or cancelSell --> should spend tokens from dual-eval token-assets global addr:
@@ -292,110 +291,6 @@ int64_t AssetValidateSellvin(struct CCcontract_info *cpAssets, Eval* eval, int64
         return(assetoshis);
 }
 
-
-// sets cc inputs vs cc outputs and ensures they are equal:
-/*bool AssetsGetCCInputs(struct CCcontract_info *cpAssets, CAmount &tokensInputs, int64_t &assetsInputs, Eval* eval, const CTransaction &tx, uint256 assetid)
-{
-	CTransaction vinTx; 
-    uint256 hashBlock; 
-	int32_t numvins = tx.vin.size();
-	int32_t numvouts = tx.vout.size();
-	tokensInputs = assetsInputs = 0;
-
-	struct CCcontract_info *cpTokens, C;
-	cpTokens = CCinit(&C, EVAL_TOKENS);
-
-	for (int32_t i = 0; i<numvins; i++)
-	{												    // only tokens are relevant!!
-		if (cpTokens->ismyvin(tx.vin[i].scriptSig) || cpAssets->ismyvin(tx.vin[i].scriptSig))
-		{
-			if (myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock))
-			{
-                if (cpTokens->ismyvin(tx.vin[i].scriptSig))
-                {
-                    CAmount tokens = IsTokensvout(true, true, cpTokens, NULL, vinTx, tx.vin[i].prevout.n, assetid);
-                    std::cerr << __func__ << " IsTokensvout tokens=" << tokens << " i=" << i << std::endl;
-
-                    if (tokens < 0)     {
-                        LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << "invalid token input vintx for vin.i=" << i << " vin txid=" << tx.vin[i].prevout.hash.GetHex() << std::endl);
-                        return (!eval) ? false : eval->Invalid("invalid tokens input");
-                    }
-                    else if (tokens > 0)	
-                    {	
-                        LOGSTREAMFN(ccassets_log, CCLOG_DEBUG2, stream << "adding tokens amount=" << tokens << " for vin=" << i << std::endl);		
-                        tokensInputs += tokens;
-                    }
-                }
-                else 
-                {
-                    CAmount dummy_remaining;
-                    vuint8_t dummy_origpubkey;
-                    CAmount assets = IsAssetvout(cpAssets, dummy_remaining, dummy_origpubkey, vinTx, tx.vin[i].prevout.n, assetid);
-                    std::cerr << __func__ << " IsAssetvout assets=" << assets << " i=" << i << std::endl;
-                    if (assets < 0)    {
-                        LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << "invalid assets input vintx for vin.i=" << i << " vin txid=" << tx.vin[i].prevout.hash.GetHex() << std::endl);
-                        return (!eval) ? false : eval->Invalid("invalid assets input");
-                    }		
-                    if (assets > 0)
-                    {
-                        LOGSTREAMFN(ccassets_log, CCLOG_DEBUG2, stream << "adding assets amount=" << assets << " for vin=" << i << std::endl);		
-                        assetsInputs += assets;
-                    }
-                }
-			}
-            else {
-                LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << "cannot load vintx for i." << i << " vin txid=" << tx.vin[i].prevout.hash.GetHex() << std::endl);
-				return (!eval) ? false : eval->Invalid("always should find vin tx, but didnt");
-            }
-		}
-	}
-	return(true);
-}*/
-
-
-/*
-uint256 AssetsGetPrevOrdertxid(const CTransaction &tx)
-{
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_ASSETS);
-
-    for (int32_t i; i < tx.vin.size(); i ++)
-        if (cp->ismyvin(tx.vin[i].scriptSig))
-            return tx.vin[i].prevout.hash;
-    return zeroid;
-}
-
-// get unit price from the initial order rx
-CAmount AssetsGetUnitPrice(uint256 ordertxid)
-{
-    CTransaction ordertx;
-    uint256 hashBlock;
-    uint8_t funcid = 0;
-
-    do {
-        if (myGetTransaction(ordertxid, ordertx, hashBlock))
-        {
-            uint8_t evalCode; 
-            uint256 assetid, assetid2; 
-            int64_t amount; 
-            std::vector<uint8_t> origpubkey;
-
-            funcid = DecodeAssetTokenOpRet(ordertx.vout.back().scriptPubKey, evalCode, assetid, assetid2, amount, origpubkey);
-            // price is defined by the first order tx;  
-            if (funcid == 's')
-                return ordertx.vout[0].nValue > 0 ? amount / ordertx.vout[0].nValue : -1; 
-            if (funcid == 'b')
-                return amount > 0 ? ordertx.vout[0].nValue / amount : -1; 
-        }
-        else
-            return -1L;
-        ordertxid =  AssetsGetPrevOrdertxid(ordertx);
-    } 
-    while(funcid != 0 && ordertxid != zeroid);
-
-    return 0L;
-}
-*/
 
 
 #endif // #ifndef CC_ASSETS_CORE_IMPL_H

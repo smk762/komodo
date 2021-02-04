@@ -458,7 +458,7 @@ bool ValidateSwapRemainder(int64_t remaining_price, int64_t remaining_nValue, in
     return(true);
 }
 
-// get tx's vin inputs for cp and optional global addr
+// get tx's vin inputs for cp->evalcode and addr. If addr is null then all inputs are added
 CAmount AssetsGetCCInputs(struct CCcontract_info *cp, const char *addr, const CTransaction &tx)
 {
 	CTransaction vinTx; 

@@ -95,6 +95,12 @@ public:
     {
         return ::DecodeAssetTokenOpRetV1(scriptPubKey, assetsEvalCode, tokenid, assetid2, unit_price, origpubkey);
     }
+
+    static bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue, uint8_t evalCode)
+    {
+        return ::ConstrainVout(vout, CCflag, cmpaddr, nValue);
+    }
+
 };
 
 class AssetsV2 {
@@ -112,6 +118,11 @@ public:
     static uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey)
     {
         return ::DecodeAssetTokenOpRetV2(scriptPubKey, assetsEvalCode, tokenid, assetid2, unit_price, origpubkey);
+    }
+
+    static bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue, uint8_t evalCode)
+    {
+        return ::ConstrainVoutV2(vout, CCflag, cmpaddr, nValue, evalCode);
     }
 };
 

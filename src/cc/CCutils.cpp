@@ -415,7 +415,6 @@ bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk,bool mixe
 static bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode1, uint8_t evalcode2, CPubKey pk, bool mixed)
 {
 	CCwrapper payoutCond;
-    
     if (!mixed)
         payoutCond.reset(MakeTokensCCcond1(evalcode1, evalcode2, pk));
     else
@@ -490,6 +489,18 @@ bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue)
         return(false);
     }
     else return(true);
+}
+
+// validate cc or normal vout address and value
+bool ConstrainVoutV2(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue, uint8_t evalCode)
+{
+    if (ConstrainVout(vout, CCflag, cmpaddr, nValue))
+        if (CCflag && evalCode != 0)
+            return vout.scriptPubKey.HasEvalcodeCCV2(evalCode);
+        else
+            return true;
+    else
+        return false;
 }
 
 bool PreventCC(Eval* eval,const CTransaction &tx,int32_t preventCCvins,int32_t numvins,int32_t preventCCvouts,int32_t numvouts)
@@ -1690,7 +1701,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                 uint256 encodedCrid;
                 if (ccdata.size() >= 3 + sizeof(uint256))   {  // get creationId from the ccdata
                     bool isEof = true;
-                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {
+                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {  // E_UNMARSHAL might parse okay but return false if not EoF yet. So EoF==true means bad parse
                         LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "failed to decode ccdata, isEof=" << isEof << " usedOpreturn=" << usedOpreturn << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
                         return false;
                     }

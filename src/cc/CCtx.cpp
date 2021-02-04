@@ -539,14 +539,11 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
                                 else
                                     privkey = myprivkey;
                                 cond = t.CCwrapped;
-                                std::cerr << __func__ << " cond.get()=" << cond.get() << " t.CCwrapped.get()=" << t.CCwrapped.get() << std::endl;
-
                                 break;
                             }
                         }
                     }
                 }
-                std::cerr << __func__ << " cond.get()=" << cond.get() << " i=" << i << std::endl;
                 if (cond.get() == NULL)
                 {
                     fprintf(stderr, "vini.%d has CC signing error address.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
