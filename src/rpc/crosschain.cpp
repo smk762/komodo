@@ -39,6 +39,7 @@
 #include "key_io.h"
 #include "cc/CCImportGateway.h"
 #include "cc/CCtokens.h"
+#include "cc/CCtokens_impl.h"
 
 #include <stdint.h>
 #include <univalue.h>
@@ -381,7 +382,7 @@ UniValue migrate_createburntransaction(const UniValue& params, bool fHelp, const
             throw runtime_error("No normal input found for two txfee\n");
       
         int64_t ccInputs;
-        if ((ccInputs = AddTokenCCInputs(cpTokens, mtx, myPubKey, tokenid, burnAmount, 4)) < burnAmount)
+        if ((ccInputs = AddTokenCCInputs<TokensV1>(cpTokens, mtx, myPubKey, tokenid, burnAmount, 4, false)) < burnAmount)
             throw runtime_error("No token inputs found (please try to consolidate tokens)\n"); 
 
         // make payouts  (which will be in the import tx with token):
@@ -490,7 +491,7 @@ void CheckBurnTxSource(uint256 burntxid, UniValue &info) {
             cpTokens = CCinit(&CCtokens_info, EVAL_TOKENS);
             //int64_t ccInputs = 0, ccOutputs = 0;
             std::string errorStr;
-            if( !TokensExactAmounts(true, cpTokens, NULL, burnTx, errorStr) )
+            if( !TokensExactAmounts<TokensV1>(true, cpTokens, NULL, burnTx, errorStr) )
                 throw std::runtime_error("Incorrect token burn tx: cc inputs <> cc outputs");
         }
         else if (vopret.begin()[0] == EVAL_IMPORTCOIN) {

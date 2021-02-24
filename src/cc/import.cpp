@@ -654,7 +654,7 @@ bool CheckMigration(Eval *eval, const CTransaction &importTx, const CTransaction
         CAmount ccImportOutputs = 0;
         for (auto v : importTx.vout)
             if (v.scriptPubKey.IsPayToCryptoCondition() &&
-                !IsTokenMarkerVout(v))  // should not be marker here
+                !IsTokenMarkerVout<TokensV1>(v))  // should not be marker here
                 ccImportOutputs += v.nValue;
 
         if (ccBurnOutputs != ccImportOutputs)

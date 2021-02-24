@@ -2,6 +2,8 @@
 #define HEIR_VALIDATE_H
 
 #include "CCinclude.h"
+#include "CCtokens.h"
+#include "CCtokens_impl.h"
 #include "CCHeir.h"
 #include "old/heir_validate_v0.h"
 
@@ -79,7 +81,7 @@ public:
     static int64_t addOwnerInputs(uint256 tokenid, CMutableTransaction& mtx, CPubKey ownerPubkey, int64_t total, int32_t maxinputs) {
         struct CCcontract_info *cpTokens, tokensC;
         cpTokens = CCinit(&tokensC, EVAL_TOKENS);
-        return AddTokenCCInputs(cpTokens, mtx, ownerPubkey, tokenid, total, maxinputs);
+        return AddTokenCCInputs<TokensV1>(cpTokens, mtx, ownerPubkey, tokenid, total, maxinputs, false);
     }
     
     static CScript makeCreateOpRet(uint256 tokenid, std::vector<CPubKey> voutTokenPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string heirName, std::string memo) {

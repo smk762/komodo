@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright © 2014-2019 The SuperNET Developers.                             *
+ * Copyright © 2014-2021 The SuperNET Developers.                             *
  *                                                                            *
  * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
  * the top-level directory of this distribution for the individual copyright  *
@@ -13,9 +13,14 @@
  *                                                                            *
  ******************************************************************************/
 
+#ifndef CC_TOKENS_IMPL_H
+#define CC_TOKENS_IMPL_H
+
 // templates for either tokens or tokens2 functions' implementation
 
 #include "CCtokens.h"
+#include "CCassets.h"
+#include "CCassetsCore_impl.h"
 #include "importcoin.h"
 #include "base58.h"
 
@@ -564,7 +569,7 @@ UniValue TokenInfo(uint256 tokenid)
     if( !vopretNonfungible.empty() )    
         result.push_back(Pair("data", HexStr(vopretNonfungible)));
     result.push_back(Pair("version", DecodeTokenOpretVersion(tokenbaseTx.vout.back().scriptPubKey)));
-    result.push_back(Pair("IsMixed", V::EvalCode() == V2::EvalCode() ? "yes" : "no"));
+    result.push_back(Pair("IsMixed", V::EvalCode() == TokensV2::EvalCode() ? "yes" : "no"));
 
     if (tokenbaseTx.IsCoinImport()) { // if imported token
         ImportProof proof;
@@ -984,3 +989,4 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 	return false;
 }
 
+#endif // #ifndef CC_TOKENS_IMPL_H

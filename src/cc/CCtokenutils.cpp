@@ -540,7 +540,7 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
 
     std::vector<CC*> thresholds;
     thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
-    if (evalcode != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENS, it is actually MakeCCcond1()!
+    if (evalcode != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	    // this is eval token cc
     if (evalcode2 != 0)
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode2)));                // add optional additional evalcode

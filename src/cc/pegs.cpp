@@ -15,6 +15,7 @@
 
 #include "CCPegs.h"
 #include "CCtokens.h"
+#include "CCtokens_impl.h"
 #include "../importcoin.h"
 #include "key_io.h"
 #include <gmp.h>
@@ -861,7 +862,7 @@ UniValue PegsFund(const CPubKey& pk,uint64_t txfee,uint256 pegstxid, uint256 tok
     }
     if (!found)
         CCERR_RESULT("pegscc",CCLOG_ERROR, stream << "invalid tokenid " << tokenid.GetHex());
-    if ((balance=GetTokenBalance(mypk,tokenid))>=amount)
+    if ((balance=GetTokenBalance<TokensV1>(mypk,tokenid,false))>=amount)
     {
         PegsFindAccount(cp,mypk,pegstxid,tokenid,accounttxid,account);
         LOGSTREAM("pegscc",CCLOG_DEBUG2, stream << "current accounttxid=" << accounttxid.GetHex() << " [deposit=" << account.first << ",debt=" << account.second << "]" << std::endl);
@@ -882,7 +883,7 @@ UniValue PegsFund(const CPubKey& pk,uint64_t txfee,uint256 pegstxid, uint256 tok
         else funds=AddPegsInputs(cp,mtx,pegspk,CPubKey(),txfee+2*CC_MARKER_VALUE,3);
         if (funds>=txfee+2*CC_MARKER_VALUE)
         {
-            if ((tokenfunds=AddTokenCCInputs(cpTokens,mtx,mypk,tokenid,amount,64))>=amount)
+            if ((tokenfunds=AddTokenCCInputs<TokensV1>(cpTokens,mtx,mypk,tokenid,amount,64,false))>=amount)
             {
                 mtx.vout.push_back(MakeCC1of2vout(EVAL_PEGS,CC_MARKER_VALUE,pegspk,pegspk));
                 mtx.vout.push_back(MakeCC1of2vout(EVAL_PEGS,CC_MARKER_VALUE,mypk,pegspk));
