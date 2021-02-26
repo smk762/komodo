@@ -76,7 +76,7 @@ jobs:
 
     name: Test (Win/BasicRPC)
     needs: windows-build
-    runs-on: windows-18.04
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v2
@@ -108,7 +108,7 @@ jobs:
   # windows-test-dice-faucet-tok-rewCC:
 
   #   name: Test (Win/Dice Faucet Token Rewards)
-  #   runs-on: windows-18.04
+  #   runs-on: windows-latest
   #   needs: windows-build
 
   #   steps:
@@ -141,7 +141,7 @@ jobs:
   windows-test-oracles-cc:
 
     name: Test (Win/OraclesCC)
-    runs-on: windows-18.04
+    runs-on: windows-latest
     needs: windows-build
 
     steps:
@@ -174,7 +174,7 @@ jobs:
   # windows-test-heir-cc:
 
   #   name: Test (Win/HeirCC)
-  #   runs-on: windows-18.04
+  #   runs-on: windows-latest
   #   needs: windows-build
 
   #   steps:
@@ -207,7 +207,7 @@ jobs:
   #windows-test-channels-cc:
 
     # name: Test (Win/ChannelsCC)
-    # runs-on: windows-18.04
+    # runs-on: windows-latest
     # needs: windows-build
 
     # steps:
