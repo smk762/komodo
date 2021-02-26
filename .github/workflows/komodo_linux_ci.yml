@@ -10,7 +10,7 @@ jobs:
 
   linux-build:
     name: Linux Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
 
     steps:
       - uses: actions/checkout@v2
@@ -46,7 +46,7 @@ jobs:
   # linux-test-dice-token-reards-faucet-cc:
 
   #   name: Test (Linux/Dice, Token, Faucet, Rewards)
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu-18.04
   #   needs: linux-build
 
   #   steps:
@@ -81,7 +81,7 @@ jobs:
   linux-test-oracles:
 
     name: Test (Linux/OraclesCC)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     needs: linux-build
 
     steps:
@@ -116,7 +116,7 @@ jobs:
   linux-test-baserpc:
 
     name: Test (Linux/BasicRPC)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     needs: linux-build
 
     steps:
@@ -151,7 +151,7 @@ jobs:
   linux-test-channels:
 
     name: Test (Linux/ChannelsCC)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     needs: linux-build
 
     steps:
@@ -186,7 +186,7 @@ jobs:
   # linux-test-heir:
 
   #   name: Test (Linux/HeirCC)
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu-18.04
   #   needs: linux-build
 
   #   steps:
