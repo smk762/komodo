@@ -6002,12 +6002,16 @@ static bool fixBadSettle(const uint256 &settletxid)
     return Parseuint256("57ae9f4a36ece775041ede5f0792831861428552f16eaf44cff9001020542d05") == settletxid && get_next_height() < MARMARA_POS_IMPROVEMENTS_HEIGHT;
 }
 
-
-// unspent amounts stat
-UniValue MarmaraAmountStat()
+/* old version of amount stat
+UniValue MarmaraAmountStatSnapshot(int32_t beginHeight, int32_t endHeight)
 {
     UniValue result(UniValue::VOBJ);
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+
+    if (beginHeight == 0)
+        beginHeight = 1;
+    if (endHeight == 0)
+        endHeight = chainActive.Height();
 
     CAmount normals = 0LL;
     CAmount ppsh = 0LL;
@@ -6015,56 +6019,209 @@ UniValue MarmaraAmountStat()
     CAmount activated = 0LL;
     CAmount ccunk = 0LL;
 
-    if (!pblocktree->ReadAllUnspentIndex(unspentOutputs))
-        return error("unable to get txids for address");
-
+    if (!pblocktree->ReadAllUnspentIndex(unspentOutputs))  {
+        result.push_back(Pair("result", "error"));
+        result.push_back(Pair("error", "could not get snapshot"));
+        return result;
+    }
     for (auto const &u : unspentOutputs)
     {
         UniValue elem(UniValue::VOBJ);
 
-        if (u.first.type == 3) // cc
+        if (u.second.blockHeight >= beginHeight && u.second.blockHeight <= endHeight)
         {
-            CTransaction tx;
-            uint256 hb, crtxid;
+            if (u.first.type == 3) // cc
+            {
+                CTransaction tx;
+                uint256 hb, crtxid;
 
-            if (myGetTransaction(u.first.txhash, tx, hb)) {
-                CPubKey pk;
-                //char addr[KOMODO_ADDRESS_BUFSIZE];
-                //Getscriptaddress(addr, tx.vout[u.first.index].scriptPubKey);
-                if (IsMarmaraActivatedVout(tx, u.first.index, pk, crtxid)) {
-                    activated += tx.vout[u.first.index].nValue;
+                if (myGetTransaction(u.first.txhash, tx, hb)) {
+                    CPubKey pk;
+                    //char addr[KOMODO_ADDRESS_BUFSIZE];
+                    //Getscriptaddress(addr, tx.vout[u.first.index].scriptPubKey);
+                    if (IsMarmaraActivatedVout(tx, u.first.index, pk, crtxid)) {
+                        activated += tx.vout[u.first.index].nValue;
+                    }
+                    else if (IsMarmaraLockedInLoopVout(tx, u.first.index, pk, crtxid)) {
+                        lcl += tx.vout[u.first.index].nValue;
+                    }
+                    else
+                    {
+                        ccunk += tx.vout[u.first.index].nValue;
+                    }
                 }
-                else if (IsMarmaraLockedInLoopVout(tx, u.first.index, pk, crtxid)) {
-                    lcl += tx.vout[u.first.index].nValue;
-                }
-                else
-                {
-                    ccunk += tx.vout[u.first.index].nValue;
+                else {
+                    std::cerr << __func__ << " " << "could not read a tx=" << u.first.txhash.GetHex() << std::endl;
+                    result.push_back(Pair("result", "error"));
+                    result.push_back(Pair("error", "could not get tx"));
+                    return result;
                 }
             }
-            else
-                std::cerr << __func__ << " " << "could not read a tx=" << u.first.txhash.GetHex() << std::endl;
-
-        }
-        else if (u.first.type == 1) // normal
-        {
-            //char addr[KOMODO_ADDRESS_BUFSIZE];
-            //Getscriptaddress(addr, u.second.script);
-            normals += u.second.satoshis;
-        }
-        else // if (u.first.type == 2) // script
-        {
-            //char addr[KOMODO_ADDRESS_BUFSIZE];
-            //Getscriptaddress(addr, u.second.script);
-            ppsh += u.second.satoshis;
+            else if (u.first.type == 1) // normal
+            {
+                //char addr[KOMODO_ADDRESS_BUFSIZE];
+                //Getscriptaddress(addr, u.second.script);
+                normals += u.second.satoshis;
+            }
+            else // if (u.first.type == 2) // script
+            {
+                //char addr[KOMODO_ADDRESS_BUFSIZE];
+                //Getscriptaddress(addr, u.second.script);
+                ppsh += u.second.satoshis;
+            }
         }
     }
 
+    result.push_back(Pair("result", "success"));
+    result.push_back(Pair("BeginHeight", beginHeight));
+    result.push_back(Pair("EndHeight", endHeight));
     result.push_back(Pair("TotalNormals", ValueFromAmount(normals)));
     result.push_back(Pair("TotalPayToScriptHash", ValueFromAmount(ppsh)));
     result.push_back(Pair("TotalActivated", ValueFromAmount(activated)));
     result.push_back(Pair("TotalLockedInLoops", ValueFromAmount(lcl)));
     result.push_back(Pair("TotalUnknownCC", ValueFromAmount(ccunk)));
 
+    return result;
+}
+*/
+
+// unspent amounts stat
+// returns amounts of unspent utxos within the selected height interval and spent amounts of utxos preceding begin height  
+UniValue MarmaraAmountStatDiff(int32_t beginHeight, int32_t endHeight)
+{
+    UniValue result(UniValue::VOBJ);
+    UniValue error(UniValue::VOBJ);
+
+    if (beginHeight == 0)
+        beginHeight = 1;
+    if (endHeight == 0)
+        endHeight = chainActive.Height();
+
+    CAmount normals = 0LL;
+    CAmount ppsh = 0LL;
+    CAmount lcl = 0LL;
+    CAmount activated = 0LL;
+    CAmount ccunk = 0LL;
+
+    CAmount spentNormals = 0LL;
+    CAmount spentPpsh = 0LL;
+    CAmount spentLcl = 0LL;
+    CAmount spentActivated = 0LL;
+    CAmount spentCcunk = 0LL;
+
+    for(int32_t h = beginHeight; h <= endHeight; h ++) 
+    {
+        CBlockIndex *pblockindex = chainActive[h];
+        CBlock block;
+
+        if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0) {
+            error.push_back(Pair("result", "error"));
+            error.push_back(Pair("error", std::string("Block not available (pruned data), h=") + std::to_string(h)));
+            return error;
+        }
+
+        if (!ReadBlockFromDisk(block, pblockindex, 1)) {
+            error.push_back(Pair("result", "error"));
+            error.push_back(Pair("error", std::string("Can't read block from disk, h=") + std::to_string(h)));
+            return error;
+        }
+
+        // add totals unspent or spent 
+        auto addTotals = [&](const CTransaction &tx, int32_t ivout, bool bSpent) {
+            if (tx.vout[ivout].scriptPubKey.IsPayToCryptoCondition()) 
+            {
+                CPubKey pk;
+                uint256 crtxid; 
+
+                if (IsMarmaraActivatedVout(tx, ivout, pk, crtxid)) {
+                    if (!bSpent)
+                        activated += tx.vout[ivout].nValue;
+                    else
+                        spentActivated += tx.vout[ivout].nValue;
+                }
+                else if (IsMarmaraLockedInLoopVout(tx, ivout, pk, crtxid)) {
+                    if (!bSpent)
+                        lcl += tx.vout[ivout].nValue;
+                    else
+                        spentLcl += tx.vout[ivout].nValue;
+                }
+                else {
+                    if (!bSpent)
+                        ccunk += tx.vout[ivout].nValue;
+                    else
+                        spentCcunk += tx.vout[ivout].nValue;
+                }
+            }
+            else
+            {
+                txnouttype whichType;
+                std::vector<vuint8_t> vSolutions;
+                Solver(tx.vout[ivout].scriptPubKey, whichType, vSolutions);
+                if (whichType == TX_SCRIPTHASH) {
+                    if (!bSpent)
+                        ppsh += tx.vout[ivout].nValue;
+                    else
+                        spentPpsh += tx.vout[ivout].nValue;
+                }
+                else {
+                    if (!bSpent)
+                        normals += tx.vout[ivout].nValue;
+                    else
+                        spentNormals += tx.vout[ivout].nValue;
+                }
+            }
+        }; 
+        
+        for (auto const &tx : block.vtx)
+        {
+            // add utxo unspent within the set block interval
+            for (int32_t ivout = 0; ivout < tx.vout.size(); ivout ++)
+            {
+                uint256 spenttxid;
+                int32_t spentvin, spentheight;
+
+                if (CCgetspenttxid(spenttxid, spentvin, spentheight, tx.GetHash(), ivout) != 0 || spentheight > endHeight)
+                    addTotals(tx, ivout, false);
+            }
+                
+            // add spent utxos from the previous blocks:
+            if (!tx.IsMint())
+            {
+                for(int32_t ivin = 0; ivin < tx.vin.size(); ivin ++) 
+                {   
+                    CTransaction vintx;
+                    uint256 hashBlock;
+                    if (!myGetTransaction(tx.vin[ivin].prevout.hash, vintx, hashBlock)) {
+                        error.push_back(Pair("result", "error"));
+                        error.push_back(Pair("error", std::string("could not get vin tx=") + tx.vin[ivin].prevout.hash.GetHex()));
+                        return error;                        
+                    }
+                    CBlockIndex *blockIndex = komodo_getblockindex(hashBlock);
+                    if (blockIndex == NULL || blockIndex->GetHeight() <= 0) {
+                        error.push_back(Pair("result", "error"));
+                        error.push_back(Pair("error", std::string("could not get block height for block=") + hashBlock.GetHex()));
+                        return error; 
+                    }
+                    if (blockIndex->GetHeight() < beginHeight) {
+                        addTotals(vintx, tx.vin[ivin].prevout.n, true);
+                    }
+                }
+            }
+        }                 
+    }
+
+    result.push_back(Pair("result", "success"));
+    result.push_back(Pair("BeginHeight", beginHeight));
+    result.push_back(Pair("EndHeight", endHeight));
+    result.push_back(Pair("TotalNormals", ValueFromAmount(normals)));
+    result.push_back(Pair("TotalPayToScriptHash", ValueFromAmount(ppsh)));
+    result.push_back(Pair("TotalActivated", ValueFromAmount(activated)));
+    result.push_back(Pair("TotalLockedInLoops", ValueFromAmount(lcl)));
+    result.push_back(Pair("TotalUnknownCC", ValueFromAmount(ccunk)));
+    result.push_back(Pair("SpentNormals", ValueFromAmount(spentNormals)));
+    result.push_back(Pair("SpentPayToScriptHash", ValueFromAmount(spentPpsh)));
+    result.push_back(Pair("SpentActivated", ValueFromAmount(spentActivated)));
+    result.push_back(Pair("SpentLockedInLoops", ValueFromAmount(spentLcl)));
+    result.push_back(Pair("SpentUnknownCC", ValueFromAmount(spentCcunk)));
     return result;
 }

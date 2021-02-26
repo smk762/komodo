@@ -745,21 +745,48 @@ UniValue marmara_decodetxdata(const UniValue& params, bool fHelp, const CPubKey&
     return result;
 }
 
-// marmaraaddressamountstat rpc impl, return PoS statistics
+// marmaraaddressamountstat rpc impl, returns totals statistics
 UniValue marmara_amountstat(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     CCerror.clear();
-    if (fHelp || params.size() != 0)
+    if (fHelp || params.size() != 2)
     {
-        throw runtime_error("marmaraamountstat\n"
-            "returns amounts\n"
+        throw runtime_error("marmaraamountstat begin_height end_height\n"
+            "returns marmara coin total amounts from begin_height to end_height. If begin_height 0 amounts are calculated from the first block, if end_height 0 amounts are calculated up to the latest block\n"
             "\n");
     }
+    UniValue result;
 
-    UniValue result = MarmaraAmountStat();
+    int32_t begin_height = atol(params[0].get_str().c_str());
+    int32_t end_height = atol(params[1].get_str().c_str());
+
+    result = MarmaraAmountStatDiff(begin_height, end_height);
+
     RETURN_IF_ERROR(CCerror);
     return result;
 }
+// marmaraaddressamountstat old ver rpc impl, returns totals statistics
+/*UniValue marmara_amountstatold(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    CCerror.clear();
+    if (fHelp || params.size() != 2)
+    {
+        throw runtime_error("marmaraamountstatold begin_height end_height\n"
+            "returns marmara coin total amounts from begin_height to end_height.\n"
+            "returns amounts of unspent utxos not spent within the selected height interval and spent amounts of utxos in blocks preceding the begin height.\n"
+            "If begin_height 0 amounts are calculated from the first block, if end_height 0 amounts are calculated up to the current height\n"
+            "\n");
+    }
+    UniValue result;
+
+    int32_t begin_height = atol(params[0].get_str().c_str());
+    int32_t end_height = atol(params[1].get_str().c_str());
+
+    result = MarmaraAmountStatSnapshot(begin_height, end_height);
+
+    RETURN_IF_ERROR(CCerror);
+    return result;
+}*/
 
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
@@ -783,6 +810,7 @@ static const CRPCCommand commands[] =
     { "marmara",       "marmarareceivelist",   &marmara_receivelist,      true },
     { "marmara",       "marmaradecodetxdata",   &marmara_decodetxdata,      true },
     { "marmara",       "marmaraamountstat",   &marmara_amountstat,      true },
+//    { "marmara",       "marmaraamountstatold",   &marmara_amountstatold,      true },
     { "marmara",       "marmaraholderloops",   &marmara_holderloops,      true }
 };
 
