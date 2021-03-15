@@ -34,7 +34,7 @@ def validate_proxy(env_params_dictionary, proxy, node=0):
             print(getinfo_output)
             break
         except Exception as e:
-            print("Coennction failed, error: ", e, "\nRetrying")
+            print("Connection failed, error: ", e, "\nRetrying")
             attempts += 1
             time.sleep(10)
         if attempts > 15:
