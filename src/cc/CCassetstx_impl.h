@@ -18,7 +18,7 @@
 
 #include "CCtokens.h"
 #include "CCassets.h"
-#include "CCNftData.h"
+#include "CCNFTData.h"
 
 
 static bool IsTxidInActiveChain(uint256 txid)
