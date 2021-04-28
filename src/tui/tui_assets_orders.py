@@ -38,36 +38,123 @@ def run_tokens_create(rpc):
     #tokenid = "03b0018da699af63a40595cc93b5e3b097a88225e51e767efbe1425aa4698a65" # NFT 1/1000 royalty - spent
     #tokenid = "9f051912b13b707b64b65bb179649901449f7ae78d74e78a813dffb2cf7705f8" # NFT eval=00
 
-    print("creating fungible token...")
+    print("creating fungible token 1...")
     result = rpc1.tokenv2create("T1", str(0.1))
     assert(check_result(result))
-    tokenid = rpc1.sendrawtransaction(result['hex'])
-    print("created token:", tokenid)
-    run_assets_orders(rpc1, rpc2, tokenid)
+    tokenid1 = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", tokenid1)
 
-    print("creating NFT with 00...")
-    result = rpc1.tokenv2create("NFT1", str(0.00000001), "nft eval 00", "00010203")
+    print("creating fungible token 2...")
+    result = rpc1.tokenv2create("T2", str(0.1))
     assert(check_result(result))
-    tokenid = rpc1.sendrawtransaction(result['hex'])
-    print("created token:", tokenid)
-    run_assets_orders(rpc1, rpc2, tokenid)
+    tokenid2 = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", tokenid2)
 
+    print("creating NFT 1 with 00...")
+    result = rpc1.tokenv2create("NFT-00-1", str(0.00000001), "nft eval 00", "00010203")
+    assert(check_result(result))
+    nft_00_id1 = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", nft_00_id1)
+
+    print("creating NFT 2 with 00...")
+    result = rpc1.tokenv2create("NFT-00-2", str(0.00000001), "nft eval 00", "00010203")
+    assert(check_result(result))
+    nft_00_id2 = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", nft_00_id2)
+
+    # reserved for tokel nft data F7 evalcode
+    """ 
     print("creating NFT with F7, no royaly, with arbitary data...")
-    result = rpc1.tokenv2create("NFT1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
+    result = rpc1.tokenv2create("NFT-F7-1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
     assert(check_result(result))
-    tokenid = rpc1.sendrawtransaction(result['hex'])
-    print("created token:", tokenid)
-    run_assets_orders(rpc1, rpc2, tokenid)
+    nft_f7_id1 = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", nft_f7_id1)
 
     print("creating NFT with F7 and royaly 0xAA...")
-    result = rpc1.tokenv2create("NFT1", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
+    result = rpc1.tokenv2create("NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
     assert(check_result(result))
-    tokenid = rpc1.sendrawtransaction(result['hex'])
-    print("created token:", tokenid)
-    run_assets_orders(rpc1, rpc2, tokenid)
-    print("tests finished okay")
+    nft_f7_id2 = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", nft_f7_id2)
+    """
+
+    # first try transfer tokens to a pk and back, then run assets tests
+    print("starting token transfers tests...")
+    run_transfers(rpc1, rpc2, tokenid1, tokenid2, nft_00_id1, nft_00_id2)
+    print("token transfers tests finished okay")
+    time.sleep(3)
+
+    print("starting assets tests...")
+    run_assets_orders(rpc1, rpc2, tokenid1)
+    run_assets_orders(rpc1, rpc2, nft_00_id1)
+    print("assets tests finished okay")
     time.sleep(3)
     exit
+
+def call_token_rpc(rpc, rpcname, stop_error, *args) :
+    retries = 24
+    delay = 10
+    rpcfunc = getattr(rpc, rpcname)
+    for i in range(retries):
+        print("calling " + rpcname)
+        result = rpcfunc(*args)
+        print(rpcname + " create tx result:", result)
+        if  check_result(result):
+            break
+        if stop_error and get_result_error(result) == stop_error :  
+            print(rpcname + " retrying stopped because of stop error received: " + stop_error)
+            return result
+        if i < retries-1:
+            print("retrying " + rpcname + '...')
+            time.sleep(delay)                
+    assert(check_result(result))
+    print(rpcname + " tx created")
+    txid = rpc.sendrawtransaction(result['hex'])
+    print("sendrawtransaction result: ", txid)
+    assert(check_result(txid))            
+    print(rpcname + " tx sent")
+    return txid
+
+
+def run_transfers(rpc1, rpc2, tokenid1, tokenid2, nftid1, nftid2):
+
+    amount  = 1
+   
+    pubkey1 = rpc1.getinfo()['pubkey']
+    pubkey2 = rpc2.getinfo()['pubkey']
+
+    # rpc1.setgenerate(True, 2)
+
+    for i in range(1):
+        try:
+            name = "none"
+        except KeyboardInterrupt:
+            break
+        else:
+            print("creating tokenv2transfer tokenid1 tx...")
+            call_token_rpc(rpc1, "tokenv2transfer", '', tokenid1, pubkey2,  str(amount))
+
+            print("creating tokenv2transfer tokenid1 tx back...")
+            call_token_rpc(rpc2, "tokenv2transfer", '', tokenid1, pubkey1,  str(amount))
+
+            print("creating tokenv2transfer nftid1 tx...")
+            call_token_rpc(rpc1, "tokenv2transfer", '', nftid1, pubkey2,  str(amount))
+
+            print("creating tokenv2transfer nftid1 tx back...")
+            call_token_rpc(rpc2, "tokenv2transfer", '', nftid1, pubkey1,  str(amount))
+
+            print("creating tokenv2transfermany tokenid1 tokenid2 tx...")
+            call_token_rpc(rpc1, "tokenv2transfermany", '', tokenid1, tokenid2, pubkey2,  str(amount))
+
+            print("creating tokenv2transfermany tokenid1 tokenid2 tx back...")
+            call_token_rpc(rpc2, "tokenv2transfermany", '', tokenid1, tokenid2, pubkey1,  str(amount))
+
+            print("creating tokenv2transfermany nftid1 nftid2 tx...")
+            call_token_rpc(rpc1, "tokenv2transfermany", '', nftid1, nftid2, pubkey2,  str(amount))
+
+            print("creating tokenv2transfermany nftid1 nftid2 tx back...")
+            call_token_rpc(rpc2, "tokenv2transfermany", '', nftid1, nftid2, pubkey1,  str(amount))
+
+
 
 def run_assets_orders(rpc1, rpc2, tokenid):
 
@@ -87,118 +174,34 @@ def run_assets_orders(rpc1, rpc2, tokenid):
             break
         else:
             # create tokenask
-            for i in range(retries):
-                print("creating tokenv2ask tx...")
-                result = rpc1.tokenv2ask(str(total), tokenid, str(unitprice))
-                print("create tx result:", result)
-                if  check_result(result):
-                    break
-                if i < retries-1:
-                    print("retrying")
-                    time.sleep(delay)                
-            assert(check_result(result))
-            print("ask tx created")
-            askid = rpc1.sendrawtransaction(result['hex'])
-            print("send result:", askid)
-            assert(check_result(askid))            
-            print("ask tx sent")
+            print("creating tokenv2ask tx...")
+            askid = call_token_rpc(rpc1, 'tokenv2ask', '', str(total), tokenid, str(unitprice))
 
             # fill ask 
             print("creating tokenv2fillask tx...")
-            for i in range(retries):
-                result = rpc2.tokenv2fillask(tokenid, askid, str(askunits))
-                print("tokenv2fillask result:", result)
-                if  check_result(result):
-                    break
-                if i < retries-1:
-                    print("retrying")
-                    time.sleep(delay)
-            assert(check_result(result))
-            print("fill ask tx created")
-            askid = rpc2.sendrawtransaction(result['hex'])
-            assert(check_result(askid))
-            print("fill ask tx sent", askid)
+            fillaskid = call_token_rpc(rpc2, "tokenv2fillask", '', tokenid, askid, str(askunits))
+
 
             # cancel ask
             print("creating tokenv2cancelask tx...")
-            for i in range(retries):
-                result = rpc1.tokenv2cancelask(tokenid, askid)
-                print("cancel ask result:", result)
-                if check_result(result):
-                    break
-                if get_result_error(result) == 'ask is empty' :  # stop after 2 retries if NFT (no cancel)
-                    break
-                if i < retries-1:
-                    print("retrying")
-                    time.sleep(delay)
-            if get_result_error(result) == 'ask is empty' :   # for NFT cancel should be error
-                assert(not check_result(result))
-                print("cancel bid tx not created")
-            else :
-                assert(check_result(result))
-                print("cancel ask tx created")
-                cancelid = rpc1.sendrawtransaction(result['hex'])
-                assert(check_result(cancelid))
-                print("cancel ask tx sent", cancelid)
+            cancelid = call_token_rpc(rpc1, 'tokenv2cancelask', 'ask is empty', tokenid, fillaskid)
             
             # create tokenbid to buy back tokens 
             print("creating tokenv2bid tx...")
-            for i in range(retries):
-                result = rpc1.tokenv2bid(str(askunits), tokenid, str(unitprice))
-                print("create tx result:", result)
-                if  check_result(result):
-                    break
-                if i < retries-1:
-                    print("retrying")
-                    time.sleep(delay)
-            assert(check_result(result))
-            print("bid tx created")
-            bidid = rpc1.sendrawtransaction(result['hex'])
-            print("send result:", bidid)
-            assert(check_result(bidid))
-            print("bid tx sent")
+            bidid = call_token_rpc(rpc1, 'tokenv2bid', '', str(askunits), tokenid, str(unitprice))
 
             # fill bid 
             print("creating tokenv2fillbid tx...")
-            for i in range(retries):
-                result = rpc2.tokenv2fillbid(tokenid, bidid, str(bidunits))
-                print("create tx result:", result)
-                if check_result(result) :
-                    break
-                if i < retries-1 :
-                    print("retrying fill bid")
-                    time.sleep(delay)
-            assert(check_result(result))
-            print("fill bid tx created")
-            bidid = rpc2.sendrawtransaction(result['hex'])
-            assert(check_result(bidid))
-            print("fill bid tx sent", bidid)
+            fillbidid = call_token_rpc(rpc2, 'tokenv2fillbid', '', tokenid, bidid, str(bidunits))
+
 
             # cancel bid
             print("creating tokenv2cancelbid tx...")
-            for i in range(retries):
-                result = rpc1.tokenv2cancelbid(tokenid, bidid)
-                print("create tx result:", result)
-                if check_result(result) :
-                    break
-                if get_result_error(result) == 'bid is empty' :  # stop after 2 retries if NFT
-                    break
-                if i < retries-1 :
-                    print("retrying")
-                    time.sleep(delay)
-            if get_result_error(result) == 'bid is empty' :   # for NFT cancel should be error
-                assert(not check_result(result))
-                print("cancel bid tx not created")
-            else:
-                assert(check_result(result))
-                print("cancel bid tx created")
-                cancelid = rpc1.sendrawtransaction(result['hex'])
-                assert(check_result(cancelid))
-                print("cancel bid tx sent", cancelid)
+            cancelid = call_token_rpc(rpc1, 'tokenv2cancelbid', 'bid is empty', tokenid, fillbidid)
 
 
 menuItems = [
-    {"run assets orders": run_tokens_create},
+    {"run token create/transfers and assets orders": run_tokens_create},
     {"Exit": exit}
 ]
 
