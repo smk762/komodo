@@ -398,6 +398,10 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
             //GetNonfungibleData<T>(assetid, vopretNonfungible);
 
             bidamount = vintx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
+            if (bidamount == 0) {
+                CCerror = "bid is empty";
+                return "";
+            }
             mtx.vin.push_back(CTxIn(bidtxid, ASSETS_GLOBALADDR_VOUT, CScript()));		// coins in Assets
 
             uint8_t funcid = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey);
@@ -458,6 +462,10 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 a
             std::vector<uint8_t> dummyOrigpubkey;
 
             askamount = vintx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
+            if (askamount == 0) {
+                CCerror = "ask is empty";
+                return "";
+            }
             mtx.vin.push_back(CTxIn(asktxid, ASSETS_GLOBALADDR_VOUT, CScript()));
             
             uint8_t funcid = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey);
