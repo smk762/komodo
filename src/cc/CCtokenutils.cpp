@@ -520,7 +520,8 @@ CC *MakeTokensv2CCcond1of2(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk1, CP
     pks.push_back(CCNewSecp256k1(pk2));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
+    if (evalcode1 != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
     if (evalcode1 != EVAL_TOKENSV2)	                                                // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1of2()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	// this is eval token cc
     if (evalcode2 != 0)
@@ -535,14 +536,15 @@ CC *MakeTokensv2CCcond1of2(uint8_t evalcode, CPubKey pk1, CPubKey pk2) {
 }
 
 // make three-eval (token+evalcode+evalcode2) cryptocondition:
-CC *MakeTokensv2CCcond1(uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
+CC *MakeTokensv2CCcond1(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk)
 {
     std::vector<CC*> pks;
     pks.push_back(CCNewSecp256k1(pk));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
-    if (evalcode != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1()!
+    if (evalcode1 != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
+    if (evalcode1 != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	    // this is eval token cc
     if (evalcode2 != 0)
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode2)));                // add optional additional evalcode
