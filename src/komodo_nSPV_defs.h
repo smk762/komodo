@@ -110,7 +110,7 @@ struct NSPV_mempoolresp
     char coinaddr[64];
     uint256 txid;
     int32_t nodeheight,vout,vindex;
-    uint16_t numtxids; uint8_t CCflag,funcid;
+    uint16_t numtxids; uint8_t CCflag, funcid;
 };
 
 struct NSPV_ntz
@@ -187,7 +187,7 @@ struct NSPV_CCmtxinfo
 struct NSPV_remoterpcresp
 {
     char method[64];
-    char json[11000];
+    char *json;
 };
 
 #endif // KOMODO_NSPV_DEFSH
