@@ -4,6 +4,10 @@ from lib import rpclib, tuilib
 import os
 import time
 
+# test creates fungible and non-fungible tokens
+# performs transfers and multiple transfers
+# then runs assets cc ask/bids tests
+
 header = "komodo assets cc tokenask/bid v2 test\n"
 
 def get_result_error(r):
@@ -29,6 +33,7 @@ def check_result(r):
     
 def run_tokens_create(rpc):
 
+    # set your own two node params
     # DIMXY20 
     rpc1 = rpclib.rpc_connect("user1875608407", "passb64b66f9e1debbd3257e39976ba5a43e1c6515a8ced77f426b41ba954f0a562f66", 14723)
     rpc2 = rpclib.rpc_connect("user306071284", "pass965dde8333f6c574c138d787a6ecdc22fad32b236e3580b62b2b0a2241d1489a04", 15723)
@@ -39,7 +44,7 @@ def run_tokens_create(rpc):
     #tokenid = "9f051912b13b707b64b65bb179649901449f7ae78d74e78a813dffb2cf7705f8" # NFT eval=00
 
     print("creating fungible token 1...")
-    result = rpc1.tokenv2create("T1", str(0.1))
+    result = rpc1.tokenv2create("T1", str(0.000001))
     assert(check_result(result))
     tokenid1 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", tokenid1)
@@ -84,8 +89,8 @@ def run_tokens_create(rpc):
     time.sleep(3)
 
     print("starting assets tests...")
-    run_assets_orders(rpc1, rpc2, tokenid1)
-    run_assets_orders(rpc1, rpc2, nft_00_id1)
+    run_assets_orders(rpc1, rpc2, tokenid1, 10, 8)
+    run_assets_orders(rpc1, rpc2, nft_00_id1, 1, 1)
     print("assets tests finished okay")
     time.sleep(3)
     exit
@@ -156,49 +161,59 @@ def run_transfers(rpc1, rpc2, tokenid1, tokenid2, nftid1, nftid2):
 
 
 
-def run_assets_orders(rpc1, rpc2, tokenid):
+def run_assets_orders(rpc1, rpc2, tokenid, total, units):
 
     retries = 24
     delay = 10
    
-    total = 1 
-    askunits = 1
-    bidunits = 1
+    #total = 1 
+    askunits = bidunits = units
     unitprice = 0.0001
-    # rpc1.setgenerate(True, 2)
 
-    for i in range(1):
-        try:
-            name = "none"
-        except KeyboardInterrupt:
+    # get initial balance
+    result = rpc1.tokenv2balance(tokenid)
+    assert(check_result(result))
+    initial_balance = int(result["balance"])
+    print("initial balance for tokenid " + tokenid + " = " + str(initial_balance))
+
+    # create tokenask
+    print("creating tokenv2ask tx...")
+    askid = call_token_rpc(rpc1, 'tokenv2ask', '', str(total), tokenid, str(unitprice))
+
+    # fill ask 
+    print("creating tokenv2fillask tx...")
+    fillaskid = call_token_rpc(rpc2, "tokenv2fillask", '', tokenid, askid, str(askunits))
+
+    # cancel ask
+    print("creating tokenv2cancelask tx...")
+    cancelid = call_token_rpc(rpc1, 'tokenv2cancelask', 'ask is empty', tokenid, fillaskid)
+    
+    # create tokenbid to buy back tokens - same amount
+    print("creating tokenv2bid tx...")
+    bidid = call_token_rpc(rpc1, 'tokenv2bid', '', str(askunits), tokenid, str(unitprice))
+
+    # fill bid 
+    print("creating tokenv2fillbid tx...")
+    fillbidid = call_token_rpc(rpc2, 'tokenv2fillbid', '', tokenid, bidid, str(bidunits))
+
+    # cancel bid
+    print("creating tokenv2cancelbid tx...")
+    cancelid = call_token_rpc(rpc1, 'tokenv2cancelbid', 'bid is empty', tokenid, fillbidid)
+
+    # check balance after 
+    retries = 24
+    delay = 10
+    for i in range(retries):
+        print("calling " + "tokenv2balance")
+        finresult = rpc1.tokenv2balance(tokenid)
+        assert(check_result(result))
+        if int(finresult["balance"]) == initial_balance :
             break
-        else:
-            # create tokenask
-            print("creating tokenv2ask tx...")
-            askid = call_token_rpc(rpc1, 'tokenv2ask', '', str(total), tokenid, str(unitprice))
+        if i < retries-1:
+            print("retrying " + "tokenv2balance" + '...')
+            time.sleep(delay)                
 
-            # fill ask 
-            print("creating tokenv2fillask tx...")
-            fillaskid = call_token_rpc(rpc2, "tokenv2fillask", '', tokenid, askid, str(askunits))
-
-
-            # cancel ask
-            print("creating tokenv2cancelask tx...")
-            cancelid = call_token_rpc(rpc1, 'tokenv2cancelask', 'ask is empty', tokenid, fillaskid)
-            
-            # create tokenbid to buy back tokens 
-            print("creating tokenv2bid tx...")
-            bidid = call_token_rpc(rpc1, 'tokenv2bid', '', str(askunits), tokenid, str(unitprice))
-
-            # fill bid 
-            print("creating tokenv2fillbid tx...")
-            fillbidid = call_token_rpc(rpc2, 'tokenv2fillbid', '', tokenid, bidid, str(bidunits))
-
-
-            # cancel bid
-            print("creating tokenv2cancelbid tx...")
-            cancelid = call_token_rpc(rpc1, 'tokenv2cancelbid', 'bid is empty', tokenid, fillbidid)
-
+    assert(int(finresult["balance"]) == initial_balance)
 
 menuItems = [
     {"run token create/transfers and assets orders": run_tokens_create},
@@ -227,7 +242,8 @@ def main():
 
 
 if __name__ == "__main__":
-    print("starting assets orders test")
+    print("starting assets orders test (remember to set rpc params for two nodes for your chain)")
+    time.sleep(2)   
     rpc_connection = ""
     main()
 
