@@ -25,9 +25,9 @@
 #define IS_CHARINSTR(c, str) (std::string(str).find((char)(c)) != std::string::npos)
 #endif
 
-#ifndef MAY2020_NNELECTION_HARDFORK
-#define MAY2020_NNELECTION_HARDFORK 1590926400
-#endif
+//#ifndef MAY2020_NNELECTION_HARDFORK
+//#define MAY2020_NNELECTION_HARDFORK 1590926400
+//#endif
 
 
 // return true if new v1 version activation time is passed or chain is always works v1
@@ -42,11 +42,11 @@ bool TokensIsVer1Active(const Eval *eval)
 
     bool isTimev1 = true;
     if (eval == NULL)   {
-        if (GetLatestTimestamp(komodo_currentheight()) < MAY2020_NNELECTION_HARDFORK)
+        if (GetLatestTimestamp(komodo_currentheight()) < MAY2021_NNELECTION_HARDFORK)
             isTimev1 = false;
     }
     else   {
-        if (GetLatestTimestamp(eval->GetCurrentHeight()) < MAY2020_NNELECTION_HARDFORK)
+        if (GetLatestTimestamp(eval->GetCurrentHeight()) < MAY2021_NNELECTION_HARDFORK)
             isTimev1 = false;
     }
     for (auto const name : chains_only_version1)

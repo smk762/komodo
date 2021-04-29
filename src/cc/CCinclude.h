@@ -88,6 +88,7 @@ Details.
 #define bits256_nonz(a) (((a).ulongs[0] | (a).ulongs[1] | (a).ulongs[2] | (a).ulongs[3]) != 0)
 
 #define MAY2020_NNELECTION_HARDFORK 1592146800 //(Sunday, June 14th, 2020 03:00:00 PM UTC) 
+#define MAY2021_NNELECTION_HARDFORK 1623650743 // test
 
 /* moved to komodo_cJSON.h
 #ifndef _BITS256
