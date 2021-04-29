@@ -921,6 +921,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     //fprintf(stderr,"send info resp to id %d\n",(int32_t)pfrom->id);
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
+                    LogPrint("nspv-details", "NSPV_INFO response: version %d to node=%d\n", I.version, pfrom->id);
                 }
                 else 
                     LogPrint("nspv", "NSPV_rwinforesp incorrect response len.%d\n", slen); 
@@ -985,6 +986,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 {
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
+                    LogPrint("nspv-details", "NSPV_UTXOS response: numutxos returned %d to node=%d\n", U.numutxos, pfrom->id);
                 }
                 else 
                     LogPrint("nspv", "NSPV_rwutxosresp incorrect response len.%d\n", slen); 
@@ -1020,25 +1022,18 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
             memcpy(coinaddr, &request[offset], addrlen);
             coinaddr[addrlen] = 0;
             offset += addrlen;
-            std::cerr << __func__ << " coinaddr=" << coinaddr << " offset=" << offset << std::endl;
             if (offset + sizeof(isCC) <= len)  // TODO: a bit different from others format - allows omitted params, maybe better have fixed
             {
                 isCC = (request[offset] != 0);
                 offset += sizeof(isCC);
-                std::cerr << __func__ << " isCC=" << (int)isCC << " offset=" << offset << std::endl;
-
                 if (offset + sizeof(skipcount) <= len)
                 {
                     iguana_rwnum(IGUANA_READ, &request[offset], sizeof(skipcount), &skipcount);
                     offset += sizeof(skipcount);
-                    std::cerr << __func__ << " skipcount=" << skipcount << " offset=" << offset << std::endl;
-
                     if (offset + sizeof(filter) <= len)  
                     {
                         iguana_rwnum(IGUANA_READ, &request[offset], sizeof(filter), &filter);
                         offset += sizeof(filter);
-                        std::cerr << __func__ << " filter=" << (int)filter << " offset=" << offset << std::endl;
-
                     }
                 }
             }
@@ -1059,6 +1054,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 {
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
+                    LogPrint("nspv-details", "NSPV_TXIDS response: numtxids=%d to node=%d\n", (int)T.numtxids, pfrom->id);
                 }
                 else 
                     LogPrint("nspv", "NSPV_rwtxidsresp incorrect response len.%d\n", slen);       
@@ -1099,6 +1095,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                         if (NSPV_rwmempoolresp(IGUANA_WRITE, &response[1], &M) == slen) {
                             pfrom->PushMessage("nSPV", response);
                             pfrom->prevtimes[ind] = timestamp;
+                            LogPrint("nspv-details", "NSPV_MEMPOOL response: numtxids %d to node=%d\n", M.numtxids, pfrom->id);
                         } else
                             LogPrint("nspv", "NSPV_rwmempoolresp incorrect response len.%d\n", slen);
                         NSPV_mempoolresp_purge(&M);
@@ -1130,7 +1127,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     {
                         pfrom->PushMessage("nSPV",response);
                         pfrom->prevtimes[ind] = timestamp;
-                        LogPrint("nspv-details", "NSPV_rwntzsresp response: prevntz.txid=%s nextntx.txid=%s\n", N.prevntz.txid.GetHex().c_str(), N.nextntz.txid.GetHex().c_str());
+                        LogPrint("nspv-details", "NSPV_NTZS response: prevntz.txid=%s nextntx.txid=%s node=%d\n", N.prevntz.txid.GetHex().c_str(), N.nextntz.txid.GetHex().c_str(), pfrom->id);
                     }
                     else 
                         LogPrint("nspv", "NSPV_rwntzsresp incorrect response len.%d\n", slen);
@@ -1152,7 +1149,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 iguana_rwbignum(IGUANA_READ, &request[1], sizeof(prevntz), (uint8_t*)&prevntz);
                 iguana_rwbignum(IGUANA_READ, &request[1 + sizeof(prevntz)], sizeof(nextntz), (uint8_t*)&nextntz);
                 memset(&P, 0, sizeof(P));
-                if ((slen = NSPV_getntzsproofresp(&P,prevntz,nextntz)) > 0)
+                if ((slen = NSPV_getntzsproofresp(&P, prevntz, nextntz)) > 0) 
                 {
                     // fprintf(stderr,"slen.%d msg prev.%s next.%s\n",slen,prevntz.GetHex().c_str(),nextntz.GetHex().c_str());
                     response.resize(1 + slen);
@@ -1161,12 +1158,13 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     {
                         pfrom->PushMessage("nSPV", response);
                         pfrom->prevtimes[ind] = timestamp;
+                        LogPrint("nspv-details", "NSPV_NTZSPROOF response: prevtxidht=%d nexttxidht=%d node=%d\n", P.prevtxidht, P.nexttxidht, pfrom->id);
                     }
                     else 
                         LogPrint("nspv", "NSPV_rwntzsproofresp incorrect response len.%d\n", slen);
                     NSPV_ntzsproofresp_purge(&P);
                 } 
-                else 
+                else
                     LogPrint("nspv", "NSPV_NTZSPROOF err.%d\n", slen);
             }
             else 
@@ -1196,6 +1194,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                         //fprintf(stderr,"send response\n");
                         pfrom->PushMessage("nSPV",response);
                         pfrom->prevtimes[ind] = timestamp;
+                        LogPrint("nspv-details", "NSPV_TXPROOF response: txlen=%d txprooflen=%d node=%d\n", P.txlen, P.txprooflen, pfrom->id);
                     }
                     else
                         LogPrint("nspv", "NSPV_rwtxproof incorrect response len.%d\n", slen);
@@ -1228,16 +1227,17 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     {
                         pfrom->PushMessage("nSPV",response);
                         pfrom->prevtimes[ind] = timestamp;
+                        LogPrint("nspv-details", "NSPV_SPENTINFO response: spent txid=%s vout=%d node=%d\n", S.txid.GetHex().c_str(), S.vout, pfrom->id);
                     }
                     else
                         LogPrint("nspv", "NSPV_rwspentinfo incorrect response len.%d\n", slen);
                     NSPV_spentinfo_purge(&S);
                 }
                 else
-                    LogPrint("nspv", "NSPV_getspentinfo error.%d node %d\n", slen, pfrom->id);
+                    LogPrint("nspv", "NSPV_getspentinfo error.%d node=%d\n", slen, pfrom->id);
             }
             else
-                LogPrint("nspv", "NSPV_SPENTINFO bad request len.%d node %d\n", len, pfrom->id);
+                LogPrint("nspv", "NSPV_SPENTINFO bad request len.%d node=%d\n", len, pfrom->id);
         }
         break;
 
@@ -1261,13 +1261,14 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     {
                         pfrom->PushMessage("nSPV",response);
                         pfrom->prevtimes[ind] = timestamp;
+                        LogPrint("nspv-details", "NSPV_BROADCAST response: txid=%s vout=%d to node=%d\n", B.txid.GetHex().c_str(), pfrom->id);
                     }
                     else
                         LogPrint("nspv", "NSPV_rwbroadcastresp incorrect response len.%d\n", slen);
                     NSPV_broadcast_purge(&B);
                 } 
                 else
-                    LogPrint("nspv", "NSPV_BROADCAST either wrong tx len.%d or NSPV_sendrawtransaction error.%d, node %d\n", txlen, slen, pfrom->id);
+                    LogPrint("nspv", "NSPV_BROADCAST either wrong tx len.%d or NSPV_sendrawtransaction error.%d, node=%d\n", txlen, slen, pfrom->id);
             }
             else
                 LogPrint("nspv", "NSPV_BROADCAST bad request len.%d node %d\n", len, pfrom->id);
@@ -1288,7 +1289,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 NSPV_rwremoterpcresp(IGUANA_WRITE, &response[1], &R, slen);
                 pfrom->PushMessage("nSPV", response);
                 pfrom->prevtimes[ind] = timestamp;
-                LogPrint("nspv-details", "NSPV_REMOTERPCRESP response: method %s json %s to peer %d\n", R.method, R.json, pfrom->id);
+                LogPrint("nspv-details", "NSPV_REMOTERPCRESP response: method=%s json=%s to node=%d\n", R.method, R.json, pfrom->id);
                 NSPV_remoterpc_purge(&R);
             }
             else
@@ -1309,7 +1310,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
             //fprintf(stderr,"utxos: %u > %u, ind.%d, len.%d\n",timestamp,pfrom->prevtimes[ind],ind,len);
             
             if (len < 3)  {
-                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d too short, node %d\n", len, pfrom->id);
+                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d too short, node=%d\n", len, pfrom->id);
                 return;
             }
             
@@ -1317,7 +1318,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
             int32_t addrlen = request[offset++];
             if (addrlen >= sizeof(coinaddr) || offset + addrlen > len)
             {
-                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d too short or addrlen %d too long, node %d\n", len, addrlen, pfrom->id);
+                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d too short or addrlen %d too long, node=%d\n", len, addrlen, pfrom->id);
                 return;
             }
 
@@ -1326,7 +1327,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
             offset += addrlen;
 
             if (offset + sizeof(amount) + sizeof(evalcode) + sizeof(funcidslen) > len)  {
-                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d too short, node %d\n", len, pfrom->id);
+                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d too short, node=%d\n", len, pfrom->id);
                 return;
             }
             offset += iguana_rwnum(IGUANA_READ, &request[offset], sizeof(amount), &amount);
@@ -1335,7 +1336,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
 
             if (funcidslen >= sizeof(funcids) || offset + funcidslen > len)
             {
-                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d no room for funcids or too many funcids %d, node %d\n", len, funcidslen, pfrom->id);
+                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d no room for funcids or too many funcids %d, node=%d\n", len, funcidslen, pfrom->id);
                 return;
             }
 
@@ -1344,23 +1345,20 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
             offset += funcidslen;
 
             if (offset + sizeof(filtertxid) != len)  {
-                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d incorrect room for filtertxid param, node %d\n", len, funcidslen, pfrom->id);
+                LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request len.%d incorrect room for filtertxid param, node=%d\n", len, funcidslen, pfrom->id);
                 return;
             }
             iguana_rwbignum(IGUANA_READ, &request[offset], sizeof(filtertxid), (uint8_t *)&filtertxid);
-            //std::cerr << __func__ << " " << "request addr=" << coinaddr << " amount=" << amount << " evalcode=" << (int)evalcode << " funcids=" << funcids << " filtertxid=" << filtertxid.GetHex() << std::endl;
-
             memset(&U, 0, sizeof(U));
             if ((slen = NSPV_getccmoduleutxos(&U, coinaddr, amount, evalcode, funcids, filtertxid)) > 0)
             {
-                //std::cerr << __func__ << " " << "created utxos, slen=" << slen << std::endl;
                 response.resize(1 + slen);
                 response[0] = NSPV_CCMODULEUTXOSRESP;
                 if (NSPV_rwutxosresp(IGUANA_WRITE, &response[1], &U) == slen)
                 {
                     pfrom->PushMessage("nSPV", response);
                     pfrom->prevtimes[ind] = timestamp;
-                    LogPrint("nspv-details", "NSPV_CCMODULEUTXOS returned %d utxos, node=%d\n", (int)U.numutxos, pfrom->id);
+                    LogPrint("nspv-details", "NSPV_CCMODULEUTXOS returned %d utxos to node=%d\n", (int)U.numutxos, pfrom->id);
                 }
                 else
                     LogPrint("nspv", "NSPV_rwutxosresp incorrect response len.%d\n", slen);
