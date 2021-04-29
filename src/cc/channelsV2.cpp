@@ -223,7 +223,7 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
     uint8_t funcid,hash[32],hashdest[32],version; char channeladdress[65],srcmarker[65],destmarker[65],destaddr[65],srcaddr[65],desttokensaddr[65],srctokensaddr[65];
     int64_t p2,param2,payment; CPubKey srcpub,destpub; CTransaction channelOpenTx,channelCloseTx,prevTx; std::vector<CPubKey> keys; std::vector<vscript_t> oprets;
 
-    if (strcmp(ASSETCHAINS_SYMBOL, "MORTY") == 0 && GetLatestTimestamp(eval->GetCurrentHeight())<MAY2020_NNELECTION_HARDFORK)
+    if (strcmp(ASSETCHAINS_SYMBOL, "MORTY") == 0 && GetLatestTimestamp(eval->GetCurrentHeight())<MAY2021_NNELECTION_HARDFORK)
         return (true);
     numvins = tx.vin.size();
     numvouts = tx.vout.size();
