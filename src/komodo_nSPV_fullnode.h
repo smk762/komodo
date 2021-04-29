@@ -986,7 +986,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 {
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
-                    LogPrint("nspv-details", "NSPV_UTXOS response: numutxos returned %d to node=%d\n", U.numutxos, pfrom->id);
+                    LogPrint("nspv-details", "NSPV_UTXOS response: numutxos=%d to node=%d\n", U.numutxos, pfrom->id);
                 }
                 else 
                     LogPrint("nspv", "NSPV_rwutxosresp incorrect response len.%d\n", slen); 
@@ -1095,7 +1095,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                         if (NSPV_rwmempoolresp(IGUANA_WRITE, &response[1], &M) == slen) {
                             pfrom->PushMessage("nSPV", response);
                             pfrom->prevtimes[ind] = timestamp;
-                            LogPrint("nspv-details", "NSPV_MEMPOOL response: numtxids %d to node=%d\n", M.numtxids, pfrom->id);
+                            LogPrint("nspv-details", "NSPV_MEMPOOL response: numtxids=%d to node=%d\n", M.numtxids, pfrom->id);
                         } else
                             LogPrint("nspv", "NSPV_rwmempoolresp incorrect response len.%d\n", slen);
                         NSPV_mempoolresp_purge(&M);
