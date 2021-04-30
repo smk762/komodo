@@ -773,7 +773,7 @@ clean-local:
 	-$(MAKE) -C cryptoconditions clean
 	rm -f leveldb/*/*.gcno leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
-	rm src/cc/customcc.so
+	rm cc/customcc.so
 
 .rc.o:
 	@test -f $(WINDRES)
