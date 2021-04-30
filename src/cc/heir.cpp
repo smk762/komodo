@@ -39,12 +39,12 @@ bool HeirIsVer1Active(const Eval *eval)
     bool isTimev1 = true;
     if (eval == NULL)   {
         // std::cerr << __func__ << " komodo_currentheight()=" << komodo_currentheight() << " GetLatestTimestamp(komodo_currentheight())=" << GetLatestTimestamp(komodo_currentheight()) << std::endl;
-        if (GetLatestTimestamp(komodo_currentheight()) < MAY2021_NNELECTION_HARDFORK)
+        if (GetLatestTimestamp(komodo_currentheight()) < JUNE2021_NNELECTION_HARDFORK)
             isTimev1 = false;
     }
     else   {
         // std::cerr << __func__ << " eval->GetCurrentHeight()=" << eval->GetCurrentHeight() << " GetLatestTimestamp(eval->GetCurrentHeight())=" << GetLatestTimestamp(eval->GetCurrentHeight()) << std::endl;
-        if (GetLatestTimestamp(eval->GetCurrentHeight()) < MAY2021_NNELECTION_HARDFORK)
+        if (GetLatestTimestamp(eval->GetCurrentHeight()) < JUNE2021_NNELECTION_HARDFORK)
             isTimev1 = false;
     }
     for (auto const name : chains_only_version1)
