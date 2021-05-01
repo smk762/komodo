@@ -253,9 +253,6 @@ UniValue tokenv2balance(const UniValue& params, bool fHelp, const CPubKey& remot
     return tokenbalance<TokensV2>("tokenv2balance", params, fHelp, remotepk);
 }
 
-uint256 fvintxid;
-int32_t fvinn;
-
 template <class V>
 static UniValue tokencreate(const std::string& fname, const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
@@ -327,9 +324,9 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
     
     CCerror.clear();
 
-    if ( fHelp /*|| params.size() != 3*/)
+    if (fHelp || params.size() != 3)
         throw runtime_error(name + " tokenid destpubkey amount \n");
-    if ( ensure_CCrequirements(V::EvalCode()) < 0 )
+    if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     
     if (!EnsureWalletIsAvailable(false))
@@ -345,13 +342,6 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
         return MakeResultError("invalid destpubkey");    
     if( amount <= 0 )    
         return MakeResultError("amount must be positive");
-
-fvintxid = zeroid;
-fvinn = -1;
-if (params.size() == 5) {
-    fvintxid = Parseuint256((char *)params[3].get_str().c_str());
-    fvinn = atoll(params[4].get_str().c_str()); 
-}
     
     hex = TokenTransfer<V>(0, tokenid, pubkey2pk(vpubkey), amount);
     RETURN_IF_ERROR(CCerror);
