@@ -38,7 +38,7 @@ bool TokensIsVer1Active(const Eval *eval)
     //    "RFOXLIKE",
     //    "DIMXY11",
     //    "DIMXY14", "DIMXY14_2"
-        "DIMXY20"
+    //    "DIMXY20"
     };
     static bool isReported = false;
 
