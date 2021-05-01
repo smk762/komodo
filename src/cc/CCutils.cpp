@@ -460,7 +460,7 @@ bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey 
         payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
 
 	destaddr[0] = 0;
-	if (payoutCond != nullptr)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
+	if (payoutCond != nullptr)  //  if evalcodeNFT not set then it is dual-eval cc else three-eval cc
 	{
         if (mixed) 
             CCtoAnon(payoutCond.get());
