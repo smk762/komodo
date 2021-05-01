@@ -40,6 +40,7 @@ bool TokensIsVer1Active(const Eval *eval)
     //    "DIMXY14", "DIMXY14_2"
         "DIMXY20"
     };
+    static bool isReported = false;
 
     bool isTimev1 = true;
     if (eval == NULL)   {
@@ -52,11 +53,18 @@ bool TokensIsVer1Active(const Eval *eval)
     }
     for (auto const name : chains_only_version1)
         if (strcmp(name, ASSETCHAINS_SYMBOL) == 0)  {
-            std::cerr << __func__ << " for chain " << ASSETCHAINS_SYMBOL << " tokens always version 1" << std::endl;
+            if (!isReported)    {
+                LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream <<  " for chain " << ASSETCHAINS_SYMBOL << " tokens version >=1 always activated" << std::endl);
+                isReported = true;
+            }
+            
             return true;
         }
 
-    std::cerr << __func__ << " for chain " << ASSETCHAINS_SYMBOL << " tokens version 1 time activated: " << (isTimev1 ? "true" : "false") << std::endl;
+    if (!isReported)    {
+        LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "for chain " << ASSETCHAINS_SYMBOL << " tokens version >=1 is already time activated: " << (isTimev1 ? "true" : "false") << std::endl);
+        isReported = true;
+    }
     return isTimev1;
 }
 
