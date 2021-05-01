@@ -6921,9 +6921,9 @@ bool InitBlockIndex() {
         pblocktree->WriteFlag("spentindex", fSpentIndex);
         fprintf(stderr,"fAddressIndex.%d/%d fSpentIndex.%d/%d\n",fAddressIndex,DEFAULT_ADDRESSINDEX,fSpentIndex,DEFAULT_SPENTINDEX);
 
-        fUnspentCCIndex = GetBoolArg("-unspentccindex", DEFAULT_SPENTINDEX);
-        pblocktree->WriteFlag("unspentccindex", true);
-        fprintf(stderr,"fUnspentCCIndex.%d\n", true);
+        fUnspentCCIndex = GetBoolArg("-unspentccindex", false);
+        pblocktree->WriteFlag("unspentccindex", fUnspentCCIndex);
+        fprintf(stderr, "fUnspentCCIndex.%d\n", fUnspentCCIndex);
 
         LogPrintf("Initializing databases...\n");
     }
