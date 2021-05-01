@@ -159,7 +159,7 @@ UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp
     if (params.size() == 2)
         evalcodeNFT = strtol(params[1].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
 
-    if (TokensIsVer1Active(NULL))
+    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
         return AssetOrders<T, A>(tokenid, emptypk, evalcodeNFT);
     else
         return tokensv0::AssetOrders(tokenid, emptypk, evalcodeNFT);
@@ -190,12 +190,10 @@ UniValue mytokenorders(const std::string& name, const UniValue& params, bool fHe
     
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-
-    if (TokensIsVer1Active(NULL))
+    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
         return AssetOrders<T, A>(zeroid, mypk, evalcodeNFT);
     else
         return tokensv0::AssetOrders(zeroid, Mypubkey(), evalcodeNFT);
-
 }
 
 UniValue mytokenorders(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -530,8 +528,7 @@ UniValue tokenbid(const std::string& name, const UniValue& params, bool fHelp, c
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    
-    if (TokensIsVer1Active(NULL))
+    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
         result = CreateBuyOffer<T, A>(mypk, 0, bidamount, tokenid, numtokens);
     else  {
         hex = tokensv0::CreateBuyOffer(0, bidamount, tokenid, numtokens);
@@ -575,7 +572,7 @@ UniValue tokencancelbid(const std::string& name, const UniValue& params, bool fH
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (TokensIsVer1Active(NULL))
+    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
         result = CancelBuyOffer<T, A>(mypk, 0,tokenid,bidtxid);
     else  {
         hex = tokensv0::CancelBuyOffer(0,tokenid,bidtxid);
@@ -630,7 +627,8 @@ UniValue tokenfillbid(const std::string& name, const UniValue& params, bool fHel
 	    unit_price = AmountFromValue(params[3].get_str().c_str());
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (TokensIsVer1Active(NULL))	 
+
+    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
         result = FillBuyOffer<T, A>(mypk, 0, tokenid, bidtxid, fillamount, unit_price);
     else      {
         hex = tokensv0::FillBuyOffer(0, tokenid, bidtxid, fillamount);
@@ -679,7 +677,8 @@ UniValue tokenask(const std::string& name, const UniValue& params, bool fHelp, c
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (TokensIsVer1Active(NULL))	 
+
+    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
         result = CreateSell<T, A>(mypk, 0, numtokens, tokenid, askamount);
     else      {
         hex = tokensv0::CreateSell(0, numtokens, tokenid, askamount);
@@ -761,7 +760,7 @@ UniValue tokencancelask(const std::string& name, const UniValue& params, bool fH
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (TokensIsVer1Active(NULL))	 
+    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
         result = CancelSell<T, A>(mypk, 0, tokenid, asktxid);
     else    {
         hex = tokensv0::CancelSell(0, tokenid, asktxid);
@@ -813,7 +812,7 @@ UniValue tokenfillask(const std::string& name, const UniValue& params, bool fHel
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (TokensIsVer1Active(NULL))	 
+    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
         result = FillSell<T, A>(mypk, 0, tokenid, zeroid, asktxid, fillunits, unit_price);
     else    {
         hex = tokensv0::FillSell(0, tokenid, zeroid, asktxid, fillunits);
