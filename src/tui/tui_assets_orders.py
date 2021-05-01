@@ -35,8 +35,8 @@ def run_tokens_create(rpc):
 
     # set your own two node params
     # DIMXY20 
-    rpc1 = rpclib.rpc_connect("user1875608407", "passb64b66f9e1debbd3257e39976ba5a43e1c6515a8ced77f426b41ba954f0a562f66", 14723)
-    rpc2 = rpclib.rpc_connect("user306071284", "pass965dde8333f6c574c138d787a6ecdc22fad32b236e3580b62b2b0a2241d1489a04", 15723)
+    rpc1 = rpclib.rpc_connect("user2135429985", "passe26e9bce922bb0005fff3c41c20e7ea033399104aab3f148c515a2fa72fa4a9272", 14723)
+    rpc2 = rpclib.rpc_connect("user3701990598", "pass6df4dc57b2ee49b9e591ac6c8cb6aa89f0a06056ce67c6c45bbb14c0d63170e8a0", 15723)
 
     #tokenid = "b08775cf3b3b371f97256b427af005d5573a2868106a8c4dd4e8c76e87d476d7" # fungible
     #tokenid = "3b0003561fb98b332452e71208f13e4379fa6987577c3dcd2aef6199b54111ae" # NFT 0 royalty
