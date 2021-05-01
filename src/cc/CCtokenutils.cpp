@@ -38,6 +38,7 @@ bool TokensIsVer1Active(const Eval *eval)
     //    "RFOXLIKE",
     //    "DIMXY11",
     //    "DIMXY14", "DIMXY14_2"
+        "DIMXY20"
     };
 
     bool isTimev1 = true;
@@ -50,8 +51,12 @@ bool TokensIsVer1Active(const Eval *eval)
             isTimev1 = false;
     }
     for (auto const name : chains_only_version1)
-        if (strcmp(name, ASSETCHAINS_SYMBOL) == 0)
+        if (strcmp(name, ASSETCHAINS_SYMBOL) == 0)  {
+            std::cerr << __func__ << " for chain " << ASSETCHAINS_SYMBOL << " tokens always version 1" << std::endl;
             return true;
+        }
+
+    std::cerr << __func__ << " for chain " << ASSETCHAINS_SYMBOL << " tokens version 1 time activated: " << (isTimev1 ? "true" : "false") << std::endl;
     return isTimev1;
 }
 
