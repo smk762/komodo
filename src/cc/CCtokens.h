@@ -44,7 +44,7 @@ bool Tokensv2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
 UniValue TokenList();
 UniValue TokenV2List();
 
-/// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set additionalTokensEvalcode2 variable in the cp object to the eval code from NFT data to spend NFT outputs properly
+/// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set evalcodeNFT variable in the cp object to the eval code from NFT data to spend NFT outputs properly
 /// @param cp CCcontract_info structure
 /// @param mtx mutable transaction object
 /// @param pk pubkey for whose token inputs to add

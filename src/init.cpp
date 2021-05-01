@@ -1696,7 +1696,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             fReindex = true;
         }
 
-        fUnspentCCIndexTmp = GetBoolArg("-unspentccindex", DEFAULT_UNSPENTCCINDEX);
+        fUnspentCCIndexTmp = GetBoolArg("-unspentccindex", false);
         checkval = false;  
         pblocktree->ReadFlag("unspentccindex", checkval);
         if ( checkval != fUnspentCCIndexTmp && fUnspentCCIndexTmp != 0 )

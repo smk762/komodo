@@ -231,7 +231,7 @@ struct CCcontract_info
 {
     uint8_t evalcode;  //!< cc contract eval code, set by CCinit function
     uint8_t evalcodeNFT;  //!< additional eval code for spending from three-eval-code vouts with EVAL_TOKENS, cc evalcode, cc evalcode NFT 
-                                        //!< or vouts with two evalcodes: EVAL_TOKENS, additionalTokensEvalcode2. 
+                                        //!< or vouts with two evalcodes: EVAL_TOKENS, evalcodeNFT. 
                                         //!< Set by AddTokenCCInputs function
 
     char unspendableCCaddr[64]; //!< global contract cryptocondition address, set by CCinit function
@@ -1091,6 +1091,8 @@ void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::
 /// @param evalcode eval code for cc module
 /// @returns 0 if okay or -1
 int32_t ensure_CCrequirements(uint8_t evalcode);
+
+extern bool fUnspentCCIndex;  // if unspent cc index enabled
 
 /// @private forward decl
 struct CLockedInMemoryUtxos;
