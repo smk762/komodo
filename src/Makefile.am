@@ -320,7 +320,6 @@ libbitcoin_server_a_SOURCES = \
   cc/betprotocol.cpp \
   cc/pricesfeed.cpp \
   cc/priceslibs/cjsonpointer.cpp \
-  cc/kogs.cpp \
   chain.cpp \
   checkpoints.cpp \
   fs.cpp \
@@ -773,6 +772,7 @@ clean-local:
 	-$(MAKE) -C cryptoconditions clean
 	rm -f leveldb/*/*.gcno leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
+	rm -f cc/customcc.so
 
 .rc.o:
 	@test -f $(WINDRES)

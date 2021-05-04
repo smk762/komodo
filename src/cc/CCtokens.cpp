@@ -610,10 +610,6 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 
     if (strcmp(ASSETCHAINS_SYMBOL, "ROGUE") == 0 && chainActive.Height() <= 12500)
         return true;
-    
-    // my test chains:
-    if (strcmp(ASSETCHAINS_SYMBOL, "TOK3") == 0 /*&& eval->GetCurrentHeight() < 100*/)
-        return true;
 
     // check boundaries:
     if (tx.vout.size() < 1)
@@ -706,6 +702,9 @@ static bool CheckTokensV2CreateTx(struct CCcontract_info *cp, Eval* eval, const 
 // token 2 cc validation entry point
 bool Tokensv2Validate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn) 
 { 
+    if (!TokensIsVer1Active(eval))
+        return eval->Invalid("tokens v2 not active yet"); 
+
     // check boundaries:
     if (tx.vout.size() < 1) 
         return report_validation_error(__func__, eval, tx, "no vouts");
@@ -816,7 +815,6 @@ UniValue TokenList()
 UniValue TokenV2List()
 {
 	UniValue result(UniValue::VARR);
-    std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
 	struct CCcontract_info *cp, C; 
 	cp = CCinit(&C, EVAL_TOKENSV2);
@@ -834,10 +832,29 @@ UniValue TokenV2List()
         }
     };
 
-    SetCCunspentsCCIndex(unspentOutputs, cp->unspendableCCaddr, zeroid);    // find by burnable validated cc addr marker
-    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
-    for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
-        addTokenId(it->first.creationid, it->second.opreturn);
+    if (fUnspentCCIndex)
+    {
+        std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
+
+        SetCCunspentsCCIndex(unspentOutputs, cp->unspendableCCaddr, zeroid);    // find by burnable validated cc addr marker
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
+        for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
+            addTokenId(it->first.creationid, it->second.opreturn);
+        }
+    }
+    else
+    {
+        bool CC_INPUTS_TRUE = true;
+        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+
+        SetCCunspents(unspentOutputs, cp->unspendableCCaddr, CC_INPUTS_TRUE);
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "unspentOutputs.size()=" << unspentOutputs.size() << std::endl);    
+        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
+            CTransaction creationtx;
+            uint256 hashBlock;
+            if (myGetTransaction(it->first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
+                addTokenId(it->first.txhash, creationtx.vout.back().scriptPubKey);    
+        }
     }
 
 	return(result);

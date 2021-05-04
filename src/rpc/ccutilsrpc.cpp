@@ -34,13 +34,13 @@ using namespace std;
 UniValue listccunspents(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
 	UniValue resarray(UniValue::VARR);
-    bool fUnspentCCIndexTmp = false;
+    //bool fUnspentCCIndexTmp = false;
 
 	if (fHelp || (params.size() < 1 || params.size() > 2))
 		throw runtime_error("listccunspents ccadress [creationid]\n");
 
-    pblocktree->ReadFlag("unspentccindex", fUnspentCCIndexTmp);
-	if (!fUnspentCCIndexTmp)
+    //pblocktree->ReadFlag("unspentccindex", fUnspentCCIndexTmp);
+	if (!fUnspentCCIndex)
 		throw runtime_error("unspent cc index not supported\n");
 
     std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs, unspentOutputsMem;

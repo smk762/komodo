@@ -154,7 +154,7 @@ static bool CountCCVinVouts(const CTransaction & tx, int32_t _ccvins, int32_t _c
 
 // tx validation
 template<class T, class A>
-static bool AssetsValidateInternal(struct CCcontract_info *cpAssets, Eval* eval,const CTransaction &tx, uint32_t nIn)
+static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
     static uint256 zero;
     CTxDestination address; 
@@ -180,6 +180,10 @@ static bool AssetsValidateInternal(struct CCcontract_info *cpAssets, Eval* eval,
 
     if((funcid = A::DecodeAssetTokenOpRet(tx.vout[numvouts-1].scriptPubKey, evalCodeInOpret, assetid, assetid2, unit_price, vorigpubkey)) == 0 )
         return eval->Invalid("AssetValidate: invalid opreturn payload");
+
+	// reinit cpAssets as we could set evalcodeNFT in it
+	struct CCcontract_info *cpAssets, assetsC;
+	cpAssets = CCinit(&assetsC, A::EvalCode());
 
     // non-fungible tokens support:
     GetNonfungibleData<T>(assetid, vopretNonfungible);

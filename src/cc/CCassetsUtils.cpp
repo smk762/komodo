@@ -476,7 +476,7 @@ CAmount AssetsGetCCInputs(struct CCcontract_info *cp, const char *addr, const CT
 			{
                 char scriptaddr[KOMODO_ADDRESS_BUFSIZE];
                 if (addr == NULL || Getscriptaddress(scriptaddr, vinTx.vout[tx.vin[i].prevout.n].scriptPubKey) && strcmp(scriptaddr, addr) == 0)  {
-                    std::cerr << __func__ << " adding amount=" << vinTx.vout[tx.vin[i].prevout.n].nValue << " for vin i=" << i << " eval=" << std::hex << (int)cp->evalcode << std::resetiosflags(std::ios::hex) << std::endl;
+                    //std::cerr << __func__ << " adding amount=" << vinTx.vout[tx.vin[i].prevout.n].nValue << " for vin i=" << i << " eval=" << std::hex << (int)cp->evalcode << std::resetiosflags(std::ios::hex) << std::endl;
                     inputs += vinTx.vout[tx.vin[i].prevout.n].nValue;
                 }
 			}

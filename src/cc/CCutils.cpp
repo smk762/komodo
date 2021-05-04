@@ -460,7 +460,7 @@ bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey 
         payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
 
 	destaddr[0] = 0;
-	if (payoutCond != nullptr)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
+	if (payoutCond != nullptr)  //  if evalcodeNFT not set then it is dual-eval cc else three-eval cc
 	{
         if (mixed) 
             CCtoAnon(payoutCond.get());
@@ -475,17 +475,17 @@ bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue)
     char destaddr[64];
     if ( vout.scriptPubKey.IsPayToCryptoCondition() != CCflag )
     {
-        fprintf(stderr,"constrain vout error isCC %d vs %d CCflag\n", vout.scriptPubKey.IsPayToCryptoCondition(), CCflag);
+        //fprintf(stderr,"constrain vout error isCC %d vs %d CCflag\n", vout.scriptPubKey.IsPayToCryptoCondition(), CCflag);
         return(false);
     }
     else if ( cmpaddr != 0 && (Getscriptaddress(destaddr, vout.scriptPubKey) == 0 || strcmp(destaddr, cmpaddr) != 0) )
     {
-        fprintf(stderr,"constrain vout error: check addr %s vs script addr %s\n", cmpaddr!=0?cmpaddr:"", destaddr!=0?destaddr:"");
+        //fprintf(stderr,"constrain vout error: check addr %s vs script addr %s\n", cmpaddr!=0?cmpaddr:"", destaddr!=0?destaddr:"");
         return(false);
     }
     else if ( nValue != 0 && nValue != vout.nValue ) //(nValue == 0 && vout.nValue < 10000) || (
     {
-        fprintf(stderr,"constrain vout error nValue %.8f vs %.8f\n",(double)nValue/COIN,(double)vout.nValue/COIN);
+        //fprintf(stderr,"constrain vout error nValue %.8f vs %.8f\n",(double)nValue/COIN,(double)vout.nValue/COIN);
         return(false);
     }
     else return(true);

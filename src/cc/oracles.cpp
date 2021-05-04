@@ -210,7 +210,7 @@ int64_t OracleCurrentDatafee(uint256 reforacletxid,char *markeraddr,CPubKey publ
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
         height = (int32_t)it->second.blockHeight;
-        if ( (GetLatestTimestamp(komodo_currentheight())<MAY2020_NNELECTION_HARDFORK?myGetTransaction(txid,tx,hashBlock)!=0:FetchCCtx(txid,tx,cp)) && (numvouts= tx.vout.size()) > 0 )
+        if ( (GetLatestTimestamp(komodo_currentheight())<JUNE2021_NNELECTION_HARDFORK?myGetTransaction(txid,tx,hashBlock)!=0:FetchCCtx(txid,tx,cp)) && (numvouts= tx.vout.size()) > 0 )
         {
             if ( DecodeOraclesOpRet(tx.vout[numvouts-1].scriptPubKey,oracletxid,pk,dfee) == 'R' )
             {
@@ -467,7 +467,7 @@ bool OraclesValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &t
         return eval->Invalid("no vouts");
     else
     {
-        if (GetLatestTimestamp(komodo_currentheight())>=MAY2020_NNELECTION_HARDFORK)
+        if (GetLatestTimestamp(komodo_currentheight())>=JUNE2021_NNELECTION_HARDFORK)
         {
             CCOpretCheck(eval,tx,true,true,true);
             ExactAmounts(eval,tx,CC_TXFEE);

@@ -88,6 +88,7 @@ Details.
 #define bits256_nonz(a) (((a).ulongs[0] | (a).ulongs[1] | (a).ulongs[2] | (a).ulongs[3]) != 0)
 
 #define MAY2020_NNELECTION_HARDFORK 1592146800 //(Sunday, June 14th, 2020 03:00:00 PM UTC) 
+#define JUNE2021_NNELECTION_HARDFORK 1623682800 // dPoW Season 5 Monday, June 14th, 2021 (03:00:00 PM UTC)
 
 /* moved to komodo_cJSON.h
 #ifndef _BITS256
@@ -230,7 +231,7 @@ struct CCcontract_info
 {
     uint8_t evalcode;  //!< cc contract eval code, set by CCinit function
     uint8_t evalcodeNFT;  //!< additional eval code for spending from three-eval-code vouts with EVAL_TOKENS, cc evalcode, cc evalcode NFT 
-                                        //!< or vouts with two evalcodes: EVAL_TOKENS, additionalTokensEvalcode2. 
+                                        //!< or vouts with two evalcodes: EVAL_TOKENS, evalcodeNFT. 
                                         //!< Set by AddTokenCCInputs function
 
     char unspendableCCaddr[64]; //!< global contract cryptocondition address, set by CCinit function
@@ -418,6 +419,8 @@ int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_
 /// \endcond
 
 /// \cond INTERNAL
+#define IGUANA_READ 0
+#define IGUANA_WRITE 1
 int32_t iguana_rwnum(int32_t rwflag,uint8_t *serialized,int32_t len,void *endianedp);
 int32_t iguana_rwbignum(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *endianedp);
 /// \endcond
@@ -1088,6 +1091,8 @@ void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::
 /// @param evalcode eval code for cc module
 /// @returns 0 if okay or -1
 int32_t ensure_CCrequirements(uint8_t evalcode);
+
+extern bool fUnspentCCIndex;  // if unspent cc index enabled
 
 /// @private forward decl
 struct CLockedInMemoryUtxos;

@@ -19,6 +19,25 @@
 #include "CCtokens.h"
 #include "CCassets.h"
 
+
+static bool IsTxidInActiveChain(uint256 txid)
+{
+    CTransaction tx;
+    uint256 hashBlock;
+    AssertLockHeld(cs_main);
+
+    if (myGetTransaction(txid, tx, hashBlock))
+    {
+        BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+        if (mi != mapBlockIndex.end() && (*mi).second) {
+            CBlockIndex* pindex = (*mi).second;
+            if (chainActive.Contains(pindex)) 
+                return true;
+        }
+    }
+    return false;
+}
+
 template<class T, class A>
 UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalCodeNFT)
 {
@@ -370,7 +389,8 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
         int32_t spendingvin, h;
 
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if (CCgetspenttxid(spendingtxid, spendingvin, h, bidtxid, ASSETS_GLOBALADDR_VOUT) != 0 && myGetTransaction(bidtxid, vintx, hashBlock) && vintx.vout.size() > ASSETS_GLOBALADDR_VOUT)
+        LOCK(cs_main);
+        if ((CCgetspenttxid(spendingtxid, spendingvin, h, bidtxid, ASSETS_GLOBALADDR_VOUT) != 0 || !IsTxidInActiveChain(spendingtxid))  && myGetTransaction(bidtxid, vintx, hashBlock) && vintx.vout.size() > ASSETS_GLOBALADDR_VOUT)
         {
             uint8_t dummyEvalCode; uint256 dummyAssetid, dummyAssetid2; int64_t dummyPrice; std::vector<uint8_t> dummyOrigpubkey;
 
@@ -378,6 +398,10 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
             //GetNonfungibleData<T>(assetid, vopretNonfungible);
 
             bidamount = vintx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
+            if (bidamount == 0) {
+                CCerror = "bid is empty";
+                return "";
+            }
             mtx.vin.push_back(CTxIn(bidtxid, ASSETS_GLOBALADDR_VOUT, CScript()));		// coins in Assets
 
             uint8_t funcid = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey);
@@ -429,7 +453,8 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 a
         int32_t spendingvin, h;
 
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if (CCgetspenttxid(spendingtxid, spendingvin, h, asktxid, ASSETS_GLOBALADDR_VOUT) != 0 && myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > 0)
+        LOCK(cs_main);
+        if ((CCgetspenttxid(spendingtxid, spendingvin, h, asktxid, ASSETS_GLOBALADDR_VOUT) != 0 || !IsTxidInActiveChain(spendingtxid)) && myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > 0)
         {
             uint8_t dummyEvalCode; 
             uint256 dummyAssetid, dummyAssetid2; 
@@ -437,6 +462,10 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 a
             std::vector<uint8_t> dummyOrigpubkey;
 
             askamount = vintx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
+            if (askamount == 0) {
+                CCerror = "ask is empty";
+                return "";
+            }
             mtx.vin.push_back(CTxIn(asktxid, ASSETS_GLOBALADDR_VOUT, CScript()));
             
             uint8_t funcid = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey);
@@ -516,7 +545,8 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
         int32_t spendingvin, h;
 
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if (CCgetspenttxid(spendingtxid, spendingvin, h, bidtxid, bidvout) != 0 && myGetTransaction(bidtxid, vintx, hashBlock) != 0 && vintx.vout.size() > bidvout)
+        LOCK(cs_main);
+        if ((CCgetspenttxid(spendingtxid, spendingvin, h, bidtxid, bidvout) != 0 || !IsTxidInActiveChain(spendingtxid)) && myGetTransaction(bidtxid, vintx, hashBlock) != 0 && vintx.vout.size() > bidvout)
         {
             bid_amount = vintx.vout[bidvout].nValue;
             uint8_t funcid = SetAssetOrigpubkey<A>(origpubkey, unit_price, vintx);  // get orig pk, orig units
@@ -594,7 +624,6 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
     return "";
 }
 
-
 // send coins, receive tokens 
 template<class T, class A>
 UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 assetid2, uint256 asktxid, int64_t fillunits, CAmount paid_unit_price)
@@ -633,7 +662,8 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
     uint256 spendingtxid;
     int32_t spendingvin, h;
 
-    if (CCgetspenttxid(spendingtxid, spendingvin, h, asktxid, askvout) != 0 && myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > askvout)
+    LOCK(cs_main);
+    if ((CCgetspenttxid(spendingtxid, spendingvin, h, asktxid, askvout) != 0 || !IsTxidInActiveChain(spendingtxid)) && myGetTransaction(asktxid, vintx, hashBlock) && vintx.vout.size() > askvout)
     {
         orig_assetoshis = vintx.vout[askvout].nValue;
         uint8_t funcid = SetAssetOrigpubkey<A>(origpubkey, unit_price, vintx); // get orig pk, orig value

@@ -25,9 +25,9 @@
 #define IS_CHARINSTR(c, str) (std::string(str).find((char)(c)) != std::string::npos)
 #endif
 
-#ifndef MAY2020_NNELECTION_HARDFORK
-#define MAY2020_NNELECTION_HARDFORK 1590926400
-#endif
+//#ifndef MAY2020_NNELECTION_HARDFORK
+//#define MAY2020_NNELECTION_HARDFORK 1590926400
+//#endif
 
 
 // return true if new v1 version activation time is passed or chain is always works v1
@@ -38,20 +38,33 @@ bool TokensIsVer1Active(const Eval *eval)
     //    "RFOXLIKE",
     //    "DIMXY11",
     //    "DIMXY14", "DIMXY14_2"
+    //    "DIMXY20"
     };
+    static bool isReported = false;
 
     bool isTimev1 = true;
     if (eval == NULL)   {
-        if (GetLatestTimestamp(komodo_currentheight()) < MAY2020_NNELECTION_HARDFORK)
+        if (GetLatestTimestamp(komodo_currentheight()) < JUNE2021_NNELECTION_HARDFORK)
             isTimev1 = false;
     }
     else   {
-        if (GetLatestTimestamp(eval->GetCurrentHeight()) < MAY2020_NNELECTION_HARDFORK)
+        if (GetLatestTimestamp(eval->GetCurrentHeight()) < JUNE2021_NNELECTION_HARDFORK)
             isTimev1 = false;
     }
     for (auto const name : chains_only_version1)
-        if (strcmp(name, ASSETCHAINS_SYMBOL) == 0)
+        if (strcmp(name, ASSETCHAINS_SYMBOL) == 0)  {
+            if (!isReported)    {
+                LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream <<  " for chain " << ASSETCHAINS_SYMBOL << " tokens version >=1 always activated" << std::endl);
+                isReported = true;
+            }
+            
             return true;
+        }
+
+    if (!isReported)    {
+        LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "for chain " << ASSETCHAINS_SYMBOL << " tokens version >=1 is already time activated: " << (isTimev1 ? "true" : "false") << std::endl);
+        isReported = true;
+    }
     return isTimev1;
 }
 
@@ -428,7 +441,8 @@ CC *MakeTokensCCcond1of2(uint8_t evalcode, uint8_t evalcode2, CPubKey pk1, CPubK
     pks.push_back(CCNewSecp256k1(pk2));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
+    if (evalcode != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
     if (evalcode != EVAL_TOKENS)	                                                // if evalCode == EVAL_TOKENS, it is actually MakeCCcond1of2()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENS)));	    // this is eval token cc
     if (evalcode2 != 0)
@@ -449,7 +463,8 @@ CC *MakeTokensCCcond1(uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
     pks.push_back(CCNewSecp256k1(pk));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
+    if (evalcode != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
     if (evalcode != EVAL_TOKENS)                                                    // if evalCode == EVAL_TOKENS, it is actually MakeCCcond1()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENS)));	    // this is eval token cc
     if (evalcode2 != 0)
@@ -518,7 +533,8 @@ CC *MakeTokensv2CCcond1of2(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk1, CP
     pks.push_back(CCNewSecp256k1(pk2));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
+    if (evalcode1 != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
     if (evalcode1 != EVAL_TOKENSV2)	                                                // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1of2()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	// this is eval token cc
     if (evalcode2 != 0)
@@ -533,14 +549,15 @@ CC *MakeTokensv2CCcond1of2(uint8_t evalcode, CPubKey pk1, CPubKey pk2) {
 }
 
 // make three-eval (token+evalcode+evalcode2) cryptocondition:
-CC *MakeTokensv2CCcond1(uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
+CC *MakeTokensv2CCcond1(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk)
 {
     std::vector<CC*> pks;
     pks.push_back(CCNewSecp256k1(pk));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
-    if (evalcode != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1()!
+    if (evalcode1 != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
+    if (evalcode1 != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	    // this is eval token cc
     if (evalcode2 != 0)
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode2)));                // add optional additional evalcode
