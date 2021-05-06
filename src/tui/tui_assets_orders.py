@@ -67,8 +67,7 @@ def run_tokens_create(rpc):
     nft_00_id2 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", nft_00_id2)
 
-    # reserved for tokel nft data F7 evalcode
-    """ 
+    #  tokel nft data F7 evalcode
     print("creating NFT with F7, no royaly, with arbitary data...")
     result = rpc1.tokenv2create("NFT-F7-1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
     assert(check_result(result))
@@ -80,7 +79,6 @@ def run_tokens_create(rpc):
     assert(check_result(result))
     nft_f7_id2 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", nft_f7_id2)
-    """
 
     # first try transfer tokens to a pk and back, then run assets tests
     print("starting token transfers tests...")
