@@ -32,6 +32,12 @@
 #include "CCGateways.h"
 #include "CCtokens.h"
 #include "CCImportGateway.h"
+<<<<<<< HEAD
+=======
+#include "CCKogs.h"
+#include "CCNFTData.h"
+
+>>>>>>> d3c717a9a... added cc to validate nft data
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -286,7 +292,16 @@ uint8_t Assetsv2CCpriv[32] = { 0x46, 0x58, 0x3b, 0x18, 0xee, 0x16, 0x63, 0x51, 0
 #undef FUNCNAME
 #undef EVALCODE
 
+<<<<<<< HEAD
 
+=======
+// ParamNFT 
+#define FUNCNAME IsNFTDataInput
+#define EVALCODE EVAL_NFTDATA
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+>>>>>>> d3c717a9a... added cc to validate nft data
 
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
@@ -502,6 +517,11 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             memcpy(cp->CCpriv,Assetsv2CCpriv,32);
             cp->validate = Assetsv2Validate;
             cp->ismyvin = IsAssetsv2Input;
+            break;
+
+        case EVAL_NFTDATA:
+            cp->validate = NFTDataValidate;
+            cp->ismyvin = IsNFTDataInput;
             break;
 
         default:
