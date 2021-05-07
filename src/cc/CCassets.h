@@ -30,6 +30,7 @@
 #define ASSETS_GLOBALADDR_VIN  1
 #define ASSETS_GLOBALADDR_VOUT 0
 #define ASSETS_MARKER_AMOUNT 10000
+#define ASSETS_NORMAL_DUST 500
 
 // CCcustom
 bool AssetsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);

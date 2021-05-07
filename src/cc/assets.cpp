@@ -270,17 +270,27 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
             //vout.1: vin.2 back to users pubkey
             //vout.2: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['o']
+            ccvins = 2;
+            ccvouts = 0;
             if (vin_assetoshis = AssetValidateBuyvin<A>(cpAssets, eval, vin_unit_price, vin_origpubkey, origCCaddrDummy, origNormalAddr, tx, assetid) == 0)
                 return(false);
-            else if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, vin_assetoshis, 0) == false )
-                return eval->Invalid("invalid refund for cancelbid");
-            else if( TotalPubkeyNormalInputs(tx, pubkey2pk(vin_origpubkey)) == 0 ) // check tx is signed by originator pubkey
+            
+            if (tx.vout[0].nValue > ASSETS_NORMAL_DUST)  {
+                if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, vin_assetoshis, 0) == false )
+                    return eval->Invalid("invalid refund for cancelbid");
+            } else {
+                bool isCC = false;
+                if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, vin_assetoshis, 0) == false &&
+                    (isCC = A::ConstrainVout(tx.vout[0], 1, cpAssets->unspendableCCaddr, vin_assetoshis, 0)) == false)  // dust allowed to go back
+                    return eval->Invalid("invalid refund for cancelbid");
+                if( isCC )
+                    ccvouts ++;
+            }
+            if( TotalPubkeyNormalInputs(tx, pubkey2pk(vin_origpubkey)) == 0 ) // check tx is signed by originator pubkey
                 return eval->Invalid("not the originator pubkey signed");
 
             //preventCCvins = 2;
             //preventCCvouts = 0;
-            ccvins = 2;
-            ccvouts = 0;
             //fprintf(stderr,"cancelbuy validated to origaddr.(%s)\n",origNormalAddr);
             break;
             
@@ -351,9 +361,19 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 }
                 else 
                 {   // remaining_units == 0
-                    if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, 0LL, 0) == false )  // remainder less than token price should return to originator normal addr
-                        return eval->Invalid("vout0 should be originator normal address with remainder for fillbid");
-                    ccvouts--;
+                    if( tx.vout[0].nValue > ASSETS_NORMAL_DUST )  {
+                        if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, 0LL, 0) == false )  // remainder less than token price should return to originator normal addr
+                            return eval->Invalid("vout0 should be originator normal address with remainder for fillbid");
+                        ccvouts--;
+                    }
+                    else {
+                        bool isCC = false;
+                        if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, 0LL, 0) == false &&
+                            (isCC = A::ConstrainVout(tx.vout[0], 1, cpAssets->unspendableCCaddr, 0, 0)) == false ) // dust allowed to go back to cc global addr
+                            return eval->Invalid("vout0 should be originator normal address with remainder or dust should go back to global addr for fillbid");
+                        if( !isCC )
+                            ccvouts--;
+                    }
                 }
             }
             //fprintf(stderr,"fillbuy validated\n");
