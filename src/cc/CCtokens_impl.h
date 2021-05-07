@@ -26,17 +26,19 @@
 
 // get non-fungible data from 'tokenbase' tx (the data might be empty)
 template <class V>
-void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
+bool GetTokenData(uint256 tokenid, TokenDataTuple &tokenData, vscript_t &vopretNonfungible)
 {
     CTransaction tokenbasetx;
     uint256 hashBlock;
 
+    tokenData = std::make_tuple(vuint8_t(), std::string(), std::string());
+    vopretNonfungible.clear();
+
     if (!myGetTransaction(tokenid, tokenbasetx, hashBlock)) {
         LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "could not load token creation tx=" << tokenid.GetHex() << std::endl);
-        return;
+        return false;
     }
 
-    vopretNonfungible.clear();
     // check if it is non-fungible tx and get its second evalcode from non-fungible payload
     if (tokenbasetx.vout.size() > 0) {
         std::vector<uint8_t> origpubkey;
@@ -47,8 +49,11 @@ void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
         if (IsTokenCreateFuncid(V::DecodeTokenCreateOpRet(tokenbasetx.vout.back().scriptPubKey, origpubkey, name, description, oprets))) {
             if (oprets.size() > 0)
                 vopretNonfungible = oprets[0];
+            tokenData = std::make_tuple(origpubkey, name, description);
+            return true;
         }
     }
+    return false;
 }
 
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
@@ -66,8 +71,9 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     if (cp->evalcodeNFT == 0)  // if not set yet (in TransferToken or this func overload)
     {
         // check if this is a NFT
+        TokenDataTuple tokenData;
         vscript_t vopretNonfungible;
-        GetNonfungibleData<V>(tokenid, vopretNonfungible); //load NFT data 
+        GetTokenData<V>(tokenid, tokenData, vopretNonfungible);
         if (vopretNonfungible.size() > 0)
             cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
     }
@@ -150,8 +156,9 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     
     // check if this is a NFT
+    TokenDataTuple tokenData;
     vscript_t vopretNonfungible;
-    GetNonfungibleData<V>(tokenid, vopretNonfungible);
+    GetTokenData<V>(tokenid, tokenData, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     
@@ -399,8 +406,9 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, CPubKey destpubkey, CA
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, V::EvalCode());
 
+    TokenDataTuple tokenData;
     vscript_t vopretNonfungible;
-    GetNonfungibleData<V>(tokenid, vopretNonfungible);
+    GetTokenData<V>(tokenid, tokenData, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, mypk, V::IsMixed());
@@ -410,9 +418,9 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, CPubKey destpubkey, CA
 }
 
 // returns token creation signed raw tx
-// params: txfee amount, token amount, token name and description, optional NFT data, 
+// params: txfee amount, token amount, token name and description, optional NFT data, optional eval code of a cc to validate NFT
 template <class V>
-UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool addTxInMemory)
+UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     struct CCcontract_info *cp, C;
@@ -430,10 +438,10 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
     }
 
 	cp = CCinit(&C, V::EvalCode());
-	if (name.size() > 32 || description.size() > 4096)  // this is also checked on rpc level
+    if (name.size() > 32 || description.size() > 4096)  // this is also checked on rpc level
 	{
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "name len=" << name.size() << " or description len=" << description.size() << " is too big" << std::endl);
-        CCerror = "name should be <= 32, description should be <= 4096";
+        CCerror = "name should be <= 32, description should be <= " + std::to_string(4096);
 		return NullUniValue;
 	}
 	if (txfee == 0)
@@ -453,7 +461,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
     CAmount totalInputs;
     // always add inputs only from the mypk passed in the param to prove the token creator has the token originator pubkey
     // This what the AddNormalinputsRemote does (and it is not necessary that this is done only for nspv calls):
-	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000, addTxInMemory)) > 0)
+	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000, useMempool)) > 0)
 	{
         CAmount mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
@@ -462,8 +470,8 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
         }
 
         uint8_t destEvalCode = V::EvalCode();
-        if( nonfungibleData.size() > 0 )
-            destEvalCode = nonfungibleData.begin()[0];
+        if( nonfungibleData.size() > 0 && nonfungibleData[0] != 0 )
+            destEvalCode = nonfungibleData[0];
 
         // NOTE: we should prevent spending fake-tokens from this marker in IsTokenvout():
         mtx.vout.push_back(V::MakeCC1vout(V::EvalCode(), txfee, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
@@ -482,11 +490,6 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
             CCerror = "couldnt finalize token tx";
             return NullUniValue;
         }
-        if (addTxInMemory)
-        {
-            // add tx to in-mem array to use in subsequent AddNormalinputs()
-            // LockUtxoInMemory::AddInMemoryTransaction(mtx);
-        }
         return sigData;
 	}
 
@@ -498,7 +501,7 @@ template <class V>
 std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
 {
     CPubKey nullpk = CPubKey();
-    UniValue sigData = CreateTokenExt<V>(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, true); //TODO: temp true, set back to false
+    UniValue sigData = CreateTokenExt<V>(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, false); 
     return sigData[JSON_HEXTX].getValStr();
 }
 
@@ -743,6 +746,7 @@ static CAmount HasBurnedTokensvouts(const CTransaction& tx, uint256 reftokenid)
     uint256 tokenIdOpret;
     std::vector<CPubKey> vDeadPubkeys, voutPubkeysDummy;
     std::vector<vscript_t>  oprets;
+    TokenDataTuple tokenData;
     vscript_t vopretExtra, vopretNonfungible;
 
     uint8_t evalCode = V::EvalCode();     // if both payloads are empty maybe it is a transfer to non-payload-one-eval-token vout like GatewaysClaim
@@ -771,8 +775,7 @@ static CAmount HasBurnedTokensvouts(const CTransaction& tx, uint256 reftokenid)
 
     LOGSTREAMFN(cctokens_log, CCLOG_DEBUG2, stream << "vopretExtra=" << HexStr(vopretExtra) << std::endl);
 
-    GetNonfungibleData<V>(reftokenid, vopretNonfungible);
-
+    GetTokenData<V>(reftokenid, tokenData, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
         evalCode = vopretNonfungible.begin()[0];
     if (vopretExtra.size() > 0)
@@ -871,8 +874,9 @@ static bool CheckMarkerSpending(struct CCcontract_info *cp, Eval *eval, const CT
                 CAmount burnedAmount = HasBurnedTokensvouts<V>(tx, tokenid);
                 if (burnedAmount > 0)
                 {
+                    TokenDataTuple tokenData;
                     vscript_t vopretNonfungible;
-                    GetNonfungibleData<V>(tokenid, vopretNonfungible);
+                    GetTokenData<V>(tokenid, tokenData, vopretNonfungible);
                     if (!vopretNonfungible.empty())
                     {
                         CTransaction tokenbaseTx;
