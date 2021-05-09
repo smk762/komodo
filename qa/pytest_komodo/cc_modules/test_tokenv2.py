@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # Copyright (c) 2021 SuperNET developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
 import pytest
 from slickrpc.exc import RpcException as RPCError
-from basic.pytest_util import validate_template, mine_and_waitconfirms, randomstring, randomhex, validate_raddr_pattern
+from lib.pytest_util import validate_template, mine_and_waitconfirms, randomstring, randomhex, validate_raddr_pattern
 
 
 @pytest.mark.usefixtures("proxy_connection")
