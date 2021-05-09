@@ -131,7 +131,7 @@ jobs:
         shell: cmd
         run: |
           cd qa\pytest_komodo
-          start_ci.bat cc_modules\test_dice.py cc_modules\test_faucet.py cc_modules\test_token.py cc_modules\test_rewards.py
+          start_ci.bat cc_modules\test_dice.py cc_modules\test_faucet.py cc_modules\test_tokenv2.py cc_modules\test_rewards.py
   windows-test-oracles-cc:
 
     name: Test (Win/OraclesCC)

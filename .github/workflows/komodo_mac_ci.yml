@@ -70,7 +70,7 @@ jobs:
           tar xzvf komodo-macos.tar.gz
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
-          ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_token.py cc_modules/test_rewards.py"
+          ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_tokenv2.py cc_modules/test_rewards.py"
 
   macos-test-oracles:
 
