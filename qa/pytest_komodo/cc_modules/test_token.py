@@ -157,7 +157,7 @@ class TestTokenCCcalls:
                     'origtokenaddress': {'type': 'string'},
                     'tokenid': {'type': 'string'},
                     'totalrequired': {'type': ['string', 'integer']},
-                    'price': {'type': 'number'}
+                    'price': {'type': 'string'}
                 }
             }
         }
