@@ -1,257 +1,296 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020 SuperNET developers
+# Copyright (c) 2021 SuperNET developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or https://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 import pytest
-import time
 from slickrpc.exc import RpcException as RPCError
-from util import assert_success, assert_error, mine_and_waitconfirms,\
-    send_and_mine, rpc_connect, wait_some_blocks, komodo_teardown
+from lib.pytest_util import validate_template, mine_and_waitconfirms, randomstring, randomhex, validate_raddr_pattern
 
 
-@pytest.mark.usefixtures("proxy_connection")
-def test_token(test_params):
+@pytest.mark.usefixtures("proxy_connection", "test_params")
+class TestTokenCCcalls:
 
-    # test params inits
-    rpc = test_params.get('node1').get('rpc')
-    rpc1 = test_params.get('node2').get('rpc')
+    def test_tokencreate_list_info(self, token_instance):
+        create_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                'hex': {'type': 'string'},
+                'error': {'type': 'string'}
+            },
+            'required': ['result']
+        }
 
-    pubkey = test_params.get('node1').get('pubkey')
-    pubkey1 = test_params.get('node2').get('pubkey')
+        list_schema = {
+            'type': 'array',
+            'items': {'type': 'string'}
+        }
 
-    is_fresh_chain = test_params.get("is_fresh_chain")
+        info_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                'tokenid': {'type': 'string'},
+                'owner': {'type': 'string'},
+                'name': {'type': 'string'},
+                'supply': {'type': 'integer'},
+                'description': {'type': 'string'},
+                'version':  {'type': 'integer'},
+                'IsMixed': {'type': 'string'}
+            },
+            'required': ['result']
+        }
 
-    result = rpc.tokenaddress()
-    assert_success(result)
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+        token_instance.new_token(token_instance.rpc[0], schema=create_schema)
 
-    result = rpc.tokenaddress(pubkey)
-    assert_success(result)
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+        res = token_instance.rpc[0].tokenlist()
+        validate_template(res, list_schema)
 
-    result = rpc.assetsaddress()
-    assert_success(result)
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+        res = token_instance.rpc[0].tokeninfo(token_instance.base_token.get('tokenid'))
+        validate_template(res, info_schema)
 
-    result = rpc.assetsaddress(pubkey)
-    assert_success(result)
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+    def test_tokenaddress(self, token_instance):
+        assetaddress_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                "GlobalPk Assets CC Address": {'type': 'string'},
+                "GlobalPk Assets CC Balance": {'type': 'number'},
+                "GlobalPk Assets Normal Address": {'type': 'string'},
+                "GlobalPk Assets Normal Balance": {'type': 'number'},
+                "GlobalPk Assets/Tokens CC Address": {'type': 'string'},
+                "pubkey Assets CC Address": {'type': 'string'},
+                "pubkey Assets CC Balance": {'type': 'number'},
+                "mypk Assets CC Address": {'type': 'string'},
+                "mypk Assets CC Balance": {'type': 'number'},
+                "mypk Normal Address": {'type': 'string'},
+                "mypk Normal Balance": {'type': 'number'}
+            },
+            'required': ['result']
+        }
 
-    # there are no tokens created yet
-    # TODO: this test conflicts with heir test because token creating for heir
-#    if is_fresh_chain:
-#        result = rpc.tokenlist()
-#        assert result == []
+        tokenaddress_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                "GlobalPk Tokens CC Address": {'type': 'string'},
+                "GlobalPk Tokens CC Balance": {'type': 'number'},
+                "GlobalPk Tokens Normal Address": {'type': 'string'},
+                "GlobalPk Tokens Normal Balance": {'type': 'number'},
+                "pubkey Tokens CC Address": {'type': 'string'},
+                "pubkey Tokens CC Balance": {'type': 'number'},
+                "mypk Tokens CC Address": {'type': 'string'},
+                "mypk Tokens CC Balance": {'type': 'number'},
+                "mypk Normal Address": {'type': 'string'},
+                "mypk Normal Balance": {'type': 'number'}
+            },
+            'required': ['result']
+        }
 
-    # trying to create token with negative supply
-    with pytest.raises(RPCError):
-        result = rpc.tokencreate("NUKE", "-1987420", "no bueno supply")
-        assert_error(result)
+        if not token_instance.base_token:
+            token_instance.new_token(token_instance.rpc[1])
 
-    # creating token with name more than 32 chars
-    result = rpc.tokencreate("NUKE123456789012345678901234567890", "1987420", "name too long")
-    assert_error(result)
+        res = token_instance.rpc[0].assetsaddress(token_instance.pubkey[0])
+        validate_template(res, assetaddress_schema)
 
-    # creating valid token
-    result = rpc.tokencreate("DUKE", "1987.420", "Duke's custom token")
-    assert_success(result)
+        res = token_instance.rpc[0].tokenaddress(token_instance.pubkey[0])
+        validate_template(res, tokenaddress_schema)
 
-    tokenid = send_and_mine(result['hex'], rpc)
+    def test_tokentransfer_balance(self, token_instance):
+        transfer_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                'hex': {'type': 'string'}
+            },
+            'required': ['result']
+        }
 
-    result = rpc.tokenlist()
-    assert tokenid in result
+        balance_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                'CCaddress': {'type': 'string'},
+                'tokenid': {'type': 'string'},
+                'balance': {'type': 'integer'}
+            },
+            'required': ['result']
+        }
 
-    # there are no token orders yet
-    if is_fresh_chain:
-        result = rpc.tokenorders(tokenid)
-        assert result == []
+        if not token_instance.base_token:
+            token_instance.new_token(token_instance.rpc[1])
 
-    # getting token balance for non existing tokenid
-    result = rpc.tokenbalance(pubkey)
-    assert_error(result)
+        amount = 150
+        res = token_instance.rpc[0].tokentransfer(token_instance.base_token.get('tokenid'),
+                                                  token_instance.pubkey[1], str(amount))
+        validate_template(res, transfer_schema)
+        txid = token_instance.rpc[0].sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, token_instance.rpc[0])
 
-    # get token balance for token with pubkey
-    result = rpc.tokenbalance(tokenid, pubkey)
-    assert_success(result)
-    assert result['balance'] == 198742000000
-    assert result['tokenid'] ==  tokenid
+        res = token_instance.rpc[1].tokenbalance(token_instance.base_token.get('tokenid'),
+                                                 token_instance.pubkey[1])
+        validate_template(res, balance_schema)
+        assert amount == res.get('balance')
+        assert token_instance.base_token.get('tokenid') == res.get('tokenid')
 
-    # get token balance for token without pubkey
-    result = rpc.tokenbalance(tokenid)
-    assert_success(result)
-    assert result['balance'] == 198742000000
-    assert result['tokenid'] == tokenid
+    def test_tokenask_bid_orders(self, token_instance):
+        askbid_schema = {
+            'type': 'object',
+            'properties': {
+                'hex': {'type': 'string'}
+            },
+            'required': ['hex']
+        }
 
-    # this is not a valid assetid
-    result = rpc.tokeninfo(pubkey)
-    assert_error(result)
+        orders_schema = {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'funcid': {'type': 'string'},
+                    'txid': {'type': 'string'},
+                    'vout':  {'type': 'integer'},
+                    'amount': {'type': 'string'},
+                    'askamount': {'type': 'string'},
+                    'origaddress': {'type': 'string'},
+                    'origtokenaddress': {'type': 'string'},
+                    'tokenid': {'type': 'string'},
+                    'totalrequired': {'type': ['string', 'integer']},
+                    'price': {'type': 'number'}
+                }
+            }
+        }
 
-    # check tokeninfo for valid token
-    result = rpc.tokeninfo(tokenid)
-    assert_success(result)
-    assert result['tokenid'] == tokenid
-    assert result['owner'] == pubkey
-    assert result['name'] == "DUKE"
-    assert result['supply'] == 198742000000
-    assert result['description'] == "Duke's custom token"
+        rpc1 = token_instance.rpc[0]
+        rpc2 = token_instance.rpc[1]
+        pubkey2 = token_instance.pubkey[1]
 
-    # invalid numtokens ask
-    result = rpc.tokenask("-1", tokenid, "1")
-    assert_error(result)
+        if not token_instance.base_token:
+            token_instance.new_token(token_instance.rpc[1])
+        amount1 = 150
+        amount2 = 100
+        price = 0.1
 
-    # invalid numtokens ask
-    result = rpc.tokenask("0", tokenid, "1")
-    assert_error(result)
+        res = rpc1.tokenask(str(amount1), token_instance.base_token.get('tokenid'), str(price))
+        validate_template(res, askbid_schema)
+        asktxid = rpc1.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(asktxid, rpc1)
 
-    # invalid price ask
-    with pytest.raises(RPCError):
-        result = rpc.tokenask("1", tokenid, "-1")
-        assert_error(result)
+        res = rpc1.tokenbid(str(amount2), token_instance.base_token.get('tokenid'), str(price))
+        validate_template(res, askbid_schema)
+        bidtxid = rpc1.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(bidtxid, rpc1)
 
-    # invalid price ask
-    result = rpc.tokenask("1", tokenid, "0")
-    assert_error(result)
+        # Check orders and myorders call
+        orders1 = rpc2.tokenorders(token_instance.base_token.get('tokenid'))
+        validate_template(orders1, orders_schema)
+        orders2 = rpc1.mytokenorders(token_instance.base_token.get('tokenid'))
+        validate_template(orders2, orders_schema)
+        # assert orders1 == orders2
 
-    # invalid tokenid ask
-    result = rpc.tokenask("100", "deadbeef", "1")
-    assert_error(result)
+        # Check fills and cancel calls
+        res = rpc2.tokenfillask(token_instance.base_token.get('tokenid'), asktxid, str(int(amount1 * 0.5)))
+        validate_template(res, askbid_schema)
+        asktxid2 = rpc2.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(asktxid2, rpc2)
 
-    # valid ask
-    tokenask = rpc.tokenask("100", tokenid, "7.77")
-    tokenaskhex = tokenask['hex']
-    tokenaskid = send_and_mine(tokenask['hex'], rpc)
-    result = rpc.tokenorders(tokenid)
-    order = result[0]
-    assert order, "found order"
+        res = rpc2.tokenfillbid(token_instance.base_token.get('tokenid'), bidtxid, str(int(amount2 * 0.5)))
+        validate_template(res, askbid_schema)
+        bidtxid2 = rpc2.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(bidtxid2, rpc2)
 
-    # invalid ask fillunits
-    result = rpc.tokenfillask(tokenid, tokenaskid, "0")
-    assert_error(result)
+        res = rpc1.tokencancelask(token_instance.base_token.get('tokenid'), asktxid2)
+        validate_template(res, askbid_schema)
+        txid = rpc1.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, rpc1)
 
-    # invalid ask fillunits
-    result = rpc.tokenfillask(tokenid, tokenaskid, "-777")
-    assert_error(result)
+        res = rpc1.tokencancelbid(token_instance.base_token.get('tokenid'), bidtxid2)
+        validate_template(res, askbid_schema)
+        txid = rpc1.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, rpc1)
 
-    # valid ask fillunits
-    fillask = rpc.tokenfillask(tokenid, tokenaskid, "777")
-    result = send_and_mine(fillask['hex'], rpc)
-    txid = result[0]
-    assert txid, "found txid"
+        # There should be no orders left after cancelling
+        orders = rpc1.mytokenorders(token_instance.base_token.get('tokenid'))
+        validate_template(orders, orders_schema)
+        assert len(orders) == 0
 
-    # should be no token orders
-    result = rpc.tokenorders(tokenid)
-    assert result == []
 
-    # checking ask cancellation
-    testorder = rpc.tokenask("100", tokenid, "7.77")
-    testorderid = send_and_mine(testorder['hex'], rpc)
-    # from other node (ensuring that second node have enough balance to cover txfee
-    # to get the actual error - not "not enough balance" one
-    rpc.sendtoaddress(rpc1.getnewaddress(), 1)
-    time.sleep(10)  # to ensure transactions are in different blocks
-    rpc.sendtoaddress(rpc1.getnewaddress(), 1)
-    wait_some_blocks(rpc, 2)
-    result = rpc1.getbalance()
-    assert result > 0.1
+@pytest.mark.usefixtures("proxy_connection", "test_params")
+class TestTokenCC:
 
-    result = rpc1.tokencancelask(tokenid, testorderid)
-    assert_error(result)
+    def test_rewardsaddress(self, token_instance):
+        pubkey = token_instance.pubkey[0]
 
-    # from valid node
-    cancel = rpc.tokencancelask(tokenid, testorderid)
-    send_and_mine(cancel["hex"], rpc)
+        res = token_instance.rpc[0].assetsaddress(pubkey)
+        for key in res.keys():
+            if key.find('ddress') > 0:
+                assert validate_raddr_pattern(res.get(key))
 
-    # TODO: should be no ask in orders - bad test
-    if is_fresh_chain:
-        result = rpc.tokenorders(tokenid)
-        assert result == []
+        res = token_instance.rpc[0].tokenaddress(pubkey)
+        for key in res.keys():
+            if key.find('ddress') > 0:
+                assert validate_raddr_pattern(res.get(key))
 
-    # invalid numtokens bid
-    result = rpc.tokenbid("-1", tokenid, "1")
-    assert_error(result)
+    def test_bad_calls(self, token_instance):
+        if not token_instance.base_token:
+            token_instance.new_token(token_instance.rpc[1])
 
-    # invalid numtokens bid
-    result = rpc.tokenbid("0", tokenid, "1")
-    assert_error(result)
+        rpc = token_instance.rpc[0]
+        pubkey = token_instance.pubkey[0]
 
-    # invalid price bid
-    with pytest.raises(RPCError):
-        result = rpc.tokenbid("1", tokenid, "-1")
-        assert_error(result)
+        name = token_instance.base_token.get('name')
+        tokenid = token_instance.base_token.get('tokenid')
 
-    # invalid price bid
-    result = rpc.tokenbid("1", tokenid, "0")
-    assert_error(result)
-
-    # invalid tokenid bid
-    result = rpc.tokenbid("100", "deadbeef", "1")
-    assert_error(result)
-
-    tokenbid = rpc.tokenbid("100", tokenid, "10")
-    tokenbidhex = tokenbid['hex']
-    tokenbidid = send_and_mine(tokenbid['hex'], rpc)
-    result = rpc.tokenorders(tokenid)
-    order = result[0]
-    assert order, "found order"
-
-    # invalid bid fillunits
-    result = rpc.tokenfillbid(tokenid, tokenbidid, "0")
-    assert_error(result)
-
-    # invalid bid fillunits
-    result = rpc.tokenfillbid(tokenid, tokenbidid, "-777")
-    assert_error(result)
-
-    # valid bid fillunits
-    fillbid = rpc.tokenfillbid(tokenid, tokenbidid, "1000")
-    result = send_and_mine(fillbid['hex'], rpc)
-    txid = result[0]
-    assert txid, "found txid"
-
-    # should be no token orders
-    # TODO: should be no bid in orders - bad test
-    if is_fresh_chain:
-        result = rpc.tokenorders(tokenid)
-        assert result == []
-
-    # checking bid cancellation
-    testorder = rpc.tokenbid("100", tokenid, "7.77")
-    testorderid = send_and_mine(testorder['hex'], rpc)
-
-    # from other node
-    result = rpc1.getbalance()
-    assert result > 0.1
-
-    result = rpc1.tokencancelbid(tokenid, testorderid)
-    #TODO: not throwing error now on tx generation
-    #assert_error(result)
-
-    # from valid node
-    cancel = rpc.tokencancelbid(tokenid, testorderid)
-    send_and_mine(cancel["hex"], rpc)
-    result = rpc.tokenorders(tokenid)
-    assert result == []
-
-    # invalid token transfer amount (have to add status to CC code!)
-    randompubkey = "021a559101e355c907d9c553671044d619769a6e71d624f68bfec7d0afa6bd6a96"
-    result = rpc.tokentransfer(tokenid, randompubkey, "0")
-    assert_error(result)
-
-    # invalid token transfer amount (have to add status to CC code!)
-    result = rpc.tokentransfer(tokenid, randompubkey, "-1")
-    assert_error(result)
-
-    # valid token transfer
-    sendtokens = rpc.tokentransfer(tokenid, randompubkey, "1")
-    send_and_mine(sendtokens["hex"], rpc)
-    result = rpc.tokenbalance(tokenid, randompubkey)
-    assert result["balance"] == 1
+        # trying to create token with negative supply
+        with pytest.raises(RPCError):
+            res = rpc.tokencreate("NUKE", "-1987420", "no bueno supply")
+            assert res.get('error')
+        # creating token with name more than 32 chars
+        res = rpc.tokencreate("NUKE123456789012345678901234567890", "1987420", "name too long")
+        assert res.get('error')
+        # getting token balance for non existing tokenid
+        res = rpc.tokenbalance("", pubkey)
+        assert res.get('error')
+        # no info for invalid tokenid
+        res = rpc.tokeninfo(pubkey)
+        assert res.get('error')
+        # invalid token transfer amount
+        randompubkey = randomhex()
+        res = rpc.tokentransfer(tokenid, randompubkey, "0")
+        assert res.get('error')
+        # invalid token transfer amount
+        res = rpc.tokentransfer(tokenid, randompubkey, "-1")
+        assert res.get('error')
+        # invalid numtokens bid
+        res = rpc.tokenbid("-1", tokenid, "1")
+        assert res.get('error')
+        # invalid numtokens bid
+        res = rpc.tokenbid("0", tokenid, "1")
+        assert res.get('error')
+        # invalid price bid
+        with pytest.raises(RPCError):
+           res = rpc.tokenbid("1", tokenid, "-1")
+           assert res.get('error')
+        # invalid price bid
+        res = rpc.tokenbid("1", tokenid, "0")
+        assert res.get('error')
+        # invalid tokenid bid
+        res = rpc.tokenbid("100", "deadbeef", "1")
+        assert res.get('error')
+        # invalid numtokens ask
+        res = rpc.tokenask("-1", tokenid, "1")
+        assert res.get('error')
+        # invalid numtokens ask
+        res = rpc.tokenask("0", tokenid, "1")
+        assert res.get('error')
+        # invalid price ask
+        with pytest.raises(RPCError):
+            res = rpc.tokenask("1", tokenid, "-1")
+            assert res.get('error')
+        # invalid price ask
+        res = rpc.tokenask("1", tokenid, "0")
+        assert res.get('error')
+        # invalid tokenid ask
+        res = rpc.tokenask("100", "deadbeef", "1")
+        assert res.get('error')

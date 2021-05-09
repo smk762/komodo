@@ -4,7 +4,7 @@ import time
 import subprocess
 import wget
 import tarfile
-from basic.pytest_util import create_proxy, validate_proxy, enable_mining
+from lib.pytest_util import create_proxy, validate_proxy, enable_mining
 
 
 def load_env_config():

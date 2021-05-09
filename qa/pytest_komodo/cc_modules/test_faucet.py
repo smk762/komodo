@@ -4,12 +4,10 @@
 # file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
 import pytest
-import sys
 import re
 from slickrpc import exc
 import warnings
-sys.path.append('../')
-from basic.pytest_util import validate_template, mine_and_waitconfirms
+from lib.pytest_util import validate_template, mine_and_waitconfirms
 
 
 @pytest.mark.usefixtures("proxy_connection")

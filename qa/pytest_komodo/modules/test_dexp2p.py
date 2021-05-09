@@ -10,7 +10,7 @@ import os
 import time
 
 sys.path.append('../')
-from basic.pytest_util import validate_template, randomhex, write_file, write_empty_file
+from lib.pytest_util import validate_template, randomhex, write_file, write_empty_file
 
 
 @pytest.mark.usefixtures("proxy_connection")

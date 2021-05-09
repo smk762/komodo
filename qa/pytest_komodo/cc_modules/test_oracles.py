@@ -1,298 +1,289 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019 SuperNET developers
+# Copyright (c) 2021 SuperNET developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
 import pytest
-import os
-import time
-from util import assert_success, assert_error, mine_and_waitconfirms,\
-    send_and_mine, rpc_connect, wait_some_blocks, generate_random_string, komodo_teardown
+from slickrpc.exc import RpcException as RPCError
+from lib.pytest_util import validate_template, mine_and_waitconfirms, randomstring,\
+                            randomhex, validate_raddr_pattern
 
 
-@pytest.mark.usefixtures("proxy_connection")
-def test_oracles(test_params):
+@pytest.mark.usefixtures("proxy_connection", "test_params")
+class TestOracleInstance:
 
-    # test params inits
-    rpc = test_params.get('node1').get('rpc')
-    rpc1 = test_params.get('node2').get('rpc')
+    def test_oraclescreate_list_info(self, oracle_instance):
+        create_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                'hex': {'type': 'string'},
+                'error': {'type': 'string'}
+            },
+            'required': ['result']
+        }
 
-    pubkey = test_params.get('node1').get('pubkey')
-    pubkey1 = test_params.get('node2').get('pubkey')
+        list_schema = {
+            'type': 'array',
+            'items': {'type': 'string'}
+        }
 
-    is_fresh_chain = test_params.get("is_fresh_chain")
+        info_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                'txid': {'type': 'string'},
+                'description': {'type': 'string'},
+                'name': {'type': 'string'},
+                'format': {'type': 'string'},
+                'marker': {'type': 'string'},
+                'registered': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'publisher': {'type': 'string'},
+                            'baton': {'type': 'string'},
+                            'batontxid': {'type': 'string'},
+                            'lifetime': {'type': 'string'},
+                            'funds': {'type': 'string'},
+                            'datafee': {'type': 'string'}
+                        }
+                    }
+                }
+            },
+            'required': ['result']
+        }
 
-    result = rpc.oraclesaddress()
-    assert_success(result)
+        rpc1 = oracle_instance.rpc[0]
+        rpc2 = oracle_instance.rpc[1]
+        # test oracle creation
+        oracle_instance.new_oracle(rpc2, schema=create_schema)
 
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+        res = rpc1.oracleslist()
+        validate_template(res, list_schema)
 
-    result = rpc.oraclesaddress(pubkey)
-    assert_success(result)
+        res = rpc1.oraclesinfo(oracle_instance.base_oracle.get('oracle_id'))
+        validate_template(res, info_schema)
 
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+    def test_oraclesaddress(self, oracle_instance):
 
-    # there are no oracles created yet
-    if is_fresh_chain:
-        result = rpc.oracleslist()
-        assert result == []
+        oraclesaddress_schema = {
+            'type': 'object',
+            'properties': {
+                "result": {'type': 'string'},
+                "OraclesAddress": {'type': 'string'},
+                "OraclesBalance": {'type': 'number'},
+                "OraclesNormalAddress": {'type': 'string'},
+                "OraclesNormalBalance": {'type': 'number'},
+                "OraclesTokensAddress": {'type': 'string'},
+                "PubkeyCCaddress(Oracles)": {'type': 'string'},
+                "PubkeyCCbalance(Oracles)": {'type': 'number'},
+                "myCCAddress(Oracles)": {'type': 'string'},
+                "myCCbalance(Oracles)": {'type': 'number'},
+                "myaddress": {'type': 'string'},
+                "mybalance": {'type': 'number'}
+            },
+            'required': ['result']
+        }
 
-    # looking up non-existent oracle should return error.
-    result = rpc.oraclesinfo("none")
-    assert_error(result)
+        rpc1 = oracle_instance.rpc[0]
+        rpc2 = oracle_instance.rpc[1]
+        pubkey = oracle_instance.pubkey[0]
 
-    # attempt to create oracle with not valid data type should return error
-    result = rpc.oraclescreate("Test", "Test", "Test")
-    assert_error(result)
+        if not oracle_instance.base_oracle:
+            oracle_instance.new_oracle(rpc2)
 
-    # attempt to create oracle with description > 32 symbols should return error
-    too_long_name = generate_random_string(33)
-    result = rpc.oraclescreate(too_long_name, "Test", "s")
-    assert_error(result)
+        res = rpc1.oraclesaddress(pubkey)
+        validate_template(res, oraclesaddress_schema)
 
-    # attempt to create oracle with description > 4096 symbols should return error
-    too_long_description = generate_random_string(4100)
-    result = rpc.oraclescreate("Test", too_long_description, "s")
-    assert_error(result)
+        res = rpc1.oraclesaddress(pubkey)
+        for key in res.keys():
+            if key.find('ddress') > 0:
+                assert validate_raddr_pattern(res.get(key))
 
-    # valid creating oracles of different types
-    # using such naming to re-use it for data publishing / reading (e.g. oracle_s for s type)
-    print(len(rpc.listunspent()))
-    # enable mining
-    valid_formats = ["s", "S", "d", "D", "c", "C", "t", "T", "i", "I", "l", "L", "h", "Ihh"]
-    for f in valid_formats:
-        result = rpc.oraclescreate("Test_" + f, "Test_" + f, f)
-        assert_success(result)
-        # globals()["oracle_{}".format(f)] = rpc.sendrawtransaction(result['hex'])
-        globals()["oracle_{}".format(f)] = send_and_mine(result['hex'], rpc)
+        res = rpc1.oraclesaddress()
+        for key in res.keys():
+            if key.find('ddress') > 0:
+                assert validate_raddr_pattern(res.get(key))
 
-    list_fund_txid = []
-    for f in valid_formats:
+    def test_oracles_data_interactions(self, oracle_instance):
+        general_hex_schema = {
+            'type': 'object',
+            'properties': {
+                'result': {'type': 'string'},
+                'hex': {'type': 'string'},
+                'error': {'type': 'string'}
+            },
+            'required': ['result']
+        }
+
+        sample_schema = {
+            'type': 'object',
+            'properties': {
+                'samples': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'txid': {'type': 'string'},
+                            'data': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
+
+        rpc1 = oracle_instance.rpc[0]
+        rpc2 = oracle_instance.rpc[1]
+        amount = '10000000'
+        sub_amount = '0.1'
+
+        if not oracle_instance.base_oracle:
+            oracle_instance.new_oracle(rpc2)
+
+        oracle_id = oracle_instance.base_oracle.get('oracle_id')
+
+        # Fund fresh oracle
+        res = rpc1.oraclesfund(oracle_id)
+        validate_template(res, general_hex_schema)
+        txid = rpc1.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, rpc1)
+
+        # Register as publisher
+        res = rpc1.oraclesregister(oracle_id, amount)
+        validate_template(res, general_hex_schema)
+        txid = rpc1.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, rpc1)
+
+        # Subscrive to new oracle
+        oraclesinfo = rpc1.oraclesinfo(oracle_id)
+        publisher = oraclesinfo.get('registered')[0].get('publisher')
+        res = rpc1.oraclessubscribe(oracle_id, publisher, sub_amount)
+        validate_template(res, general_hex_schema)
+        txid = rpc1.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, oracle_instance.rpc[0])
+
+        # Publish new data
+        res = rpc1.oraclesdata(oracle_id, '0a74657374737472696e67')  # teststring
+        validate_template(res, general_hex_schema)
+        txid = rpc1.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, rpc1)
+
+        # Check data
+        oraclesinfo = rpc1.oraclesinfo(oracle_id)
+        baton = oraclesinfo.get('registered')[0].get('batontxid')
+        res = rpc1.oraclessample(oracle_id, baton)
+        validate_template(res, sample_schema)
+        assert res.get('txid') == baton
+
+    def test_bad_calls(self, oracle_instance):
+        if not oracle_instance.base_oracle:
+            oracle_instance.new_oracle(oracle_instance.rpc[1])
+
+        oracle = oracle_instance
         # trying to register with negative datafee
-        result = rpc.oraclesregister(globals()["oracle_{}".format(f)], "-100")
-        assert_error(result)
+        res = oracle.rpc[0].oraclesregister(oracle.base_oracle.get('oracle_id'), "-100")
+        assert res.get('error')
 
         # trying to register with zero datafee
-        result = rpc.oraclesregister(globals()["oracle_{}".format(f)], "0")
-        assert_error(result)
+        res = oracle.rpc[0].oraclesregister(oracle.base_oracle.get('oracle_id'), "0")
+        assert res.get('error')
 
         # trying to register with datafee less than txfee
-        result = rpc.oraclesregister(globals()["oracle_{}".format(f)], "500")
-        assert_error(result)
+        res = oracle.rpc[0].oraclesregister(oracle.base_oracle.get('oracle_id'), "500")
+        assert res.get('error')
 
         # trying to register valid (unfunded)
-        result = rpc.oraclesregister(globals()["oracle_{}".format(f)], "10000")
-        assert_error(result)
+        res = oracle.rpc[0].oraclesregister(oracle.base_oracle.get('oracle_id'), "1000000")
+        assert res.get('error')
 
-        # Fund the oracles
-        result = rpc.oraclesfund(globals()["oracle_{}".format(f)])
-        assert_success(result)
-        fund_txid = rpc.sendrawtransaction(result["hex"])
-        list_fund_txid.append(fund_txid)
-        assert fund_txid, "got txid"
+        # trying to register with invalid datafee
+        res = oracle.rpc[0].oraclesregister(oracle.base_oracle.get('oracle_id'), "asdasd")
+        assert res.get('error')
 
-    wait_some_blocks(rpc, 2)
+        # looking up non-existent oracle should return error.
+        res = oracle.rpc[0].oraclesinfo("none")
+        assert res.get('error')
 
-    for t in list_fund_txid:
-        c = 0
-        print("Waiting confiramtions for oraclesfund")
-        while c < 2:
-            try:
-                c = rpc.getrawtransaction(t, 1)['confirmations']
-            except KeyError:
-                time.sleep(29)
-        print("Oracles fund confirmed \n", t)
+        # attempt to create oracle with not valid data type should return error
+        res = oracle.rpc[0].oraclescreate("Test", "Test", "Test")
+        assert res.get('error')
 
-    for f in valid_formats:
-        # trying to register valid (funded)
-        result = rpc.oraclesregister(globals()["oracle_{}".format(f)], "100000")
-        assert_success(result)
-        print("Registering ", f)
-        register_txid = rpc.sendrawtransaction(result["hex"])
-        assert register_txid, "got txid"
+        # attempt to create oracle with name > 32 symbols should return error
+        too_long_name = randomstring(33)
+        res = oracle.rpc[0].oraclescreate(too_long_name, "Test", "s")
+        assert res.get('error')
 
-        # TODO: for most of the non valid oraclesregister and oraclessubscribe transactions generating and broadcasting now
-        # so trying only valid oraclessubscribe atm
-        result = rpc.oraclessubscribe(globals()["oracle_{}".format(f)], pubkey, "1")
-        assert_success(result)
-        subscribe_txid = rpc.sendrawtransaction(result["hex"])
-        assert register_txid, "got txid"
+        # attempt to create oracle with description > 4096 symbols should return error
+        too_long_description = randomstring(4100)
+        res = oracle.rpc[0].oraclescreate("Test", too_long_description, "s")
+        assert res.get('error')
 
-    wait_some_blocks(rpc, 2)
+    def test_oracles_data(self, oracle_instance):
+        oracles_data = {
+            's': '05416e746f6e',
+            'S': '000161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161',
+            'd': '0101',
+            'D': '010001',
+            'c': 'ff',
+            'C': 'ff',
+            't': 'ffff',
+            'T': 'ffff',
+            'i': 'ffffffff',
+            'I': 'ffffffff',
+            'l': '00000000ffffffff',
+            'L': '00000000ffffffff',
+            'h': 'ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000',
+        }
 
-    # now lets publish and read valid data for each oracle type
+        oracles_response = {
+            's_un': 'Anton',
+            'S_un': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            'd_un': '01',
+            'D_un': '01',
+            'c_un': '-1',
+            'C_un': '255',
+            't_un': '-1',
+            'T_un': '65535',
+            'i_un': '-1',
+            'I_un': '4294967295',
+            'l_un': '-4294967296',
+            'L_un': '18446744069414584320',
+            'h_un': '00000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff'
+        }
 
-    # recording data for s type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("s")], "05416e746f6e")
-    assert_success(result)
-    oraclesdata_s = rpc.sendrawtransaction(result["hex"])
-    info_s = rpc.oraclesinfo(globals()["oracle_{}".format("s")])
-    batonaddr_s = info_s['registered'][0]['baton']
+        rpc = oracle_instance.rpc[0]
+        oracles = oracle_instance.new_oracle(rpc, o_type=list(oracles_data.keys()))
 
-    # recording data for S type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("S")],
-                             "000161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161")
-    assert_success(result)
-    oraclesdata_S = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("S")])
-    batonaddr_S = info['registered'][0]['baton']
+        txid = ""
+        for oracle in oracles:
+            res = rpc.oraclesfund(oracle.get('oracle_id'))
+            txid = rpc.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, rpc)
 
-    # recording data for d type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("d")], "0101")
-    assert_success(result)
-    # baton
-    oraclesdata_d = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("d")])
-    batonaddr_d = info['registered'][0]['baton']
+        for oracle in oracles:
+            res = rpc.oraclesregister(oracle.get('oracle_id'), '10000000')
+            txid = rpc.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, rpc)
 
-    # recording data for D type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("D")], "010001")
-    assert_success(result)
-    # baton
-    oraclesdata_D = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("D")])
-    batonaddr_D = info['registered'][0]['baton']
+        for oracle in oracles:
+            oraclesinfo = rpc.oraclesinfo(oracle.get('oracle_id'))
+            publisher = oraclesinfo.get('registered')[0].get('publisher')
+            res = rpc.oraclessubscribe(oracle.get('oracle_id'), publisher, '0.1')
+            txid = rpc.sendrawtransaction(res.get('hex'))
+        mine_and_waitconfirms(txid, rpc)
 
-    # recording data for c type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("c")], "ff")
-    assert_success(result)
-    # baton
-    oraclesdata_c = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("c")])
-    batonaddr_c = info['registered'][0]['baton']
+        o_data = ""
+        for oracle, o_type in zip(oracles, oracles_data.keys()):
+            res = rpc.oraclesdata(oracle.get('oracle_id'), oracles_data.get(o_type))
+            assert res.get('result') == 'success'
+            o_data = rpc.sendrawtransaction(res.get("hex"))
+        mine_and_waitconfirms(o_data, rpc)
 
-    # recording data for C type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("C")], "ff")
-    assert_success(result)
-    # baton
-    oraclesdata_C = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("C")])
-    batonaddr_C = info['registered'][0]['baton']
+        for oracle, o_type in zip(oracles, oracles_data.keys()):
+            oraclesinfo = rpc.oraclesinfo(oracle.get('oracle_id'))
+            baton = oraclesinfo.get('registered')[0].get('batontxid')
 
-    # recording data for t type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("t")], "ffff")
-    assert_success(result)
-    # baton
-    oraclesdata_t = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("t")])
-    batonaddr_t = info['registered'][0]['baton']
-
-    # recording data for T type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("T")], "ffff")
-    assert_success(result)
-    # baton
-    oraclesdata_T = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("T")])
-    batonaddr_T = info['registered'][0]['baton']
-
-    # recording data for i type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("i")], "ffffffff")
-    assert_success(result)
-    # baton
-    oraclesdata_i = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("i")])
-    batonaddr_i = info['registered'][0]['baton']
-
-    # recording data for I type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("I")], "ffffffff")
-    assert_success(result)
-    # baton
-    oraclesdata_I = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("I")])
-    batonaddr_I = info['registered'][0]['baton']
-
-    # recording data for l type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("l")], "00000000ffffffff")
-    assert_success(result)
-    # baton
-    oraclesdata_l = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("l")])
-    batonaddr_l = info['registered'][0]['baton']
-
-    # recording data for L type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("L")], "00000000ffffffff")
-    assert_success(result)
-    # baton
-    oraclesdata_L = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("L")])
-    batonaddr_L = info['registered'][0]['baton']
-
-    # recording data for h type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("h")],
-                             "00000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff")
-    assert_success(result)
-    # baton
-    oraclesdata_h = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("h")])
-    batonaddr_h = info['registered'][0]['baton']
-
-    # recording data for Ihh type
-    result = rpc.oraclesdata(globals()["oracle_{}".format("Ihh")],
-                             "ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000ffffffff")
-    assert_success(result)
-    # baton
-    oraclesdata_Ihh = rpc.sendrawtransaction(result["hex"])
-    info = rpc.oraclesinfo(globals()["oracle_{}".format("Ihh")])
-    batonaddr_Ihh = info['registered'][0]['baton']
-
-    wait_some_blocks(rpc, 1)
-
-    # checking data for s type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("s")], batonaddr_s, "1")
-    assert "['Anton']" == str(result["samples"][0]['data'])
-
-    # checking data for S type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("S")], batonaddr_S, "1")
-    assert "['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']" == str(result["samples"][0]['data'])
-
-    # checking data for d type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("d")], batonaddr_d, "1")
-    assert "['01']" == str(result["samples"][0]['data'])
-
-    # checking data for D type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("D")], batonaddr_D, "1")
-    assert "['01']" == str(result["samples"][0]['data'])
-
-    # checking data for c type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("c")], batonaddr_c, "1")
-    assert "['-1']" == str(result["samples"][0]['data'])
-
-    # checking data for C type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("C")], batonaddr_C, "1")
-    assert "['255']" == str(result["samples"][0]['data'])
-
-    # checking data for t type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("t")], batonaddr_t, "1")
-    assert "['-1']" == str(result["samples"][0]['data'])
-
-    # checking data for T type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("T")], batonaddr_T, "1")
-    assert "['65535']" == str(result["samples"][0]['data'])
-
-    # checking data for i type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("i")], batonaddr_i, "1")
-    assert "['-1']" == str(result["samples"][0]['data'])
-
-    # checking data for I type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("I")], batonaddr_I, "1")
-    assert "['4294967295']" == str(result["samples"][0]['data'])
-
-    # checking data for l type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("l")], batonaddr_l, "1")
-    assert "['-4294967296']" == str(result["samples"][0]['data'])
-
-    # checking data for L type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("L")], batonaddr_L, "1")
-    assert "['18446744069414584320']" == str(result["samples"][0]['data'])
-
-    # checking data for h type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("h")], batonaddr_h, "1")
-    assert "['ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000']" == str(result["samples"][0]['data'])
-
-    # checking data for Ihh type
-    result = rpc.oraclessamples(globals()["oracle_{}".format("Ihh")], batonaddr_Ihh, "1")
-    assert "['4294967295', 'ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000', 'ffffffff00000000ffffffff00000000ffffffff00000000ffffffff00000000']" == str(result["samples"][0]['data'])
+            res = rpc.oraclessample(oracle.get('oracle_id'), baton)
+            assert (res.get('data')[0] == oracles_response.get(str(o_type) + '_un'))
