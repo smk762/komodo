@@ -16,7 +16,6 @@
 #include "crosschain.h"
 #include "importcoin.h"
 #include "cc/utils.h"
-#include "cc/CCtokens.h"
 #include "coins.h"
 #include "hash.h"
 #include "script/cc.h"
@@ -26,8 +25,11 @@
 #include "wallet/wallet.h"
 
 #include "cc/CCinclude.h"
+#include "cc/CCtokens.h"
+#include "cc/CCtokens_impl.h"
 
-int32_t komodo_nextheight();
+
+//int32_t komodo_nextheight();
 
 // makes import tx for either coins or tokens
 CTransaction MakeImportCoinTransaction(const ImportProof proof, const CTransaction burnTx, const std::vector<CTxOut> payouts, uint32_t nExpiryHeightOverride)
@@ -62,8 +64,7 @@ CTransaction MakeImportCoinTransaction(const ImportProof proof, const CTransacti
 
         if (DecodeTokenCreateOpRetV1(mtx.vout.back().scriptPubKey, vorigpubkey, name, desc, oprets) == 'c') {    // parse token 'c' opret
             mtx.vout.pop_back(); //remove old token opret
-            oprets.push_back(importData);
-            mtx.vout.push_back(CTxOut(0, EncodeTokenCreateOpRetV1(vorigpubkey, name, desc, oprets)));   // make new token 'c' opret with importData                                                                                    
+            mtx.vout.push_back(CTxOut(0, EncodeTokenCreateOpRetV1(vorigpubkey, name, desc, {importData})));   // make new token 'c' opret with importData                                                                                    
         }
         else {
             LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeImportCoinTransaction() incorrect token import opret" << std::endl);
@@ -137,7 +138,7 @@ CTxOut MakeBurnOutput(CAmount value, uint32_t targetCCid, std::string targetSymb
 }
 
 CTxOut MakeBurnOutput(CAmount value,uint32_t targetCCid,std::string targetSymbol,const std::vector<CTxOut> payouts,std::vector<uint8_t> rawproof,uint256 pegstxid,
-                        uint256 tokenid,CPubKey srcpub,int64_t amount,std::pair<int64_t,int64_t> account, CPubKey accountpk)
+                        uint256 tokenid,CPubKey srcpub,int64_t amount,std::pair<int64_t,int64_t> account)
 {
     std::vector<uint8_t> opret;
     opret = E_MARSHAL(ss << (uint8_t)EVAL_IMPORTCOIN;
@@ -149,8 +150,7 @@ CTxOut MakeBurnOutput(CAmount value,uint32_t targetCCid,std::string targetSymbol
                       ss << tokenid;
                       ss << srcpub;
                       ss << amount;
-                      ss << account;
-                      ss << accountpk);
+                      ss << account);
     return CTxOut(value, CScript() << OP_RETURN << opret);
 }
 
@@ -185,7 +185,7 @@ bool UnmarshalImportTx(const CTransaction importTx, ImportProof &proof, CTransac
 
         GetOpReturnImportBlob(oprets, vImportData);  // fetch import data after token opret
         for (std::vector<vscript_t>::const_iterator i = oprets.begin(); i != oprets.end(); i++)
-            if ((*i).size() > 0 && (*i)[0] == EVAL_IMPORTCOIN) {
+            if (!(*i).empty() && (*i)[0] == EVAL_IMPORTCOIN) {
                 oprets.erase(i);            // remove import data from token opret to restore original payouts:
                 break;
             }
@@ -293,7 +293,7 @@ bool UnmarshalBurnTx(const CTransaction burnTx,uint256 &bindtxid,std::vector<CPu
                     ss >> amount));
 }
 
-bool UnmarshalBurnTx(const CTransaction burnTx,uint256 &pegstxid,uint256 &tokenid,CPubKey &srcpub, int64_t &amount,std::pair<int64_t,int64_t> &account, CPubKey &accountpk)
+bool UnmarshalBurnTx(const CTransaction burnTx,uint256 &pegstxid,uint256 &tokenid,CPubKey &srcpub, int64_t &amount,std::pair<int64_t,int64_t> &account)
 {
     std::vector<uint8_t> burnOpret,rawproof; bool isEof=true;
     uint32_t targetCCid; uint256 payoutsHash; std::string targetSymbol;
@@ -311,8 +311,7 @@ bool UnmarshalBurnTx(const CTransaction burnTx,uint256 &pegstxid,uint256 &tokeni
                     ss >> tokenid;
                     ss >> srcpub;
                     ss >> amount;
-                    ss >> account;
-                    ss >> accountpk));
+                    ss >> account));
 }
 
 /*
@@ -335,6 +334,7 @@ CAmount GetCoinImportValue(const CTransaction &tx)
 
             if (isNewImportTx && vburnOpret.begin()[0] == EVAL_TOKENS) {      //if it is tokens
 
+                uint8_t evalCodeInOpret;
                 uint256 tokenid;
                 std::vector<CPubKey> voutTokenPubkeys;
                 std::vector<vscript_t>  oprets;
@@ -386,8 +386,9 @@ bool VerifyCoinImport(const CScript& scriptSig, TransactionSignatureChecker& che
         if (evalScript.begin()[0] != EVAL_IMPORTCOIN)
             return false;
         // Ok, all looks good so far...
-        CCwrapper cond(CCNewEval(evalScript));
-        bool out = checker.CheckEvalCondition(cond.get());
+        CC *cond = CCNewEval(evalScript);
+        bool out = checker.CheckEvalCondition(cond);
+        cc_free(cond);
         return out;
     };
 

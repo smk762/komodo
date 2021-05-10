@@ -25,7 +25,6 @@
 #include "CCHeir.h"
 #include "CCchannels.h"
 #include "CCOracles.h"
-#include "CCOraclesV2.h"
 #include "CCPrices.h"
 #include "CCPegs.h"
 #include "CCPayments.h"
@@ -255,17 +254,6 @@ uint8_t ImportGatewayCCpriv[32] = { 0x65, 0xef, 0x27, 0xeb, 0x3d, 0xb0, 0xb4, 0x
 #undef FUNCNAME
 #undef EVALCODE
 
-// OraclesV2
-#define FUNCNAME IsOraclesV2Input
-#define EVALCODE EVAL_ORACLESV2
-const char *OraclesV2CCaddr = "RJgkaZ2e5Ygw8eKJHNozp2en7sdBj4Bw17";
-const char *OraclesV2Normaladdr = "RPKeRunEv8FwfFGxU3SoC1W4gEDgUBqUaS";
-char OraclesV2CChexstr[67] = { "02c03cdb8822daa30241cc137fbbee76ead55d7f92e667df1c8ce56e6e50824386" };
-uint8_t OraclesV2CCpriv[32] = { 0x18, 0x6A, 0xE7, 0x8C, 0x0E, 0x03, 0x3C, 0x5D, 0x6C, 0xE7, 0xE9, 0x8E, 0x0A, 0xCA, 0x94, 0x69, 0x6A, 0xEC, 0x5C, 0x84, 0x09, 0x28, 0xD4, 0x37, 0x17, 0xAF, 0xEF, 0x35, 0x3A, 0x0E, 0x19, 0x3F };
-#include "CCcustom.inc"
-#undef FUNCNAME
-#undef EVALCODE
-
 // Tokens v2
 #define FUNCNAME IsTokensv2Input
 #define EVALCODE EVAL_TOKENSV2
@@ -445,14 +433,6 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             cp->validate = PegsValidate;
             cp->ismyvin = IsPegsInput;
             break;
-        case EVAL_MARMARA:
-            strcpy(cp->unspendableCCaddr,MarmaraCCaddr);
-            strcpy(cp->normaladdr,MarmaraNormaladdr);
-            strcpy(cp->CChexstr,MarmaraCChexstr);
-            memcpy(cp->CCpriv,MarmaraCCpriv,32);
-            cp->validate = NULL;
-            cp->ismyvin = IsMarmaraInput;
-            break;
         case EVAL_PAYMENTS:
             strcpy(cp->unspendableCCaddr,PaymentsCCaddr);
             strcpy(cp->normaladdr,PaymentsNormaladdr);
@@ -486,14 +466,7 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 			cp->validate = ImportGatewayValidate;
 			cp->ismyvin = IsImportGatewayInput;
 			break;
-        case EVAL_ORACLESV2:
-            strcpy(cp->unspendableCCaddr,OraclesV2CCaddr);
-            strcpy(cp->normaladdr,OraclesV2Normaladdr);
-            strcpy(cp->CChexstr,OraclesV2CChexstr);
-            memcpy(cp->CCpriv,OraclesV2CCpriv,32);
-            cp->validate = OraclesV2Validate;
-            cp->ismyvin = IsOraclesV2Input;
-            break;
+
 		case EVAL_TOKENSV2:
 			strcpy(cp->unspendableCCaddr, Tokensv2CCaddr);
 			strcpy(cp->normaladdr, Tokensv2Normaladdr);

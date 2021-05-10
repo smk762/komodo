@@ -5604,7 +5604,6 @@ int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits
 #include "../cc/CClotto.h"
 #include "../cc/CCchannels.h"
 #include "../cc/CCOracles.h"
-#include "../cc/CCOraclesV2.h"
 #include "../cc/CCGateways.h"
 #include "../cc/CCPrices.h"
 #include "../cc/CCHeir.h"
@@ -6183,28 +6182,22 @@ UniValue channelsinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue channelsopen(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int32_t numpayments; int64_t payment; std::vector<unsigned char> destpub; struct CCcontract_info *cp,C;
-    uint256 tokenid=zeroid; uint16_t confirmation=1;
+    uint256 tokenid=zeroid;
 
     cp = CCinit(&C,EVAL_CHANNELS);
-    if ( fHelp || params.size() < 3 || params.size() > 5)
-        throw runtime_error("channelsopen destpubkey numpayments payment [confirmation] [tokenid]\n");
+    if ( fHelp || params.size() < 3 || params.size() > 4)
+        throw runtime_error("channelsopen destpubkey numpayments payment [tokenid]\n");
     if ( ensure_CCrequirements(EVAL_CHANNELS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     Lock2NSPV(mypk);
     destpub = ParseHex(params[0].get_str().c_str());
     numpayments = atoi(params[1].get_str().c_str());
     payment = atol(params[2].get_str().c_str());
-    if (params.size()==4) 
+    if (params.size()==4)
     {
-        if (params[3].get_str().size()>sizeof(confirmation)) tokenid = Parseuint256((char *)params[3].get_str().c_str());
-        else confirmation = atoi(params[3].get_str().c_str());
+        tokenid=Parseuint256((char *)params[3].get_str().c_str());
     }
-    if (params.size()==5)
-    {
-        confirmation = atoi(params[3].get_str().c_str());
-        tokenid=Parseuint256((char *)params[4].get_str().c_str());
-    }
-    result = ChannelOpen(mypk,0,pubkey2pk(destpub),numpayments,payment,confirmation,tokenid);
+    result = ChannelOpen(mypk,0,pubkey2pk(destpub),numpayments,payment,tokenid);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
@@ -6229,26 +6222,6 @@ UniValue channelspayment(const UniValue& params, bool fHelp, const CPubKey& mypk
         secret = Parseuint256((char *)params[2].get_str().c_str());
     }
     result = ChannelPayment(mypk,0,opentxid,amount,secret);
-    if ( result[JSON_HEXTX].getValStr().size() > 0  )
-    {
-        result.push_back(Pair("result", "success"));
-    }
-    Unlock2NSPV(mypk);
-    return(result);
-}
-
-UniValue channelsgeneratesecret(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); struct CCcontract_info *cp,C; uint256 opentxid; int32_t n; int64_t amount;
-    cp = CCinit(&C,EVAL_CHANNELS);
-    if ( fHelp || params.size() < 2 ||  params.size() >3 )
-        throw runtime_error("channelspayment opentxid amount\n");
-    if ( ensure_CCrequirements(EVAL_CHANNELS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    Lock2NSPV(mypk);
-    opentxid = Parseuint256((char *)params[0].get_str().c_str());
-    amount = atoi((char *)params[1].get_str().c_str());
-    result = ChannelGenerateSecret(mypk,opentxid,amount);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
@@ -6594,18 +6567,20 @@ UniValue gatewaysbind(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue gatewaysdeposit(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int32_t i,claimvout,height; int64_t amount; std::string coin,deposithex; uint256 bindtxid,cointxid; std::vector<uint8_t>proof,destpub,pubkey;
-    if ( fHelp || params.size() != 7 )
-        throw runtime_error("gatewaysdeposit bindtxid height coin deposithex proof destpubkey amount\n");
+    if ( fHelp || params.size() != 9 )
+        throw runtime_error("gatewaysdeposit bindtxid height coin cointxid claimvout deposithex proof destpub amount\n");
     if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     Lock2NSPV(mypk);
     bindtxid = Parseuint256((char *)params[0].get_str().c_str());
     height = atoi((char *)params[1].get_str().c_str());
     coin = params[2].get_str();
-    deposithex = params[3].get_str();
-    proof = ParseHex(params[4].get_str());
-    destpub = ParseHex(params[5].get_str());
-    amount = AmountFromValue(params[6]);
+    cointxid = Parseuint256((char *)params[3].get_str().c_str());
+    claimvout = atoi((char *)params[4].get_str().c_str());
+    deposithex = params[5].get_str();
+    proof = ParseHex(params[6].get_str());
+    destpub = ParseHex(params[7].get_str());
+    amount = atof((char *)params[8].get_str().c_str()) * COIN + 0.00000000499999;
     if ( amount <= 0 || claimvout < 0 )
     {
         Unlock2NSPV(mypk);
@@ -6616,7 +6591,34 @@ UniValue gatewaysdeposit(const UniValue& params, bool fHelp, const CPubKey& mypk
         Unlock2NSPV(mypk);
         throw runtime_error("invalid destination pubkey");
     }
-    result = GatewaysDeposit(mypk,0,bindtxid,height,coin,deposithex,proof,pubkey2pk(destpub),amount);
+    result = GatewaysDeposit(mypk,0,bindtxid,height,coin,cointxid,claimvout,deposithex,proof,pubkey2pk(destpub),amount);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue gatewaysclaim(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); std::string coin; uint256 bindtxid,deposittxid; std::vector<uint8_t>destpub; int64_t amount;
+    if ( fHelp || params.size() != 5 )
+        throw runtime_error("gatewaysclaim bindtxid coin deposittxid destpub amount\n");
+    if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    bindtxid = Parseuint256((char *)params[0].get_str().c_str());
+    coin = params[1].get_str();
+    deposittxid = Parseuint256((char *)params[2].get_str().c_str());
+    destpub = ParseHex(params[3].get_str());
+    amount = atof((char *)params[4].get_str().c_str()) * COIN + 0.00000000499999;
+    if (destpub.size()!= 33)
+    {
+        Unlock2NSPV(mypk);
+        throw runtime_error("invalid destination pubkey");
+    }
+    result = GatewaysClaim(mypk,0,bindtxid,coin,deposittxid,pubkey2pk(destpub),amount);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
@@ -6636,8 +6638,7 @@ UniValue gatewayswithdraw(const UniValue& params, bool fHelp, const CPubKey& myp
     bindtxid = Parseuint256((char *)params[0].get_str().c_str());
     coin = params[1].get_str();
     withdrawpub = ParseHex(params[2].get_str());
-    //amount = atof((char *)params[3].get_str().c_str()) * COIN + 0.00000000499999;
-    amount = AmountFromValue(params[3]);
+    amount = atof((char *)params[3].get_str().c_str()) * COIN + 0.00000000499999;
     if (withdrawpub.size()!= 33)
     {
         Unlock2NSPV(mypk);
@@ -6648,22 +6649,42 @@ UniValue gatewayswithdraw(const UniValue& params, bool fHelp, const CPubKey& myp
     {
         result.push_back(Pair("result", "success"));
     }
+    Lock2NSPV(mypk);
+    return(result);
+}
+
+UniValue gatewayspartialsign(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); std::string coin,parthex; uint256 txid;
+    if ( fHelp || params.size() != 3 )
+        throw runtime_error("gatewayspartialsign txidaddr refcoin hex\n");
+    if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    coin = params[1].get_str();
+    parthex = params[2].get_str();
+    result = GatewaysPartialSign(mypk,0,txid,coin,parthex);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
     Unlock2NSPV(mypk);
     return(result);
 }
 
-UniValue gatewayswithdrawsign(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue gatewayscompletesigning(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); uint256 withdrawtxid; std::string txhex,coin;
     if ( fHelp || params.size() != 3 )
-        throw runtime_error("gatewayswithdrawsign withdrawtxid coin hex\n");
+        throw runtime_error("gatewayscompletesigning withdrawtxid coin hex\n");
     if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     Lock2NSPV(mypk);
     withdrawtxid = Parseuint256((char *)params[0].get_str().c_str());
     coin = params[1].get_str();
     txhex = params[2].get_str();
-    result = GatewaysWithdrawSign(mypk,0,withdrawtxid,coin,txhex);
+    result = GatewaysCompleteSigning(mypk,0,withdrawtxid,coin,txhex);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
@@ -6691,29 +6712,42 @@ UniValue gatewaysmarkdone(const UniValue& params, bool fHelp, const CPubKey& myp
     return(result);
 }
 
-UniValue gatewayspendingsignwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue gatewayspendingdeposits(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     uint256 bindtxid; std::string coin;
     if ( fHelp || params.size() != 2 )
-        throw runtime_error("gatewayspendingsignwithdraws bindtxid coin\n");
+        throw runtime_error("gatewayspendingdeposits bindtxid coin\n");
     if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     bindtxid = Parseuint256((char *)params[0].get_str().c_str());
     coin = params[1].get_str();
-    return(GatewaysPendingSignWithdraws(mypk,bindtxid,coin));
+    return(GatewaysPendingDeposits(mypk,bindtxid,coin));
 }
 
-UniValue gatewayssignedwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue gatewayspendingwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     uint256 bindtxid; std::string coin;
     if ( fHelp || params.size() != 2 )
-        throw runtime_error("gatewayssignedwithdraws bindtxid coin\n");
+        throw runtime_error("gatewayspendingwithdraws bindtxid coin\n");
     if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     bindtxid = Parseuint256((char *)params[0].get_str().c_str());
     coin = params[1].get_str();
-    return(GatewaysSignedWithdraws(mypk,bindtxid,coin));
+    return(GatewaysPendingWithdraws(mypk,bindtxid,coin));
 }
+
+UniValue gatewaysprocessed(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    uint256 bindtxid; std::string coin;
+    if ( fHelp || params.size() != 2 )
+        throw runtime_error("gatewaysprocessed bindtxid coin\n");
+    if ( ensure_CCrequirements(EVAL_GATEWAYS) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    bindtxid = Parseuint256((char *)params[0].get_str().c_str());
+    coin = params[1].get_str();
+    return(GatewaysProcessedWithdraws(mypk,bindtxid,coin));
+}
+
 
 UniValue oracleslist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
@@ -6849,129 +6883,6 @@ UniValue oraclescreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
     description = params[1].get_str();
     format = params[2].get_str();
     result = OracleCreate(mypk,0,name,description,format);
-    if ( result[JSON_HEXTX].getValStr().size() > 0  )
-    {
-        result.push_back(Pair("result", "success"));
-    }
-    Unlock2NSPV(mypk);
-    return(result);
-}
-
-UniValue oraclesv2list(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    if ( fHelp || params.size() > 0 )
-        throw runtime_error("oraclesv2list\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    return(OraclesV2List());
-}
-
-UniValue oraclesv2info(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    uint256 txid;
-    if ( fHelp || params.size() != 1 )
-        throw runtime_error("oraclesv2info oracletxid\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    txid = Parseuint256((char *)params[0].get_str().c_str());
-    return(OracleV2Info(txid));
-}
-
-UniValue oraclesv2register(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); uint256 txid; int64_t datafee;
-    if ( fHelp || params.size() != 2 )
-        throw runtime_error("oraclesv2register oracletxid datafee\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    Lock2NSPV(mypk);
-    txid = Parseuint256((char *)params[0].get_str().c_str());
-    datafee = atof((char *)params[1].get_str().c_str()) * COIN + 0.00000000499999;
-    result = OracleV2Register(mypk,0,txid,datafee);
-    if ( result[JSON_HEXTX].getValStr().size() > 0  )
-    {
-        result.push_back(Pair("result", "success"));
-    }
-    Unlock2NSPV(mypk);
-    return(result);
-}
-
-UniValue oraclesv2subscribe(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); uint256 txid; int64_t amount; std::vector<unsigned char> pubkey;
-    if ( fHelp || params.size() != 3 )
-        throw runtime_error("oraclesv2subscribe oracletxid publisher amount\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    Lock2NSPV(mypk);
-    txid = Parseuint256((char *)params[0].get_str().c_str());
-    pubkey = ParseHex(params[1].get_str().c_str());
-    amount = atof((char *)params[2].get_str().c_str()) * COIN + 0.00000000499999;
-    result = OracleV2Subscribe(mypk,0,txid,pubkey2pk(pubkey),amount);
-    if ( result[JSON_HEXTX].getValStr().size() > 0  )
-    {
-        result.push_back(Pair("result", "success"));
-    }
-    Unlock2NSPV(mypk);
-    return(result);
-}
-
-UniValue oraclesv2sample(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); uint256 oracletxid,txid; int32_t num; char *batonaddr;
-    if ( fHelp || params.size() != 2 )
-        throw runtime_error("oraclesv2sample oracletxid txid\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    oracletxid = Parseuint256((char *)params[0].get_str().c_str());
-    txid = Parseuint256((char *)params[1].get_str().c_str());
-    return(OracleV2DataSample(oracletxid,txid));
-}
-
-UniValue oraclesv2samples(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); uint256 txid; int32_t num; char *batonaddr;
-    if ( fHelp || params.size() != 3 )
-        throw runtime_error("oraclesv2samples oracletxid batonaddress num\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    txid = Parseuint256((char *)params[0].get_str().c_str());
-    batonaddr = (char *)params[1].get_str().c_str();
-    num = atoi((char *)params[2].get_str().c_str());
-    return(OracleV2DataSamples(txid,batonaddr,num));
-}
-
-UniValue oraclesv2data(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); uint256 txid; std::vector<unsigned char> data;
-    if ( fHelp || params.size() != 2 )
-        throw runtime_error("oraclesv2data oracletxid hexstr\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    Lock2NSPV(mypk);
-    txid = Parseuint256((char *)params[0].get_str().c_str());
-    data = ParseHex(params[1].get_str().c_str());
-    result = OracleV2Data(mypk,0,txid,data);
-    if ( result[JSON_HEXTX].getValStr().size() > 0  )
-    {
-        result.push_back(Pair("result", "success"));
-    }
-    Unlock2NSPV(mypk);
-    return(result);
-}
-
-UniValue oraclesv2create(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); std::string name,description,format;
-    if ( fHelp || params.size() != 3 )
-        throw runtime_error("oraclesv2create name description format\n");
-    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    Lock2NSPV(mypk);
-    name = params[0].get_str();
-    description = params[1].get_str();
-    format = params[2].get_str();
-    result = OracleV2Create(mypk,0,name,description,format);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
@@ -7631,35 +7542,14 @@ UniValue pegsredeem(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); uint256 pegstxid,tokenid; int64_t amount;
 
-    if ( fHelp || params.size()!=3)
-        throw runtime_error("pegsredeem pegstxid tokenid amount\n");
-    if ( ensure_CCrequirements(EVAL_PEGS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    Lock2NSPV(mypk);
-    pegstxid = Parseuint256(params[0].get_str().c_str());
-    tokenid = Parseuint256(params[1].get_str().c_str());
-    amount = atof((char *)params[2].get_str().c_str()) * COIN + 0.00000000499999;
-    result = PegsRedeem(mypk,0,pegstxid,tokenid,amount);
-    if ( result[JSON_HEXTX].getValStr().size() > 0  )
-    {
-        result.push_back(Pair("result", "success"));
-    }
-    Unlock2NSPV(mypk);
-    return(result);
-}
-
-UniValue pegsclose(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); uint256 pegstxid,tokenid;
-
     if ( fHelp || params.size()!=2)
-        throw runtime_error("pegsclose pegstxid tokenid\n");
+        throw runtime_error("pegsredeem pegstxid tokenid\n");
     if ( ensure_CCrequirements(EVAL_PEGS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     Lock2NSPV(mypk);
     pegstxid = Parseuint256(params[0].get_str().c_str());
     tokenid = Parseuint256(params[1].get_str().c_str());
-    result = PegsClose(mypk,0,pegstxid,tokenid);
+    result = PegsRedeem(mypk,0,pegstxid,tokenid);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
@@ -7757,6 +7647,7 @@ UniValue pegsinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
     pegstxid = Parseuint256((char *)params[0].get_str().c_str());
     return(PegsInfo(pegstxid));
 }
+
 
 extern UniValue dumpprivkey(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcdump.cpp
 extern UniValue convertpassphrase(const UniValue& params, bool fHelp, const CPubKey& mypk);

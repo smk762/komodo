@@ -479,7 +479,6 @@ static const CRPCCommand vRPCCommands[] =
     { "channels",       "channelsinfo",      &channelsinfo,      true },
     { "channels",       "channelsopen",      &channelsopen,      true },
     { "channels",       "channelspayment",   &channelspayment,   true },
-    { "channels",       "channelsgeneratesecret",   &channelsgeneratesecret,   true },
     { "channels",       "channelsclose",     &channelsclose,      true },
     { "channels",       "channelsrefund",    &channelsrefund,    true },
 
@@ -494,17 +493,6 @@ static const CRPCCommand vRPCCommands[] =
     { "oracles",       "oraclesdata",      &oraclesdata,        true },
     { "oracles",       "oraclessample",   &oraclessample,     true },
     { "oracles",       "oraclessamples",   &oraclessamples,     true },
-
-    // OraclesV2
-    { "oraclesv2",       "oraclesv2address",   &oraclesv2address,     true },
-    { "oraclesv2",       "oraclesv2list",      &oraclesv2list,        true },
-    { "oraclesv2",       "oraclesv2info",      &oraclesv2info,        true },
-    { "oraclesv2",       "oraclesv2create",    &oraclesv2create,      true },
-    { "oraclesv2",       "oraclesv2register",  &oraclesv2register,    true },
-    { "oraclesv2",       "oraclesv2subscribe", &oraclesv2subscribe,   true },
-    { "oraclesv2",       "oraclesv2data",      &oraclesv2data,        true },
-    { "oraclesv2",       "oraclesv2sample",   &oraclesv2sample,     true },
-    { "oraclesv2",       "oraclesv2samples",   &oraclesv2samples,     true },
 
     // Prices
     { "prices",       "prices",      &prices,      true },
@@ -547,11 +535,14 @@ static const CRPCCommand vRPCCommands[] =
     { "gateways",       "gatewaysinfo",      &gatewaysinfo,         true },
     { "gateways",       "gatewaysbind",      &gatewaysbind,         true },
     { "gateways",       "gatewaysdeposit",   &gatewaysdeposit,      true },
+    { "gateways",       "gatewaysclaim",     &gatewaysclaim,        true },
     { "gateways",       "gatewayswithdraw",  &gatewayswithdraw,     true },
-    { "gateways",       "gatewayswithdrawsign",  &gatewayswithdrawsign,     true },
+    { "gateways",       "gatewayspartialsign",  &gatewayspartialsign,     true },
+    { "gateways",       "gatewayscompletesigning",  &gatewayscompletesigning,     true },
     { "gateways",       "gatewaysmarkdone",  &gatewaysmarkdone,     true },
-    { "gateways",       "gatewayspendingsignwithdraws",   &gatewayspendingsignwithdraws,      true },
-    { "gateways",       "gatewayssignedwithdraws",   &gatewayssignedwithdraws,      true },
+    { "gateways",       "gatewayspendingdeposits",   &gatewayspendingdeposits,      true },
+    { "gateways",       "gatewayspendingwithdraws",   &gatewayspendingwithdraws,      true },
+    { "gateways",       "gatewaysprocessed",   &gatewaysprocessed,  true },
 
 
     // dice
@@ -569,14 +560,13 @@ static const CRPCCommand vRPCCommands[] =
     { "pegs",       "pegsfund",         &pegsfund,      true },
     { "pegs",       "pegsget",         &pegsget,        true },
     { "pegs",       "pegsredeem",         &pegsredeem,        true },
-    { "pegs",       "pegsclose",         &pegsclose,        true },
     { "pegs",       "pegsliquidate",         &pegsliquidate,        true },
     { "pegs",       "pegsexchange",         &pegsexchange,        true },
     { "pegs",       "pegsaccounthistory", &pegsaccounthistory,      true },
     { "pegs",       "pegsaccountinfo", &pegsaccountinfo,      true },
     { "pegs",       "pegsworstaccounts",         &pegsworstaccounts,      true },
     { "pegs",       "pegsinfo",         &pegsinfo,      true },
-
+    
     /* Address index */
     { "addressindex",       "getaddressmempool",      &getaddressmempool,      true  },
     { "addressindex",       "getaddressutxos",        &getaddressutxos,        false },
