@@ -22,9 +22,13 @@ def check_result(r):
         return True
     elif isinstance(r, dict) :
         # print("r is dict")
-        if isinstance(r.get('hex'), str) :
+        str_hex = r.get('hex')
+        if isinstance(str_hex, str) :
             # print("r has hex, true")
-            return True
+            if str_hex.find('coins') >= 0 or str_hex.find('tokens') >= 0 or str_hex.find('assets') >= 0 :  # try to detect old code returning no coins err as success
+                return False
+            else :
+                return True
         if r.get('result') == "error" :
             # print("r has error, false")
             return False
@@ -44,38 +48,38 @@ def run_tokens_create(rpc):
     #tokenid = "9f051912b13b707b64b65bb179649901449f7ae78d74e78a813dffb2cf7705f8" # NFT eval=00
 
     print("creating fungible token 1...")
-    result = rpc1.tokenv2create("T1", str(0.000001))
+    result = rpc1.tokencreate("T1", str(0.000001))
     assert(check_result(result))
     tokenid1 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", tokenid1)
 
     print("creating fungible token 2...")
-    result = rpc1.tokenv2create("T2", str(0.1))
+    result = rpc1.tokencreate("T2", str(0.1))
     assert(check_result(result))
     tokenid2 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", tokenid2)
 
     print("creating NFT 1 with 00...")
-    result = rpc1.tokenv2create("NFT-00-1", str(0.00000001), "nft eval 00", "00010203")
+    result = rpc1.tokencreate("NFT-00-1", str(0.00000001), "nft eval 00", "00010203")
     assert(check_result(result))
     nft_00_id1 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", nft_00_id1)
 
     print("creating NFT 2 with 00...")
-    result = rpc1.tokenv2create("NFT-00-2", str(0.00000001), "nft eval 00", "00010203")
+    result = rpc1.tokencreate("NFT-00-2", str(0.00000001), "nft eval 00", "00010203")
     assert(check_result(result))
     nft_00_id2 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", nft_00_id2)
 
     #  tokel nft data F7 evalcode
-    print("creating NFT with F7, no royaly, with arbitary data...")
-    result = rpc1.tokenv2create("NFT-F7-1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
+    print("creating NFT with F7, no royalty, with arbitary data...")
+    result = rpc1.tokencreate("NFT-F7-1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
     assert(check_result(result))
     nft_f7_id1 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", nft_f7_id1)
 
-    print("creating NFT with F7 and royaly 0xAA...")
-    result = rpc1.tokenv2create("NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
+    print("creating NFT with F7 and royalty 0xAA...")
+    result = rpc1.tokencreate("NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
     assert(check_result(result))
     nft_f7_id2 = rpc1.sendrawtransaction(result['hex'])
     print("created token:", nft_f7_id2)
@@ -120,7 +124,7 @@ def call_token_rpc(rpc, rpcname, stop_error, *args) :
 
 def run_transfers(rpc1, rpc2, tokenid1, tokenid2, nftid1, nftid2):
 
-    amount  = 1
+    amount  = 10
    
     pubkey1 = rpc1.getinfo()['pubkey']
     pubkey2 = rpc2.getinfo()['pubkey']
@@ -128,34 +132,39 @@ def run_transfers(rpc1, rpc2, tokenid1, tokenid2, nftid1, nftid2):
     # rpc1.setgenerate(True, 2)
 
     for i in range(1):
-        try:
-            name = "none"
-        except KeyboardInterrupt:
-            break
-        else:
-            print("creating tokenv2transfer tokenid1 tx...")
-            call_token_rpc(rpc1, "tokenv2transfer", '', tokenid1, pubkey2,  str(amount))
 
-            print("creating tokenv2transfer tokenid1 tx back...")
-            call_token_rpc(rpc2, "tokenv2transfer", '', tokenid1, pubkey1,  str(amount))
+        if amount == 1 :
+            print("creating tokentransfer tokenid1 amount tx...")
+            call_token_rpc(rpc1, "tokentransfer", '', tokenid1, pubkey2,  str(amount))
+        else :
+            # try two transfers
+            print("creating tokentransfer tokenid1 amount-1 tx...")
+            call_token_rpc(rpc1, "tokentransfer", '', tokenid1, pubkey2,  str(amount-1))
+            print("creating tokentransfer tokenid1 1 tx...")
+            call_token_rpc(rpc1, "tokentransfer", '', tokenid1, pubkey2,  str(1))
 
-            print("creating tokenv2transfer nftid1 tx...")
-            call_token_rpc(rpc1, "tokenv2transfer", '', nftid1, pubkey2,  str(amount))
+        print("creating tokentransfer tokenid1 tx back...")
+        call_token_rpc(rpc2, "tokentransfer", '', tokenid1, pubkey1,  str(amount))
 
-            print("creating tokenv2transfer nftid1 tx back...")
-            call_token_rpc(rpc2, "tokenv2transfer", '', nftid1, pubkey1,  str(amount))
+        print("creating tokentransfer nftid1 tx...")
+        call_token_rpc(rpc1, "tokentransfer", '', nftid1, pubkey2,  str(1))
 
-            print("creating tokenv2transfermany tokenid1 tokenid2 tx...")
-            call_token_rpc(rpc1, "tokenv2transfermany", '', tokenid1, tokenid2, pubkey2,  str(amount))
+        print("creating tokentransfer nftid1 tx back...")
+        call_token_rpc(rpc2, "tokentransfer", '', nftid1, pubkey1,  str(1))
 
-            print("creating tokenv2transfermany tokenid1 tokenid2 tx back...")
-            call_token_rpc(rpc2, "tokenv2transfermany", '', tokenid1, tokenid2, pubkey1,  str(amount))
+        '''
+        print("creating tokentransfermany tokenid1 tokenid2 tx...")
+        call_token_rpc(rpc1, "tokentransfermany", '', tokenid1, tokenid2, pubkey2,  str(amount))
 
-            print("creating tokenv2transfermany nftid1 nftid2 tx...")
-            call_token_rpc(rpc1, "tokenv2transfermany", '', nftid1, nftid2, pubkey2,  str(amount))
+        print("creating tokentransfermany tokenid1 tokenid2 tx back...")
+        call_token_rpc(rpc2, "tokentransfermany", '', tokenid1, tokenid2, pubkey1,  str(amount))
 
-            print("creating tokenv2transfermany nftid1 nftid2 tx back...")
-            call_token_rpc(rpc2, "tokenv2transfermany", '', nftid1, nftid2, pubkey1,  str(amount))
+        print("creating tokentransfermany nftid1 nftid2 tx...")
+        call_token_rpc(rpc1, "tokentransfermany", '', nftid1, nftid2, pubkey2,  str(1))
+
+        print("creating tokentransfermany nftid1 nftid2 tx back...")
+        call_token_rpc(rpc2, "tokentransfermany", '', nftid1, nftid2, pubkey1,  str(1))
+        '''
 
 
 
@@ -168,47 +177,59 @@ def run_assets_orders(rpc1, rpc2, tokenid, total, units):
     askunits = bidunits = units
     unitprice = 0.0001
 
+    # wait for mempool to empty to get correct balance: 
+    retries = 24
+    delay = 10
+    for i in range(retries):
+        print("calling " + "getmempoolinfo...")
+        mempoolinfo = rpc1.getmempoolinfo()
+        if int(mempoolinfo["size"]) == 0 :
+            break
+        if i < retries-1:
+            print("retrying " + "getmempoolinfo size=" + str(mempoolinfo["size"]) + '...')
+            time.sleep(delay)  
+
     # get initial balance
-    result = rpc1.tokenv2balance(tokenid)
+    result = rpc1.tokenbalance(tokenid)
     assert(check_result(result))
     initial_balance = int(result["balance"])
     print("initial balance for tokenid " + tokenid + " = " + str(initial_balance))
 
     # create tokenask
-    print("creating tokenv2ask tx...")
-    askid = call_token_rpc(rpc1, 'tokenv2ask', '', str(total), tokenid, str(unitprice))
+    print("creating tokenask tx...")
+    askid = call_token_rpc(rpc1, 'tokenask', '', str(total), tokenid, str(unitprice))
 
     # fill ask 
-    print("creating tokenv2fillask tx...")
-    fillaskid = call_token_rpc(rpc2, "tokenv2fillask", '', tokenid, askid, str(askunits))
+    print("creating tokenfillask tx...")
+    fillaskid = call_token_rpc(rpc2, "tokenfillask", '', tokenid, askid, str(askunits))
 
     # cancel ask
-    print("creating tokenv2cancelask tx...")
-    cancelid = call_token_rpc(rpc1, 'tokenv2cancelask', 'ask is empty', tokenid, fillaskid)
+    print("creating tokencancelask tx...")
+    cancelid = call_token_rpc(rpc1, 'tokencancelask', 'ask is empty', tokenid, fillaskid)
     
     # create tokenbid to buy back tokens - same amount
-    print("creating tokenv2bid tx...")
-    bidid = call_token_rpc(rpc1, 'tokenv2bid', '', str(askunits), tokenid, str(unitprice))
+    print("creating tokenbid tx...")
+    bidid = call_token_rpc(rpc1, 'tokenbid', '', str(askunits), tokenid, str(unitprice))
 
     # fill bid 
-    print("creating tokenv2fillbid tx...")
-    fillbidid = call_token_rpc(rpc2, 'tokenv2fillbid', '', tokenid, bidid, str(bidunits))
+    print("creating tokenfillbid tx...")
+    fillbidid = call_token_rpc(rpc2, 'tokenfillbid', '', tokenid, bidid, str(bidunits))
 
     # cancel bid
-    print("creating tokenv2cancelbid tx...")
-    cancelid = call_token_rpc(rpc1, 'tokenv2cancelbid', 'bid is empty', tokenid, fillbidid)
+    print("creating tokencancelbid tx...")
+    cancelid = call_token_rpc(rpc1, 'tokencancelbid', 'bid is empty', tokenid, fillbidid)
 
     # check balance after 
     retries = 24
     delay = 10
     for i in range(retries):
-        print("calling " + "tokenv2balance")
-        finresult = rpc1.tokenv2balance(tokenid)
+        print("calling " + "tokenbalance")
+        finresult = rpc1.tokenbalance(tokenid)
         assert(check_result(result))
         if int(finresult["balance"]) == initial_balance :
             break
         if i < retries-1:
-            print("retrying " + "tokenv2balance" + '...')
+            print("retrying " + "tokenbalance" + '...')
             time.sleep(delay)                
 
     assert(int(finresult["balance"]) == initial_balance)
