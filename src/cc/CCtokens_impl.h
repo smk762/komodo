@@ -56,6 +56,23 @@ bool GetTokenData(uint256 tokenid, TokenDataTuple &tokenData, vscript_t &vopretN
     return false;
 }
 
+template <class V>
+uint8_t GetTokenOpReturnVersion(uint256 tokenid)
+{
+    CTransaction tokencreatetx;
+    uint256 hashBlock;
+    vuint8_t vorigpk;
+    std::string name, desc;
+    std::vector<vuint8_t> oprets;
+
+    if (myGetTransaction(tokenid, tokencreatetx, hashBlock) && 
+        tokencreatetx.vout.size() > 0 && 
+        V::DecodeTokenCreateOpRet(tokencreatetx.vout.back().scriptPubKey, vorigpk, name, desc, oprets) != 0)
+        return DecodeTokenOpretVersion(tokencreatetx.vout.back().scriptPubKey);
+    else
+        return 0;
+}
+
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
 template <class V>
@@ -119,7 +136,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 		}
     }; // auto add_token_vin
 
-    if (fUnspentCCIndex)
+    if (fUnspentCCIndex && GetTokenOpReturnVersion<V>(tokenid) > 0)
     {
         std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
