@@ -128,15 +128,15 @@
  vout.n-1: opreturn [EVAL_ASSETS] ['E'] [assetid vin0+1] [assetid vin2] [remaining asset2 required] [origpubkey]
 */
 
-// check cc vins and cc vouts count (if param is -1 do not check)
-static bool CountCCVinVouts(const CTransaction & tx, int32_t _ccvins, int32_t _ccvouts)
+// checks cc vins (only mine) and cc vouts (all) count. If param is -1 then it does not check it
+static bool CountCCVinVouts(struct CCcontract_info *cpAssets, const CTransaction & tx, int32_t _ccvins, int32_t _ccvouts)
 {
     int32_t ccvins = 0;
     int32_t ccvouts = 0;
 
     if (_ccvins >= 0)   {
         for (auto const &vin : tx.vin)
-            if (IsCCInput(vin.scriptSig))
+            if (cpAssets->ismyvin(vin.scriptSig))
                 ccvins ++;
     }
     if (_ccvouts >= 0)  {
@@ -146,7 +146,7 @@ static bool CountCCVinVouts(const CTransaction & tx, int32_t _ccvins, int32_t _c
     }
 
     if (_ccvins >= 0 && _ccvins != ccvins || _ccvouts >= 0 && _ccvouts != ccvouts) {
-        LOGSTREAMFN(ccassets_log, CCLOG_INFO, stream << " invalid vins or vout count: ccvins=" << ccvins << " check=" << _ccvins << " ccvouts=" << ccvouts << " check=" << _ccvouts << std::endl);
+        LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << " invalid vins or vout count: ccvins=" << ccvins << " check=" << _ccvins << " ccvouts=" << ccvouts << " check=" << _ccvouts << std::endl);
         return false;
     }
     return true;
@@ -270,7 +270,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
             //vout.1: vin.2 back to users pubkey
             //vout.2: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['o']
-            ccvins = 2;
+            ccvins = 2;  // order and marker
             ccvouts = 0;
             if (vin_assetoshis = AssetValidateBuyvin<A>(cpAssets, eval, vin_unit_price, vin_origpubkey, origCCaddrDummy, origNormalAddr, tx, assetid) == 0)
                 return(false);
@@ -279,11 +279,11 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, vin_assetoshis, 0) == false )
                     return eval->Invalid("invalid refund for cancelbid");
             } else {
-                bool isCC = false;
+                bool isCCVout = A::ConstrainVout(tx.vout[0], 1, cpAssets->unspendableCCaddr, vin_assetoshis, 0);
                 if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, vin_assetoshis, 0) == false &&
-                    (isCC = A::ConstrainVout(tx.vout[0], 1, cpAssets->unspendableCCaddr, vin_assetoshis, 0)) == false)  // dust allowed to go back
+                    !isCCVout )  // dust allowed to go back
                     return eval->Invalid("invalid refund for cancelbid");
-                if( isCC )
+                if( isCCVout )
                     ccvouts ++;
             }
             if( TotalPubkeyNormalInputs(tx, pubkey2pk(vin_origpubkey)) == 0 ) // check tx is signed by originator pubkey
@@ -306,7 +306,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
             //vout.5: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['B'] [assetid] [remaining asset required] [origpubkey]
             //preventCCvouts = 4;
-			ccvins = 2;
+			ccvins = 1;
             ccvouts = 3;
 
             if( (vin_assetoshis = AssetValidateBuyvin<A>(cpAssets, eval, vin_unit_price, vin_origpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )
@@ -367,11 +367,11 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                         ccvouts--;
                     }
                     else {
-                        bool isCC = false;
+                        bool isCCVout = A::ConstrainVout(tx.vout[0], 1, cpAssets->unspendableCCaddr, 0, 0);
                         if( A::ConstrainVout(tx.vout[0], 0, origNormalAddr, 0LL, 0) == false &&
-                            (isCC = A::ConstrainVout(tx.vout[0], 1, cpAssets->unspendableCCaddr, 0, 0)) == false ) // dust allowed to go back to cc global addr
+                            !isCCVout ) // dust allowed to go back to cc global addr
                             return eval->Invalid("vout0 should be originator normal address with remainder or dust should go back to global addr for fillbid");
-                        if( !isCC )
+                        if( !isCCVout )
                             ccvouts--;
                     }
                 }
@@ -439,7 +439,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 return eval->Invalid("not the originator pubkey signed");
             //preventCCvins = 3;
             //preventCCvouts = 1;
-            ccvins = 2;
+            ccvins = 2;  // order and marker
             ccvouts = 1;
             break;
             
@@ -567,7 +567,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
 	//std::cerr << "AssetsValidate() PreventCC returned=" << bPrevent << std::endl;
 	//return (bPrevent);
     // replaced PreventCC with min/max cc vin/vout calc to allow vin position flexibility:
-    if (!CountCCVinVouts(tx, ccvins, ccvouts))
+    if (!CountCCVinVouts(cpAssets, tx, ccvins, ccvouts))
         return eval->Invalid("invalid cc vin or vout count");
     return true;
 }
