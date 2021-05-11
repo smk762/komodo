@@ -39,6 +39,7 @@ bool TokensIsVer1Active(const Eval *eval)
     //    "DIMXY11",
     //    "DIMXY14", "DIMXY14_2"
     //    "DIMXY20"
+        "TONYCI",  // for qa tests
     };
     static bool isReported = false;
 
