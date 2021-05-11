@@ -32,6 +32,7 @@ def test_channels(test_params):
     result = rpc.channelsaddress(pubkey)
     assert_success(result)
     # test that additional CCaddress key is returned
+    print('channelsaddress okay')
 
     for x in result.keys():
         if x.find('ddress') > 0:
@@ -44,12 +45,14 @@ def test_channels(test_params):
     assert result["name"] == "Channels List"
     if is_fresh_chain:
         assert len(result) == 2
+    print('channelslist okay')
 
     # 10 payments, 100000 sat denomination channel opening with second node pubkey
     new_channel_hex = rpc.channelsopen(pubkey1, "10", "100000")
     assert_success(new_channel_hex)
     channel_txid = send_and_mine(new_channel_hex["hex"], rpc)
     assert channel_txid, "got channel txid"
+    print('channelslist okay')
 
     # checking if our new channel in common channels list
     if is_fresh_chain:
@@ -60,6 +63,7 @@ def test_channels(test_params):
     result = rpc.channelsinfo(channel_txid)
     assert_success(result)
     assert result["Transactions"][0]["Open"] == channel_txid
+    print('channelsinfo okay')
 
     # open transaction should be confirmed at least twice
     wait_some_blocks(rpc, 3)
@@ -67,20 +71,25 @@ def test_channels(test_params):
     # trying to make wrong denomination channel payment
     result = rpc.channelspayment(channel_txid, "199000")
     assert_error(result)
+    print('channelspayment 199000 okay')
 
     # trying to make 0 channel payment
     result = rpc.channelspayment(channel_txid, "0")
     assert_error(result)
+    print('channelspayment 0 okay')
 
     # trying to make negative channel payment
     result = rpc.channelspayment(channel_txid, "-1")
     assert_error(result)
+    print('channelspayment -1 okay')
 
     # valid channel payment
     result = rpc.channelspayment(channel_txid, "100000")
     assert_success(result)
     payment_tx_id = send_and_mine(result["hex"], rpc)
+    print('payment_tx_id=' + payment_tx_id)
     assert payment_tx_id, "got txid"
+    print('channelpayment 100000 okay')
 
     # now in channelinfo payment information should appear
     result = rpc.channelsinfo(channel_txid)
@@ -89,24 +98,31 @@ def test_channels(test_params):
     # number of payments should be equal 1 (one denomination used)
     result = rpc.channelsinfo(channel_txid)["Transactions"][1]["Number of payments"]
     assert result == 1
+    print('channelsinfo 1 okay')
+
     # payments left param should reduce 1 and be equal 9 now ( 10 - 1 = 9 )
     result = rpc.channelsinfo(channel_txid)["Transactions"][1]["Payments left"]
     assert result == 9
+    print('channelsinfo 9 okay')
 
     # lets try payment with x2 amount to ensure that counters works correct
     result = rpc.channelspayment(channel_txid, "200000")
     assert_success(result)
     payment_tx_id = send_and_mine(result["hex"], rpc)
     assert payment_tx_id, "got txid"
+    print('channelspayment 200000 okay')
+
 
     result = rpc.channelsinfo(channel_txid)
     assert result["Transactions"][2]["Payment"] == payment_tx_id
 
     result = rpc.channelsinfo(channel_txid)["Transactions"][2]["Number of payments"]
     assert result == 2
+    print('channelsinfo == 2 okay')
 
     result = rpc.channelsinfo(channel_txid)["Transactions"][2]["Payments left"]
     assert result == 7
+    print('channelsinfo == 7 okay')
 
     # check if payment value really transferred
     raw_transaction = rpc.getrawtransaction(payment_tx_id, 1)
@@ -132,11 +148,14 @@ def test_channels(test_params):
         result = rpc1.sendrawtransaction(payment_hex["hex"])
     except Exception as e:
         pass
+    print('channelspayment 100000 okay')
 
     # trying to initiate channels payment from node B with secret from previous payment
     result = rpc1.channelspayment(channel_txid, "100000", rpc1.channelsinfo(channel_txid)["Transactions"][1]["Secret"])
     # result = rpc1.sendrawtransaction(payment_hex["hex"])
     assert_error(result)
+    print('channelspayment 100000 w secret okay')
+
 
     # executing channel close
     result = rpc.channelsclose(channel_txid)
@@ -145,6 +164,8 @@ def test_channels(test_params):
     assert channel_close_txid, "got txid"
 
     wait_some_blocks(rpc, 2)
+    print('channelsclose okay')
+
 
     # now in channelinfo closed flag should appear
     result = rpc.channelsinfo(channel_txid)
@@ -155,6 +176,8 @@ def test_channels(test_params):
     # TODO: by some reason channels refund just returning hex instead of result and hex json
     refund_txid = send_and_mine(result, rpc)
     assert refund_txid, "got txid"
+    print('channelsrefund okay')
+
 
     # checking if it refunded to opener address
     raw_transaction = rpc.getrawtransaction(refund_txid, 1)
@@ -173,6 +196,8 @@ def test_channels(test_params):
 
     # need to have 2+ confirmations in the test mode
     wait_some_blocks(rpc, 2)
+    print('channelsopen okay')
+
 
     # TODO: maybe it's possible to send in single block to not wait 10 blocks?
     for i in range(10):
@@ -180,6 +205,8 @@ def test_channels(test_params):
         assert_success(result)
         payment_tx_id = send_and_mine(result["hex"], rpc)
         assert payment_tx_id, "got txid"
+        print('channelspayment okay, i=' + str(i))
+
 
     # last payment should indicate that 0 payments left
     result = rpc.channelsinfo(channel1_txid)["Transactions"][10]["Payments left"]
@@ -188,6 +215,8 @@ def test_channels(test_params):
     # no more payments possible
     result = rpc.channelspayment(channel1_txid, "100000")
     assert_error(result)
+    print('channelspayment 100000 okay')
+
 
 # TODO: fixme
 #
