@@ -9,6 +9,7 @@ on:
     - beta
     - dev
     - research
+    - tokel
 
 
 jobs:
