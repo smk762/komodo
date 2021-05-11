@@ -319,12 +319,13 @@ void CTxMemPool::addUnspentCCIndex(const CTxMemPoolEntry &entry, const CCoinsVie
                 uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address
                 uint256 hashBlock;
                 
-                const CTransaction& vintx = mapTx.find(input.prevout.hash)->GetTx(); // load previous mempool tx to get opreturn
+                CTxMemPool::indexed_transaction_set::const_iterator it = mapTx.find(input.prevout.hash); // load previous mempool tx to get opreturn
                 // note we add only mempool tx into the unspent cc index
                 // so non-mempool txns spent by mempool txns will be found in the db cc index as unspent 
                 // that is, the caller should always check that vout is not spent in mempool.
                 // This limitation is because the coin cache does not store opreturns
-                if (!vintx.IsNull() && vintx.vout.size() > 0) {  
+                if (it != mapTx.end() && it->GetTx().vout.size() > 0) {  
+                    const CTransaction& vintx = it->GetTx();
                     uint256 creationId;
                     uint8_t evalcode, funcid, version;
                     CScript prevOpreturn; //init as empty
@@ -432,12 +433,13 @@ bool CTxMemPool::removeUnspentCCIndex(const CTransaction &tx)
                 uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address
                 uint256 hashBlock;
                 
-                const CTransaction& vintx = mapTx.find(input.prevout.hash)->GetTx(); // load previous mempool tx to get opreturn
+                CTxMemPool::indexed_transaction_set::const_iterator it = mapTx.find(input.prevout.hash); // load previous mempool tx to get opreturn
                 // note we add only mempool tx into the unspent cc index
                 // so non-mempool txns spent by mempool txns will be found in the db cc index as unspent 
                 // that is, the caller should always check that vout is not spent in mempool.
                 // This limitation is because the coin cache does not store opreturns
-                if (!vintx.IsNull() && vintx.vout.size() > 0) {  
+                if (it != mapTx.end() && it->GetTx().vout.size() > 0) {  
+                    const CTransaction& vintx = it->GetTx();
                     uint256 creationId;
                     uint8_t evalcode, funcid, version;
                     CScript prevOpreturn; //init as empty
