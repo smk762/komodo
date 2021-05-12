@@ -5976,19 +5976,6 @@ UniValue oraclesaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(CCaddress(cp,(char *)"Oracles",pubkey));
 }
 
-UniValue oraclesv2address(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    struct CCcontract_info *cp,C; std::vector<unsigned char> pubkey;
-    cp = CCinit(&C,EVAL_ORACLESV2);
-    if ( fHelp || params.size() > 1 )
-        throw runtime_error("oraclesv2address [pubkey]\n");
-    if ( ensure_CCrequirements(cp->evalcode) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    if ( params.size() == 1 )
-        pubkey = ParseHex(params[0].get_str().c_str());
-    return(CCaddress(cp,(char *)"Oracles V2",pubkey, true));
-}
-
 UniValue pricesaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); struct CCcontract_info *cp,C,*assetscp,C2; std::vector<unsigned char> pubkey; CPubKey pk,planpk,pricespk; char myaddr[64],houseaddr[64],exposureaddr[64];
