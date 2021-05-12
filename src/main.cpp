@@ -1526,7 +1526,6 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
     // Check for negative or overflow output values
     CAmount nValueOut = 0;
     int32_t iscoinbase = tx.IsCoinBase();
-    int out_index = 0;
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
         if (txout.nValue < 0)
