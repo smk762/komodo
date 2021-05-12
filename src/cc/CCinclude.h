@@ -459,13 +459,9 @@ bool GetCCParams(Eval* eval, const CTransaction &tx, uint32_t nIn,
 int64_t OraclePrice(int32_t height,uint256 reforacletxid,char *markeraddr,char *format);
 uint256 OracleMerkle(int32_t height,uint256 reforacletxid,char *format,std::vector<struct oracle_merklepair>publishers);
 uint256 OraclesBatontxid(uint256 oracletxid,CPubKey pk);
-uint256 OraclesV2Batontxid(uint256 oracletxid,CPubKey pk);
 uint8_t DecodeOraclesCreateOpRet(const CScript &scriptPubKey,std::string &name,std::string &description,std::string &format);
-uint8_t DecodeOraclesV2CreateOpRet(const CScript &scriptPubKey,uint8_t &version,std::string &name,std::string &description,std::string &format);
 uint8_t DecodeOraclesOpRet(const CScript &scriptPubKey,uint256 &oracletxid,CPubKey &pk,int64_t &num);
-uint8_t DecodeOraclesV2OpRet(const CScript &scriptPubKey,uint8_t &version,uint256 &oracletxid,CPubKey &pk,int64_t &num);
 uint8_t DecodeOraclesData(const CScript &scriptPubKey,uint256 &oracletxid,uint256 &batontxid,CPubKey &pk,std::vector <uint8_t>&data);
-uint8_t DecodeOraclesV2Data(const CScript &scriptPubKey,uint8_t &version,uint256 &oracletxid,uint256 &batontxid,CPubKey &pk,std::vector <uint8_t>&data);
 int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t *data,int32_t offset,int32_t datalen);
 /// \endcond
 
@@ -846,10 +842,8 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
 
 /// @private
 uint256 CCOraclesReverseScan(char const *logcategory,uint256 &txid,int32_t height,uint256 reforacletxid,uint256 batontxid);
-uint256 CCOraclesV2ReverseScan(char const *logcategory,uint256 &txid,int32_t height,uint256 reforacletxid,uint256 batontxid);
 /// @private
 int64_t CCOraclesGetDepositBalance(char const *logcategory,uint256 reforacletxid,uint256 batontxid);
-int64_t CCOraclesV2GetDepositBalance(char const *logcategory,uint256 reforacletxid,uint256 batontxid);
 /// @private
 int32_t CCCointxidExists(char const *logcategory,uint256 txid,uint256 cointxid);
 /// @private
