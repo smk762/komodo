@@ -58,7 +58,12 @@ extern const int32_t nS4HardforkHeight;   //dPoW Season 4 2020 hardfork
 extern const uint32_t nS5Timestamp; //dPoW Season 5 June 14th, 2021 hardfork (03:00:00 PM UTC) (defined in komodo_globals.h)
 extern const int32_t nS5HardforkHeight;   //dPoW Season 5 June 14th, 2021 hardfork estimated block height (defined in komodo_globals.h)
 
-static const uint32_t KMD_SEASON_TIMESTAMPS[NUM_KMD_SEASONS] = {1525132800, 1563148800, nStakedDecemberHardforkTimestamp, nS4Timestamp, nS5Timestamp, 1751328000};
+
+#define MOCK_S5_TIMESTAMP 1620292792 // TESTING HF ACTIVATION **SHOULD NOT REACH PRODUCTION**
+
+// TESTING HF ACTIVATION **SHOULD NOT REACH PRODUCTION**
+static const uint32_t KMD_SEASON_TIMESTAMPS[NUM_KMD_SEASONS] = {1525132800, 1563148800, nStakedDecemberHardforkTimestamp, nS4Timestamp, MOCK_S5_TIMESTAMP, 1751328000};
+// TESTING HF ACTIVATION **SHOULD NOT REACH PRODUCTION**
 static const int32_t KMD_SEASON_HEIGHTS[NUM_KMD_SEASONS] = {814000, 1444000, nDecemberHardforkHeight, nS4HardforkHeight, nS5HardforkHeight, 7113400};
 
 // Era array of pubkeys. Add extra seasons to bottom as requried, after adding appropriate info above. 
