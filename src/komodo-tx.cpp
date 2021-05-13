@@ -212,6 +212,12 @@ uint32_t GetLatestTimestamp(int32_t)
     return 0L;
 }
 
+// stub function to make compile this binary
+bool komodo_Is2021JuneHFActive()
+{
+    return false;
+}
+
 // Set default values of new CMutableTransaction based on consensus rules at given height.
 CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Params& consensusParams, int nHeight)
 {
