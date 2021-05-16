@@ -1492,14 +1492,21 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
             std::vector< vscript_t > vData;
 
             // parse vParams[0] as script
+            // try read verus header <evalcode version M N>, do not allow pubkeys after the header
             CScript inScript(vParams[0].begin(), vParams[0].end());
             CScript::const_iterator pc = inScript.begin();
             inScript.GetPushedData(pc, vData);
 
-            if (vData.size() > 1 && vData[0].size() == 4) // first vector is 4-byte header
+            if (vData.size() > 1 && vData[0].size() == 4) // first vector is 4-byte verus header
             {
-                //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
+                // support Verus-style vData
                 opret << OP_RETURN << vData[1];  // return vData[1] as cc opret
+                return true;
+            }
+            else if (vParams.size() == 1)
+            {
+                // support token-v2-style vData:
+                opret << OP_RETURN << vParams[0];  // no verus header, treat vParams[0] as cc data and return as opret
                 return true;
             }
         }
@@ -1510,7 +1517,7 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
 // get OP_DROP data for mixed cc vouts
 // the function returns OP_DROP data as OP_RETURN script. This looks strange but all cc modules have DecodeOpReturn-like functions 
 // that accept OP_RETURN scripts 
-bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
+/*bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
 {
     std::vector<vscript_t> vParams;
     CScript dummy; 
@@ -1519,13 +1526,12 @@ bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
     {
         if (vParams.size() >= 1)  // allow more data after cc opret
         {
-            //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
             opret << OP_RETURN << vParams[0];  // return vData[1] as cc opret
             return true;
         }
     }
     return false;
-}
+}*/
 
 // get cc address for pubkey or mypk
 UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vector<unsigned char> &pubkey, bool mixed)
@@ -1614,7 +1620,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
 
         // first try if OP_DROP data exists
         bool usedOpreturn;
-        if (GetCCVDataAsOpret(tx.vout[n].scriptPubKey, opdrop))
+        if (GetCCDropAsOpret(tx.vout[n].scriptPubKey, opdrop))
             GetOpReturnData(opdrop, ccdata), usedOpreturn = false;
         else
             GetOpReturnData(tx.vout.back().scriptPubKey, ccdata), usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
@@ -1636,6 +1642,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                 evalcode = ccdata[0];
                 funcid = ccdata[1];
                 version = ccdata[2];
+                std::cerr << __func__ << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << std::endl; 
             }
             else
             {
@@ -1648,7 +1655,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                     }
                 }
                 creationId = revuint256(encodedCrid);
-                //std::cerr << __func__ << " in opret found creationid=" << creationId.GetHex() << std::endl;
+                std::cerr << __func__ << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << " in opret found creationid=" << creationId.GetHex() << std::endl;
             }
         }
         return true;

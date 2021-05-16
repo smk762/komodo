@@ -1022,6 +1022,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
                 errorStr = "marker spending is not allowed for tokenid=" + m.first.GetHex();
                 return false;
             }
+            std::cerr << __func__ << " mapinput.second=" << m.second << " mapoutputs[m.first]=" << mapoutputs[m.first] << std::endl;
         }
         return true;
 	}

@@ -530,7 +530,7 @@ CAmount TokensV2::CheckTokensvout(bool goDeeper, bool checkPubkeys, struct CCcon
 	{
         CScript opret;
         bool isLastVoutOpret;
-        if (GetCCVDataAsOpret(tx.vout[v].scriptPubKey, opret))
+        if (GetCCDropAsOpret(tx.vout[v].scriptPubKey, opret))
         {
             isLastVoutOpret = false;    
         }
@@ -654,7 +654,7 @@ static bool CheckTokensV2CreateTx(struct CCcontract_info *cp, Eval* eval, const 
         if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition())   
         {
             CScript opdrop;
-            if (GetCCVDataAsOpret(tx.vout[i].scriptPubKey, opdrop))  
+            if (GetCCDropAsOpret(tx.vout[i].scriptPubKey, opdrop))  
             {
                 uint8_t funcid = TokensV2::DecodeTokenOpRet(opdrop, tokenid, vpksdummy, oprets);
                 if (IsTokenCreateFuncid(funcid))    {

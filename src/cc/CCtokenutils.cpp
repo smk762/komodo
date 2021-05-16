@@ -41,6 +41,8 @@ bool TokensIsVer1Active(const Eval *eval)
     //    "DIMXY20"
         "TONYCI",  // for qa tests
         "TKLTEST", // tokel test chain
+        "DIMXY20",
+        "DIMXY25",
     };
     static bool isReported = false;
 
