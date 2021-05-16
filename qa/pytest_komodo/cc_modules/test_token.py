@@ -60,7 +60,7 @@ def test_token(test_params):
     #        result = rpc.tokenlist()
     #        assert result == []
 
-        print("creating invalid token" + v + "create(s)...")
+        print("making invalid token" + v + "create(s)...")
         # trying to create token with negative supply
         with pytest.raises(RPCError):
             result = call_token_rpc(rpc, "token"+v+"create", "NUKE", "-1987420", "no bueno supply")
@@ -70,7 +70,7 @@ def test_token(test_params):
         result = call_token_rpc(rpc, "token"+v+"create", "NUKE123456789012345678901234567890", "1987420", "name too long")
         assert_error(result)
 
-        print("creating valid token" + v + "create...")
+        print("making valid token" + v + "create...")
         # creating valid token
         result = call_token_rpc(rpc, "token"+v+"create", "DUKE", "1987.420", "Duke's custom token")
         assert_success(result)
@@ -114,7 +114,7 @@ def test_token(test_params):
         assert result['supply'] == 198742000000
         assert result['description'] == "Duke's custom token"
 
-        print("creating invalid token" + v + "ask(s)...")
+        print("making invalid token" + v + "ask(s)...")
 
         # invalid numtokens ask
         result = call_token_rpc(rpc, "token"+v+"ask", "-1", tokenid, "1")
@@ -137,7 +137,7 @@ def test_token(test_params):
         result = call_token_rpc(rpc, "token"+v+"ask", "100", "deadbeef", "1")
         assert_error(result)
 
-        print("creating valid token" + v + "ask...")
+        print("making valid token" + v + "ask...")
         # valid ask
         tokenask = call_token_rpc(rpc, "token"+v+"ask", "100", tokenid, "7.77")
         tokenaskhex = tokenask['hex']
@@ -146,7 +146,7 @@ def test_token(test_params):
         order = result[0]
         assert order, "found order"
 
-        print("creating invalid token" + v + "fillask(s)...")
+        print("making invalid token" + v + "fillask(s)...")
         # invalid ask fillunits
         result = call_token_rpc(rpc, "token"+v+"fillask", tokenid, tokenaskid, "0")
         assert_error(result)
@@ -159,7 +159,7 @@ def test_token(test_params):
         result = call_token_rpc(rpc, "token"+v+"fillask", tokenid, tokenaskid, "777")
         assert_error(result)
 
-        print("creating valid token" + v + "fillask...")
+        print("making valid token" + v + "fillask...")
         # valid ask fillunits
         fillask = call_token_rpc(rpc, "token"+v+"fillask", tokenid, tokenaskid, "100")
         result = send_and_mine(fillask['hex'], rpc)
@@ -170,7 +170,7 @@ def test_token(test_params):
         result = call_token_rpc(rpc, "token"+v+"orders", tokenid)
         assert result == []
 
-        print("creating valid token" + v + "ask to test cancelask...")
+        print("making valid token" + v + "ask to test cancelask...")
         # checking ask cancellation
         testorder = call_token_rpc(rpc, "token"+v+"ask", "100", tokenid, "7.77")
         testorderid = send_and_mine(testorder['hex'], rpc)
@@ -183,11 +183,11 @@ def test_token(test_params):
         result = rpc1.getbalance()
         assert result > 0.1
 
-        print("creating invalid node token" + v + "cancelask(s)...")
+        print("making invalid node token" + v + "cancelask(s)...")
         result = call_token_rpc(rpc1, "token"+v+"cancelask", tokenid, testorderid)
         assert_error(result)
 
-        print("creating valid node token" + v + "cancelask...")
+        print("making valid node token" + v + "cancelask...")
         # from valid node
         cancel = call_token_rpc(rpc, "token"+v+"cancelask", tokenid, testorderid)
         send_and_mine(cancel["hex"], rpc)
@@ -197,7 +197,7 @@ def test_token(test_params):
             result = call_token_rpc(rpc, "token"+v+"orders", tokenid)
             assert result == []
 
-        print("creating invalid token" + v + "bid(s)...")
+        print("making invalid token" + v + "bid(s)...")
         # invalid numtokens bid
         result = call_token_rpc(rpc, "token"+v+"bid", "-1", tokenid, "1")
         assert_error(result)
@@ -219,7 +219,7 @@ def test_token(test_params):
         result = call_token_rpc(rpc, "token"+v+"bid", "100", "deadbeef", "1")
         assert_error(result)
 
-        print("creating valid token" + v + "bid...")
+        print("making valid token" + v + "bid...")
         # valid bid
         tokenbid = call_token_rpc(rpc, "token"+v+"bid", "100", tokenid, "10")
         tokenbidhex = tokenbid['hex']
@@ -228,7 +228,7 @@ def test_token(test_params):
         order = result[0]
         assert order, "found order"
 
-        print("creating invalid token" + v + "fillbid(s)...")
+        print("making invalid token" + v + "fillbid(s)...")
         # invalid bid fillunits
         result = call_token_rpc(rpc, "token"+v+"fillbid", tokenid, tokenbidid, "0")
         assert_error(result)
@@ -242,7 +242,7 @@ def test_token(test_params):
         assert_error(result)
 
         # valid bid fillunits
-        print("creating valid token" + v + "fillbid...")
+        print("making valid token" + v + "fillbid...")
         fillbid = call_token_rpc(rpc, "token"+v+"fillbid", tokenid, tokenbidid, "100")
         result = send_and_mine(fillbid['hex'], rpc)
         txid = result[0]
@@ -254,7 +254,7 @@ def test_token(test_params):
             result = call_token_rpc(rpc, "token"+v+"orders", tokenid)
             assert result == []
 
-        print("creating valid token" + v + "bid to test cancelbid...")
+        print("making valid token" + v + "bid to test cancelbid...")
         # checking bid cancellation
         testorder = call_token_rpc(rpc, "token"+v+"bid", "100", tokenid, "7.77")
         testorderid = send_and_mine(testorder['hex'], rpc)
@@ -263,19 +263,19 @@ def test_token(test_params):
         result = rpc1.getbalance()
         assert result > 0.1
 
-        print("creating invalid node token" + v + "cancelbid...")
+        print("making invalid node token" + v + "cancelbid...")
         result = call_token_rpc(rpc1, "token"+v+"cancelbid", tokenid, testorderid)
         #TODO: not throwing error now on tx generation
         #assert_error(result)
 
-        print("creating valid node token" + v + "cancelbid...")
+        print("making valid node token" + v + "cancelbid...")
         # from valid node
         cancel = call_token_rpc(rpc, "token"+v+"cancelbid", tokenid, testorderid)
         send_and_mine(cancel["hex"], rpc)
         result = call_token_rpc(rpc, "token"+v+"orders", tokenid)
         assert result == []
 
-        print("creating invalid token" + v + "transfer(s)...")
+        print("making invalid token" + v + "transfer(s)...")
         # invalid token transfer amount (have to add status to CC code!)
         randompubkey = "021a559101e355c907d9c553671044d619769a6e71d624f68bfec7d0afa6bd6a96"
         result = call_token_rpc(rpc, "token"+v+"transfer", tokenid, randompubkey, "0")
@@ -285,9 +285,16 @@ def test_token(test_params):
         result = call_token_rpc(rpc, "token"+v+"transfer", tokenid, randompubkey, "-1")
         assert_error(result)
 
-        print("creating valid token" + v + "transfer...")
+        print("making valid token" + v + "transfer...")
         # valid token transfer
         sendtokens = call_token_rpc(rpc, "token"+v+"transfer", tokenid, randompubkey, "1")
         send_and_mine(sendtokens["hex"], rpc)
         result = call_token_rpc(rpc, "token"+v+"balance", tokenid, randompubkey)
         assert result["balance"] == 1
+
+        print("making valid token" + v + "transfermany...")
+        # valid token transfer
+        sendtokens = call_token_rpc(rpc, "token"+v+"transfermany", tokenid, randompubkey, "1")
+        send_and_mine(sendtokens["hex"], rpc)
+        result = call_token_rpc(rpc, "token"+v+"balance", tokenid, randompubkey)
+        assert result["balance"] == 2
