@@ -101,8 +101,9 @@ typedef boost::variant<CNoDestination, CPubKey, CKeyID, CScriptID> CTxDestinatio
 class COptCCParams
 {
     public:
-        static const uint8_t VERSION = 1;
-
+        static const uint8_t VERSION_1 = 1;
+        static const uint8_t VERSION_2 = 2; // i needede to add version2 to allow adding pubkeys (as we violated the OptCCParams format by not adding pubkeys in MakeCCVout1,...)
+        static bool isMyVersion(uint8_t version) { return version >= 1 && version <= 2; }
         uint8_t version;
         uint8_t evalCode;
         uint8_t m, n; // for m of n sigs required, n pub keys for sigs will follow
@@ -121,6 +122,7 @@ class COptCCParams
         std::vector<unsigned char> AsVector();
 };
 
+/* unused:
 class CStakeParams
 {
     public:
@@ -159,6 +161,7 @@ class CStakeParams
 
         bool IsValid() { return srcHeight != 0; }
 };
+*/
 
 /** Check whether a CTxDestination is a CNoDestination. */
 bool IsValidDestination(const CTxDestination& dest);

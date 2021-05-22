@@ -86,24 +86,26 @@ COptCCParams::COptCCParams(std::vector<unsigned char> &vch)
                 evalCode = param[1];
                 m = param[2];
                 n = param[3];
-                if (version != VERSION || m != 1 || (n != 1 && n != 2) || data.size() <= n)
+                if (!isMyVersion(version)|| m != 1 || (n != 1 && n != 2) || data.size() <= n)
                 {
                     // we only support one version, and 1 of 1 or 1 of 2 now, so set invalid
-                    version = 0;
+                    version = 0;  //invalidate
                 }
                 else
                 {
                     // load keys and data
                     vKeys.clear();
                     vData.clear();
-                    int i;
-                    for (i = 1; i <= n; i++)
-                    {
-                        vKeys.push_back(CPubKey(data[i]));
-                        if (!vKeys[vKeys.size() - 1].IsValid())
+                    int i = 1; // skip 'params'
+                    if (version == 2)  {  // with pubkeys
+                        for (; i <= n; i++) 
                         {
-                            version = 0;
-                            break;
+                            vKeys.push_back(CPubKey(data[i]));
+                            if (!vKeys[vKeys.size() - 1].IsValid())
+                            {
+                                version = 0;  //invalidate parsed data
+                                break;
+                            }
                         }
                     }
                     if (version != 0)
@@ -247,7 +249,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                     ptr[i] = hash20[i];
                 vSolutionsRet.push_back(hashBytes);
 
-                if (!komodo_Is2021JuneHFActive()) 
+                /*if (!komodo_Is2021JuneHFActive()) 
                 {
                     // allow this code before the hardfork if anyone might accidentally try it
                     if (vParams.size())
@@ -261,7 +263,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                             }
                         }
                     }
-                }
+                }*/
                 return true;
             }
             return false;
@@ -392,16 +394,16 @@ bool ExtractDestination(const CScript& _scriptPubKey, CTxDestination& addressRet
 
     else if (IsCryptoConditionsEnabled() != 0 && whichType == TX_CRYPTOCONDITION)
     {
-        if (vSolutions.size() > 1 && !komodo_Is2021JuneHFActive()) // allow this temporarily before the HF; actually this is incorrect to use opdrop's pubkey as the address
+        /* if (vSolutions.size() > 1 && !komodo_Is2021JuneHFActive()) // allow this temporarily before the HF; actually this is incorrect to use opdrop's pubkey as the address
         {
             CPubKey pk = CPubKey((vSolutions[1]));
             addressRet = pk;
             return pk.IsValid();
         }
         else
-        {
+        { */
             addressRet = CKeyID(uint160(vSolutions[0]));
-        }
+        /* } */
         return true;
     }
     // Multisig txns have more than one address...

@@ -42,6 +42,7 @@ bool TokensIsVer1Active(const Eval *eval)
         "TONYCI",  // for qa tests
         "TKLTEST", // tokel test chain
         "DIMXY20",
+        "DIMXY23",
         "DIMXY25",
     };
     static bool isReported = false;
@@ -396,11 +397,11 @@ uint8_t DecodeTokenOpRetV2(const CScript scriptPubKey, uint256 &tokenid, std::ve
         version = vopret[2];
 
         if (evalCode != EVAL_TOKENSV2) {
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "incorrect evalcode in tokens 2 opret" << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "incorrect evalcode in tokens v2 opret" << std::endl);
             return (uint8_t)0;
         }
         if (version != 1) {
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "incorrect version in tokens 2 opret" << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "incorrect version in tokens v2 opret" << std::endl);
             return (uint8_t)0;
         }
         switch (funcId)
@@ -493,7 +494,7 @@ CTxOut MakeTokensCC1of2vout(uint8_t evalcode, uint8_t evalcode2, CAmount nValue,
         //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
         std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
         //vPubKeys.push_back(pk);   // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 1, vPubKeys, (*pvvData));
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 1, vPubKeys, (*pvvData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
     cc_free(payoutCond);
@@ -515,7 +516,7 @@ CTxOut MakeTokensCC1vout(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CP
         //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
         std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
         //vPubKeys.push_back(pk);   // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 1, vPubKeys, (*pvvData));
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 1, vPubKeys, (*pvvData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
     cc_free(payoutCond);
@@ -582,8 +583,20 @@ CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValu
     if (!CCtoAnon(payoutCond.get())) 
         return vout;
     vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
-    if (pvData)
-        vout.scriptPubKey << *pvData << OP_DROP;
+    {
+        std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
+        vPubKeys.push_back(pk);   
+
+        std::vector<vscript_t> vvData;
+        if (pvData)
+            vvData.push_back(*pvData);
+
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode, 1, 1, vPubKeys, vvData);  // ver2 -> add pks
+        vout.scriptPubKey << ccp.AsVector() << OP_DROP;
+
+        // if (*pvdata)
+        //     vout.scriptPubKey << *pvData << OP_DROP; // first variant v2 serialisation, both serialisation should be supported
+    }
     return vout;
 }
 // overload to make two-eval (token+evalcode) cc vout:
@@ -592,15 +605,28 @@ CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, vscr
 }
 
 // make three-eval (token+evalcode+evalcode2) 1of2 cc vout:
-CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, vscript_t* pvData)
+CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, vscript_t* pvData)
 {
     CTxOut vout;
-    CCwrapper payoutCond( MakeTokensv2CCcond1of2(evalcode, evalcode2, pk1, pk2) );
+    CCwrapper payoutCond( MakeTokensv2CCcond1of2(evalcode1, evalcode2, pk1, pk2) );
     if (!CCtoAnon(payoutCond.get())) 
         return vout;
     vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
-    if (pvData)
-        vout.scriptPubKey << *pvData << OP_DROP;
+
+    {
+        std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
+        vPubKeys.push_back(pk1);   
+        vPubKeys.push_back(pk2);   
+
+        std::vector<vscript_t> vvData;
+        if (pvData)
+            vvData.push_back(*pvData);
+
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode1, 1, 2, vPubKeys, vvData);  // ver2 -> add pks
+        vout.scriptPubKey << ccp.AsVector() << OP_DROP;
+    }
+    //if (pvData)
+    //    vout.scriptPubKey << *pvData << OP_DROP;
     return vout;
 }
 // overload to make two-eval (token+evalcode) 1of2 cc vout:

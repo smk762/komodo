@@ -265,7 +265,7 @@ UniValue TokenV2List();
 inline bool IsTokenCreateFuncid(uint8_t funcid) { return funcid == 'c'; }
 inline bool IsTokenTransferFuncid(uint8_t funcid) { return funcid == 't'; }
 
-bool IsEqualVouts(const CTxOut &v1, const CTxOut &v2);
+bool IsEqualScriptPubKeys(const CScript &spk1, const CScript &spk2);
 
 bool TokensIsVer1Active(const Eval *eval);
 

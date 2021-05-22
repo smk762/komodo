@@ -108,7 +108,7 @@ CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std
         //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
         std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
         //vPubKeys.push_back(pk);   // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 1, vPubKeys, (*vData));
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 1, vPubKeys, (*vData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
     return(vout);
@@ -127,7 +127,7 @@ CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2
         // this is for multisig
         //vPubKeys.push_back(pk1);  // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
         //vPubKeys.push_back(pk2);
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 2, vPubKeys, (*vData));
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 2, vPubKeys, (*vData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
     return(vout);
@@ -1482,9 +1482,21 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
     std::vector<std::vector<unsigned char>> vParams;
     CScript dummy; 
 
-    if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) != 0)
+    if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams))
     {
-        if (vParams.size() >= 1)  // allow more data after cc opret
+
+        if (vParams.size() > 0)  {
+            vscript_t  vspk (vParams[0]);
+            COptCCParams parsed(vspk);
+
+            LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)parsed.evalCode << " vKeys.size()=" << (int)parsed.vKeys.size() << " vData.size()=" << (int)parsed.vData.size() << std::endl);
+            if (parsed.vData.size() > 0)      {
+                opret << OP_RETURN << parsed.vData[0];  // return vData[0] as cc opret
+                return true;
+            }
+        }
+
+        /*if (vParams.size() >= 1)  // allow more data after cc opret
         {
             //uint8_t version;
             //uint8_t evalCode;
@@ -1510,6 +1522,7 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
                 return true;
             }
         }
+        */
     }
     return false;
 }
@@ -1642,7 +1655,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                 evalcode = ccdata[0];
                 funcid = ccdata[1];
                 version = ccdata[2];
-                std::cerr << __func__ << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << std::endl; 
+                LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << std::endl); 
             }
             else
             {
@@ -1655,7 +1668,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                     }
                 }
                 creationId = revuint256(encodedCrid);
-                std::cerr << __func__ << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << " in opret found creationid=" << creationId.GetHex() << std::endl;
+                LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << " in opret found creationid=" << creationId.GetHex() << std::endl);
             }
         }
         return true;

@@ -843,7 +843,7 @@ template <class V>
 bool IsTokenMarkerVout(CTxOut vout) {
     struct CCcontract_info *cpTokens, CCtokens_info;
     cpTokens = CCinit(&CCtokens_info, V::EvalCode());
-    return IsEqualVouts(vout, V::MakeCC1vout(V::EvalCode(), vout.nValue, GetUnspendable(cpTokens, NULL)));
+    return IsEqualScriptPubKeys(vout.scriptPubKey, V::MakeCC1vout(V::EvalCode(), vout.nValue, GetUnspendable(cpTokens, NULL)).scriptPubKey);
 }
 
 
@@ -1022,7 +1022,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
                 errorStr = "marker spending is not allowed for tokenid=" + m.first.GetHex();
                 return false;
             }
-            std::cerr << __func__ << " mapinput.second=" << m.second << " mapoutputs[m.first]=" << mapoutputs[m.first] << std::endl;
+            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << "TokensExactAmounts() mapinput.second=" << m.second << " mapoutputs[m.first]=" << mapoutputs[m.first] << std::endl);
         }
         return true;
 	}
