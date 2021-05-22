@@ -15,6 +15,7 @@ EXAMPLE taken from Verus how to create scriptPubKey from COptCCParams class:
 EXAMPLE taken from Verus how to decode scriptPubKey from COptCCParams class:
 */
 
+/* unused:
 bool MakeGuardedOutput(CAmount value, CPubKey &dest, CTransaction &stakeTx, CTxOut &vout)
 {
     CCcontract_info *cp, C;
@@ -52,7 +53,7 @@ bool MakeGuardedOutput(CAmount value, CPubKey &dest, CTransaction &stakeTx, CTxO
         }
         vData.push_back(height);
 
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, EVAL_STAKEGUARD, 1, 2, vPubKeys, vData);
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, EVAL_STAKEGUARD, 1, 2, vPubKeys, vData);
 
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
         return true;
@@ -60,6 +61,7 @@ bool MakeGuardedOutput(CAmount value, CPubKey &dest, CTransaction &stakeTx, CTxO
     return false;
 }
 
+// unused:
 bool ValidateMatchingStake(const CTransaction &ccTx, uint32_t voutNum, const CTransaction &stakeTx, bool &cheating)
 {
     // an invalid or non-matching stake transaction cannot cheat
@@ -114,3 +116,4 @@ bool ValidateMatchingStake(const CTransaction &ccTx, uint32_t voutNum, const CTr
     }
     return false;
 }
+*/
