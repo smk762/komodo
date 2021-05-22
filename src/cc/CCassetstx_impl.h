@@ -613,8 +613,8 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                 mtx.vout.push_back(CTxOut(paid_amount - royaltyValue, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));	// vout1 coins to mypk normal 
                 if (royaltyFract > 0)   // note it makes vout even if roaltyValue is 0
                     mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ParseHex(HexStr(ownerpubkey)) << OP_CHECKSIG));  // vout2 trade royalty to token owner
-                mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : T::EvalCode(), fill_units, pubkey2pk(origpubkey)));	        // vout2(3) single-eval tokens sent to the originator
-                mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));                    // vout3(4) marker to origpubkey
+                mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : T::EvalCode(), fill_units, pubkey2pk(origpubkey)));	  // vout2(3) single-eval tokens sent to the originator
+                mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));                    // vout3(4 if royalty) marker to origpubkey
 
                 if (tokensChange != 0)
                     mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : T::EvalCode(), tokensChange, mypk));  // change in single-eval tokens
@@ -768,12 +768,11 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
 				//mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, paid_nValue, origpubkey));			    //vout.2 tokens... (swap is not implemented yet)
 			}
 			else {
-                
-				mtx.vout.push_back(CTxOut(paid_nValue - royaltyValue, CScript() << origpubkey << OP_CHECKSIG));		//vout.2 coins to originator's normal addr
+				mtx.vout.push_back(CTxOut(paid_nValue - royaltyValue, CScript() << origpubkey << OP_CHECKSIG));		//vout.2 coins to ask originator's normal addr
                 if (royaltyFract > 0)       // note it makes the vout even if roaltyValue is 0
-                    mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ownerpubkey << OP_CHECKSIG));	// vout.2.1 royalty to token owner
+                    mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ownerpubkey << OP_CHECKSIG));	// vout.3 royalty to token owner
 			}
-            mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));                    //vout.3 marker to origpubkey (for my tokenorders?)
+            mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));                    //vout.3(4 if royalty) marker to origpubkey (for my tokenorders?)
                 
 			// not implemented
 			if (CCchange != 0) {
