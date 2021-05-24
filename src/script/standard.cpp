@@ -86,12 +86,21 @@ COptCCParams::COptCCParams(std::vector<unsigned char> &vch)
                 evalCode = param[1];
                 m = param[2];
                 n = param[3];
-                if (!isMyVersion(version)|| m != 1 || (n != 1 && n != 2) || data.size() <= n)
+                if (!isMyVersion(version))
+                {
+                    version == 0;
+                }
+                else if (version == 1 && (m != 1 || (n != 1 && n != 2) || data.size() <= n))
                 {
                     // we only support one version, and 1 of 1 or 1 of 2 now, so set invalid
                     version = 0;  //invalidate
                 }
-                else
+                if (version == 2 && ((m < 1 || m > 128) || (n < 1 || n > 128) || data.size() <= n))
+                {
+                    // for version 2 multisig 
+                    version = 0;  //invalidate
+                }
+                else 
                 {
                     // load keys and data
                     vKeys.clear();
@@ -103,7 +112,7 @@ COptCCParams::COptCCParams(std::vector<unsigned char> &vch)
                             vKeys.push_back(CPubKey(data[i]));
                             if (!vKeys[vKeys.size() - 1].IsValid())
                             {
-                                version = 0;  //invalidate parsed data
+                                version = 0;  //invalidate because of bad pubkeys
                                 break;
                             }
                         }

@@ -314,6 +314,15 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
     }
 }
 
+CC *MakeCCcond2of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2)
+{
+    std::vector<CC*> pks;
+    pks.push_back(CCNewSecp256k1(pk1));
+    pks.push_back(CCNewSecp256k1(pk2));
+    CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode));
+    CC *Sig = CCNewThreshold(2, pks);
+    return CCNewThreshold(2, {condCC, Sig});
+}
 
 // token transfer extended version
 // params:
@@ -325,12 +334,31 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
 // total - token amount to transfer
 // returns: signed transfer tx in hex
 template <class V>
-UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
+UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, uint8_t M, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CAmount CCchange = 0, inputs = 0;  
     struct CCcontract_info *cp, C;
     
+  CPubKey mypk1 = CPubKey( Mypubkey() );
+    uint8_t myprivkey[32];
+
+    // get privkey for mypk
+    CKeyID keyID = mypk1.GetID();
+    CKey vchSecret;
+    if (pwalletMain->GetKey(keyID, vchSecret))
+        memcpy(myprivkey, vchSecret.begin(), sizeof(myprivkey));
+	CMutableTransaction mtx1 = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    CPubKey pk1(ParseHex("035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db"));
+    CPubKey pk2(ParseHex("034777b18effce6f7a849b72de8e6810bf7a7e050274b3782e1b5a13d0263a44dc"));
+
+    CC *cond = MakeCCcond2of2(EVAL_TOKENS, pk1, pk2 );
+    uint8_t msg[32] = { 1 };
+    std::cerr << __func__ << " cc_signTreeSecp256k1Msg32 test=" << cc_signTreeSecp256k1Msg32(cond, myprivkey, msg) << std::endl;
+    CScript testscr = CCSig(cond);
+    std::cerr << __func__ << " testscr=" << testscr.ToString() << std::endl; 
+
 	if (total < 0)	{
         CCerror = strprintf("negative total");
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << CCerror << "=" << total << std::endl);
@@ -364,32 +392,65 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
 			if (inputs > total)
 				CCchange = (inputs - total);
 
-            if (destpubkeys.size() == 1)
-			    mtx.vout.push_back(V::MakeTokensCC1vout(destEvalCode, total, destpubkeys[0]));  // if destEvalCode == EVAL_TOKENS then it is actually equal to MakeCC1vout(EVAL_TOKENS,...)
-            else if (destpubkeys.size() == 2)
-                mtx.vout.push_back(V::MakeTokensCC1of2vout(destEvalCode, total, destpubkeys[0], destpubkeys[1])); 
-            else
-            {
-                CCerror = "zero or unsupported destination pk count";
-                return  NullUniValue;
+            if (destpubkeys.size() == 0) {
+                CCerror = "no dest pubkeys";
+                return NullUniValue;
             }
 
+            if (V::EvalCode() == EVAL_TOKENS) {
+                if (destpubkeys.size() > 2) {
+                    CCerror = "no more than 2 dest pubkeys supported";
+                    return NullUniValue;
+                }
+            }
+            if (V::EvalCode() == EVAL_TOKENSV2) {
+                if (destpubkeys.size() > 128) {
+                    CCerror = "no more than 128 dest pubkeys supported";
+                    return NullUniValue;
+                }
+            }
+
+            mtx.vout.push_back(V::MakeTokensCCMofNvout(destEvalCode, 0, total, M, destpubkeys)); 
 			if (CCchange != 0)
 				mtx.vout.push_back(V::MakeTokensCC1vout(destEvalCode, CCchange, mypk));
 
-            // add probe pubkeys to detect token vouts in tx 
-			std::vector<CPubKey> voutTokenPubkeys;
-            for(const auto &pk : destpubkeys)
-			    voutTokenPubkeys.push_back(pk);  // dest pubkey(s) added to opret for validating the vout as token vout (in IsTokensvout() func)
-
-            // add optional probe conds to non-usual sign vins
+            // add optional custom probe conds to non-usual sign vins
             for (const auto &p : probeconds)
-            {
                 CCAddVintxCond(cp, p.first, p.second);
+            
+            if (V::EvalCode() == EVAL_TOKENSV2) {
+                // if this is multisig - build and add multisig probes:
+                // find any token vin, load vin tx and extract M and pubkeys
+                int32_t ccvin;
+                for(ccvin = 0; ccvin < mtx.vin.size(); ccvin ++) { 
+                    CTransaction vintx;
+                    uint256 hashBlock;
+                    std::vector<vscript_t> vParams;
+                    CScript dummy;	
+                    if (myGetTransaction(mtx.vin[ccvin].prevout.hash, vintx, hashBlock) &&
+                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) &&  // get opdrop
+                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.HasEvalcodeCCV2(V::EvalCode()) &&
+                        vParams.size() > 0)  
+                    {
+                        std::cerr << __func__ << " found vintx for vin=" << ccvin << std::endl;
+                        COptCCParams ccparams(vParams[0]);
+                        if (ccparams.version != 0 && ccparams.m > 1)    {
+                            CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(destEvalCode, 0, ccparams.m, ccparams.vKeys) );
+                            CCAddVintxCond(cp, ccprobeMofN, nullptr); //add MofN probe to find vins and sign
+                            break;
+                        }
+                    }
+                }
+                if (ccvin == mtx.vin.size()) {
+                    CCerror = "could not decode previous tx token output to build multisig probe";
+                    return NullUniValue;
+                }
             }
+
+
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
-			UniValue sigData = V::FinalizeCCTx(isRemote, 0LL, cp, mtx, mypk, txfee, V::EncodeTokenOpRet(tokenid, voutTokenPubkeys, {} )); 
+			UniValue sigData = V::FinalizeCCTx(isRemote, 0LL, cp, mtx, mypk, txfee, V::EncodeTokenOpRet(tokenid, destpubkeys, {} )); 
             if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
             //else reserved for use in memory mtx:
@@ -415,7 +476,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
 // transfer tokens from mypk to another pubkey
 // param additionalEvalCode2 allows transfer of dual-eval non-fungible tokens
 template<class V>
-std::string TokenTransfer(CAmount txfee, uint256 tokenid, CPubKey destpubkey, CAmount total)
+std::string TokenTransfer(CAmount txfee, uint256 tokenid, uint8_t M, const std::vector<CPubKey> &destpubkeys, CAmount total)
 {
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey mypk = pubkey2pk(Mypubkey());
@@ -430,7 +491,7 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, CPubKey destpubkey, CA
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, mypk, V::IsMixed());
 
-    UniValue sigData = TokenTransferExt<V>(CPubKey(), txfee, tokenid, tokenaddr, {}, {destpubkey}, total, true);
+    UniValue sigData = TokenTransferExt<V>(CPubKey(), txfee, tokenid, tokenaddr, {}, M, destpubkeys, total, true);
     return ResultGetTx(sigData);
 }
 

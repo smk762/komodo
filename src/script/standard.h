@@ -112,7 +112,7 @@ class COptCCParams
 
         COptCCParams() : version(0), evalCode(0), n(0), m(0) {}
 
-        COptCCParams(uint8_t ver, uint8_t code, uint8_t _n, uint8_t _m, std::vector<CPubKey> &vkeys, std::vector<std::vector<unsigned char>> &vdata) : 
+        COptCCParams(uint8_t ver, uint8_t code, uint8_t _n, uint8_t _m, const std::vector<CPubKey> &vkeys, const std::vector<std::vector<unsigned char>> &vdata) : 
             version(ver), evalCode(code), n(_n), m(_m), vKeys(vkeys), vData(vdata) {}
 
         COptCCParams(std::vector<unsigned char> &vch);

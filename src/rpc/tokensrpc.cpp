@@ -320,13 +320,16 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
 {
     UniValue result(UniValue::VOBJ); 
     std::string hex; 
-    CAmount amount; 
-    uint256 tokenid;
     
     CCerror.clear();
 
-    if (fHelp || params.size() != 3)
-        throw runtime_error(name + " tokenid destpubkey amount \n");
+    if (fHelp || params.size() < 3 || params.size() > 128 + 4)
+        throw runtime_error(name + " tokenid { destpubkey amount | ccaddress destpubkey1 ... destpubkeyN M amount}\n"
+                            "tokenid token creation id\n"
+                            "destpubkey, destpubkey1 ... destpubkeyN - destination pubkeys (max = 128)\n"
+                            "amount token amount to send\n"
+                            "M required min of signatures to spend\n\n");
+
     if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     
@@ -334,22 +337,54 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
         throw runtime_error("wallet is required");    
     LOCK2(cs_main, pwalletMain->cs_wallet);   // remote call not supported yet
     
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    vuint8_t vpubkey(ParseHex(params[1].get_str().c_str()));
-	amount = atoll(params[2].get_str().c_str()); 
+    uint256 tokenid = Parseuint256((char *)params[0].get_str().c_str());
     if( tokenid == zeroid )    
         return MakeResultError("invalid tokenid");
-    if (vpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) 
-        return MakeResultError("invalid destpubkey");    
+
+    uint8_t M = 1;
+    std::vector<CPubKey> pks;
+    int pkscount, pksstart;
+    std::string tokenaddr;
+    if (params.size() == 3)   {
+        pkscount = 1;
+        pksstart = 1;
+    }
+    else  {
+        pkscount = params.size()-4;
+        pksstart = 2;
+        tokenaddr = params[1].get_str();
+    }
+    
+    for(int i = pksstart; i < pksstart + pkscount; i ++)   {
+        vuint8_t vpubkey(ParseHex(params[i].get_str().c_str()));
+        if (vpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) 
+            return MakeResultError(std::string("invalid destpubkey #") + std::to_string(i-pksstart+1));    
+        pks.push_back(pubkey2pk(vpubkey));
+    }
+    
+    if (params.size() != 3)  {
+        // get M:
+        M = atoi(params[params.size()-2].get_str().c_str());
+        if (M == 0 || M > 128)
+            return MakeResultError("invalid M value");    
+    }
+
+    CAmount amount = atoll(params[params.size()-1].get_str().c_str()); 
     if( amount <= 0 )    
         return MakeResultError("amount must be positive");
     
-    hex = TokenTransfer<V>(0, tokenid, pubkey2pk(vpubkey), amount);
-    RETURN_IF_ERROR(CCerror);
-    if (hex.size() > 0)
+    if (params.size() == 3) {
+        hex = TokenTransfer<V>(0, tokenid, M, pks, amount);
+        RETURN_IF_ERROR(CCerror);
+    }
+    else {
+        UniValue transferred = TokenTransferExt<V>(CPubKey(), 0, tokenid, tokenaddr.c_str(), {}, M, pks, amount, false);
+        hex = ResultGetTx(transferred);
+    }
+    if (!hex.empty())
         return MakeResultSuccess(hex);
     else
-        return MakeResultError("could not transfer token");
+        return MakeResultError("could not create transfer token transaction");
 }
 
 UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -868,6 +903,39 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remote
     return result;
 }
 
+// not used yet
+UniValue addccv2signature(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ); 
+
+    CCerror.clear();
+    if (fHelp || params.size() != 2)
+        throw runtime_error("addccv2signature hextx ccaddress\n");
+    if (IsCryptoConditionsEnabled())
+        throw runtime_error("cc not enabled");
+        
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+
+    CMutableTransaction mtx; 
+    
+    vuint8_t vtx = ParseHex(params[0].get_str().c_str());
+    if (!E_UNMARSHAL(vtx, ss >> mtx) || mtx.vin.size() == 0)
+        throw runtime_error("no vins in tx");
+
+    std::string ccaddress = params[1].get_str();
+
+    std::string err;
+    if ((err = AddSignatureCCTxV2(mtx, ccaddress)).empty())  {
+        vuint8_t vtxsigned = E_MARSHAL(ss << mtx);
+        return MakeResultSuccess(HexStr(vtxsigned));
+    }
+    else 
+        return MakeResultError(err);
+}
+
 
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
@@ -910,6 +978,7 @@ static const CRPCCommand commands[] =
     { "tokens v2",       "tokenv2fillask",     &tokenv2fillask,      true },
     //{ "tokens",       "tokenfillswap",    &tokenfillswap,     true },
     { "tokens",       "tokenconvert", &tokenconvert, true },
+    { "ccutils",       "addccv2signature", &addccv2signature, true },
 };
 
 void RegisterTokensRPCCommands(CRPCTable &tableRPC)

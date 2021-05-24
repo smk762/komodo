@@ -607,17 +607,19 @@ CAmount TokensV2::CheckTokensvout(bool goDeeper, bool checkPubkeys, struct CCcon
                 return -1;
             }
             COptCCParams opdrop(vParams[0]);
+            if (opdrop.version == 0)  {
+                LOGSTREAMFN(cctokens_log, CCLOG_ERROR, stream << "could not parse opdrop for tx=" << tx.GetHash().GetHex() << " vout=" << v << std::endl);
+                errorStr = "could not parse opdrop";
+                return -1;
+            }
             if (opdrop.vKeys.size() == 0)  {
                 errorStr = "no pubkeys in opdrop";
                 return -1;
             }
             CTxOut testVout;
             std::vector<uint8_t> evalcodes = GetEvalCodesCCV2(tx.vout[v].scriptPubKey);
-            if (opdrop.vKeys.size() == 1)  
-                testVout = MakeTokensCC1voutMixed(evalcodes.size() >= 1 ? evalcodes[0] : 0, evalcodes.size() >= 2 ? evalcodes[1] : 0, tx.vout[v].nValue, opdrop.vKeys[0]);
-            else
-                testVout = MakeTokensCC1of2voutMixed(evalcodes.size() >= 1 ? evalcodes[0] : 0, evalcodes.size() >= 2 ? evalcodes[1] : 0, tx.vout[v].nValue, opdrop.vKeys[0],  opdrop.vKeys[1]);
-
+            testVout = MakeTokensCCMofNvoutMixed(evalcodes.size() >= 1 ? evalcodes[0] : 0, evalcodes.size() >= 2 ? evalcodes[1] : 0, tx.vout[v].nValue, opdrop.m, opdrop.vKeys);
+            
             if (!IsEqualScriptPubKeys(testVout.scriptPubKey, tx.vout[v].scriptPubKey)) {
                 errorStr = "pubkeys in opdrop don't match vout";
                 return -1;

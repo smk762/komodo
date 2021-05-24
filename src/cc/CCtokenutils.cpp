@@ -527,15 +527,15 @@ CTxOut MakeTokensCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vect
     return MakeTokensCC1vout(evalcode, 0, nValue, pk, pvvData);
 }
 
-// token 2 'mixed' vouts:
+// token v2 'mixed' vouts:
 
 // make three-eval (token+evalcode+evalcode2) 1of2 cryptocondition:
-CC *MakeTokensv2CCcond1of2(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk1, CPubKey pk2)
+CC *MakeTokensv2CCcondMofN(uint8_t evalcode1, uint8_t evalcode2, uint8_t M, std::vector<CPubKey> pks)
 {
     // make 1of2 sigs cond 
-    std::vector<CC*> pks;
-    pks.push_back(CCNewSecp256k1(pk1));
-    pks.push_back(CCNewSecp256k1(pk2));
+    std::vector<CC*> condpks;
+    for (auto const &pk : pks)
+        condpks.push_back(CCNewSecp256k1(pk));
 
     std::vector<CC*> thresholds;
     if (evalcode1 != 0)
@@ -544,99 +544,78 @@ CC *MakeTokensv2CCcond1of2(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk1, CP
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	// this is eval token cc
     if (evalcode2 != 0)
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode2)));                // add optional additional evalcode
-    thresholds.push_back(CCNewThreshold(1, pks));		                            // this is 1 of 2 sigs cc
+    thresholds.push_back(CCNewThreshold(M, condpks));		                            // this is 1 of 2 sigs cc
 
     return CCNewThreshold(thresholds.size(), thresholds);
 }
 // overload to make two-eval (token+evalcode) 1of2 cryptocondition:
 CC *MakeTokensv2CCcond1of2(uint8_t evalcode, CPubKey pk1, CPubKey pk2) {
-    return MakeTokensv2CCcond1of2(evalcode, 0, pk1, pk2);
+    return MakeTokensv2CCcondMofN(evalcode, 0, 1, { pk1, pk2 });
+}
+
+// make three-eval (token+evalcode+evalcode2) 1of2 cryptocondition:
+CC *MakeTokensv2CCcond1of2(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk1, CPubKey pk2)
+{
+    return MakeTokensv2CCcondMofN(evalcode1, evalcode2, 1, { pk1, pk2 });
 }
 
 // make three-eval (token+evalcode+evalcode2) cryptocondition:
 CC *MakeTokensv2CCcond1(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk)
 {
-    std::vector<CC*> pks;
-    pks.push_back(CCNewSecp256k1(pk));
-
-    std::vector<CC*> thresholds;
-    if (evalcode1 != 0)
-        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
-    if (evalcode1 != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1()!
-        thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	    // this is eval token cc
-    if (evalcode2 != 0)
-        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode2)));                // add optional additional evalcode
-    thresholds.push_back(CCNewThreshold(1, pks));			                        // signature
-
-    return CCNewThreshold(thresholds.size(), thresholds);
+    return MakeTokensv2CCcondMofN(evalcode1, evalcode2, 1, { pk });
 }
 // overload to make two-eval (token+evalcode) cryptocondition:
 CC *MakeTokensv2CCcond1(uint8_t evalcode, CPubKey pk) {
-    return MakeTokensv2CCcond1(evalcode, 0, pk);
+    return MakeTokensv2CCcondMofN(evalcode, 0, 1, { pk });
 }
 
-// make three-eval (token+evalcode+evalcode2) cc vout:
-CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CPubKey pk, vscript_t* pvData)
+// make three-eval (token+evalcode+evalcode2) MofN cc vout:
+CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, vscript_t* pvData)
 {
     CTxOut vout;
-    CCwrapper payoutCond( MakeTokensv2CCcond1(evalcode, evalcode2, pk) );
-    if (!CCtoAnon(payoutCond.get())) 
-        return vout;
-    vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
-    {
-        std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
-        vPubKeys.push_back(pk);   
-
-        std::vector<vscript_t> vvData;
-        if (pvData)
-            vvData.push_back(*pvData);
-
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode, 1, 1, vPubKeys, vvData);  // ver2 -> add pks
-        vout.scriptPubKey << ccp.AsVector() << OP_DROP;
-
-        // if (*pvdata)
-        //     vout.scriptPubKey << *pvData << OP_DROP; // first variant v2 serialisation, both serialisation should be supported
-    }
-    return vout;
-}
-// overload to make two-eval (token+evalcode) cc vout:
-CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, vscript_t* pvData) {
-    return MakeTokensCC1voutMixed(evalcode, 0, nValue, pk, pvData);
-}
-
-// make three-eval (token+evalcode+evalcode2) 1of2 cc vout:
-CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, vscript_t* pvData)
-{
-    CTxOut vout;
-    CCwrapper payoutCond( MakeTokensv2CCcond1of2(evalcode1, evalcode2, pk1, pk2) );
+    CCwrapper payoutCond( MakeTokensv2CCcondMofN(evalcode1, evalcode2, M, pks) );
     if (!CCtoAnon(payoutCond.get())) 
         return vout;
     vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
 
     {
-        std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
-        vPubKeys.push_back(pk1);   
-        vPubKeys.push_back(pk2);   
-
         std::vector<vscript_t> vvData;
         if (pvData)
             vvData.push_back(*pvData);
 
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode1, 1, 2, vPubKeys, vvData);  // ver2 -> add pks
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode1, M, pks.size(), pks, vvData);  // ver2 -> add pks
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
     //if (pvData)
     //    vout.scriptPubKey << *pvData << OP_DROP;
     return vout;
 }
+
+// make three-eval (token+evalcode+evalcode2) cc vout:
+CTxOut MakeTokensCC1voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk, vscript_t* pvData)
+{
+    return MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, 1, { pk }, pvData);
+}
+// overload to make two-eval (token+evalcode) cc vout:
+CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, vscript_t* pvData) {
+    return MakeTokensCCMofNvoutMixed(evalcode, 0, nValue, 1, { pk }, pvData);
+}
+
 // overload to make two-eval (token+evalcode) 1of2 cc vout:
 CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, vscript_t* pvData) {
-    return MakeTokensCC1of2voutMixed(evalcode, 0, nValue, pk1, pk2, pvData);
+    return MakeTokensCCMofNvoutMixed(evalcode, 0, nValue, 1, { pk1, pk2 }, pvData);
+}
+
+// overload to make two-eval (token+evalcode) 1of2 cc vout:
+CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, vscript_t* pvData) {
+    return MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, 1, { pk1, pk2}, pvData);
 }
 
 // decodes token opret version, current values: 
-// 0 before June2020, 
-// 1 after June2020 (also EVAL_TOKENSV2 mixed mode)
+// 0 before NN HF, 
+// 1 after NN HF (also EVAL_TOKENSV2 mixed mode)
+// if funcid == c or t it is version 0
+// if funcid == C or T it is version 1
 uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey)
 {
     uint8_t funcId, evalCode, version = 0xFF;
