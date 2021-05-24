@@ -601,10 +601,8 @@ std::string AddSignatureCCTxV2(CMutableTransaction & mtx, const std::string &cca
         if (i == 0 && mtx.vin[i].prevout.n == 10e8)
             continue; // skip pegs vin
 
-        if (mtx.vin[i].scriptSig.IsCCV2())     {
-            std::vector<unsigned char> ffillBin;
-            GetPushData(mtx.vin[i].scriptSig, ffillBin);
-            CC *cond = cc_readFulfillmentBinary(ffillBin.data(), ffillBin.size() - 1);
+        if (IsCCInput(mtx.vin[i].scriptSig))     {
+            CC *cond = GetCryptoCondition(mtx.vin[i].scriptSig);
             if (cond)   {
                 CTransaction vintx;
                 uint256 hashBlock;
