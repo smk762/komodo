@@ -911,7 +911,7 @@ UniValue addccv2signature(const UniValue& params, bool fHelp, const CPubKey& rem
     CCerror.clear();
     if (fHelp || params.size() != 2)
         throw runtime_error("addccv2signature hextx ccaddress\n");
-    if (IsCryptoConditionsEnabled())
+    if (!IsCryptoConditionsEnabled())
         throw runtime_error("cc not enabled");
         
     if (!EnsureWalletIsAvailable(false))
