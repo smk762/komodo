@@ -900,7 +900,15 @@ std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTr
 /// @returns signed transaction in hex encoding
 UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
 
+/// version FinalizeCCTx for CC v2 @see FinalizeCCTxExt
 UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret);
+
+/// Add signature to multisig scriptSig
+/// @param mtx mutable tx with multisig cc vins
+/// @param ccaddress cc address of outputs to add signature for
+/// @returns string with an error or empty string if success
+std::string AddSignatureCCTxV2(CMutableTransaction & mtx, const std::string &ccaddress);
+
 
 /// SetCCunspents returns a vector of unspent outputs on an address 
 /// @param[out] unspentOutputs vector of pairs of address key and amount
@@ -1207,6 +1215,84 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
 /// LOGSTREAMFN parameters are the same as in LOGSTREAM
 /// @see LOGSTREAM
 #define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [&](std::ostringstream &stream) {logoperator;} )
+
+class CCERROR {
+private:
+    void init()  {
+        message = (char*)malloc(1);
+        strcpy(message, "");
+    }
+public:
+    CCERROR() {
+        init();
+    }
+    CCERROR(const char *param) {
+        *this = param;
+    }
+    CCERROR(const std::string &param) {
+        *this = param;
+    }
+    ~CCERROR() {
+        if (message)
+            free(message);
+    }
+    void clear() {
+        if (message)
+            free(message);
+        init();
+    }
+    bool empty() {
+        return strlen(message) == 0;
+    }
+    const char *get_msg() {
+        return message;
+    }
+    void operator=(const char *param) {
+        if (message)
+            free(message);     
+        if (param)  {
+            size_t len = strlen(param);
+            message = (char *)malloc(len+1);
+            strcpy(message, param);
+            message[len];
+        }
+        else
+            init();
+    }
+    void operator=(const std::string &param) {
+        if (message)
+            free(message);
+        message = (char *)malloc(param.length()+1);
+        strcpy(message, param.c_str());
+        message[param.length()];
+    }
+    void operator+=(const std::string &param) {
+        size_t len = strlen(message);
+        char *newmessage = (char *)malloc(len + param.length()+1);
+        strcpy(newmessage, message);
+        strcat(newmessage, message);
+        newmessage[len + param.length()];
+        free(message);
+        message = newmessage;
+    }
+    bool operator!=(const std::string &param) {
+        return std::string(message) != param;
+    }
+
+    operator std::string() const {
+        return std::string(message);
+    }
+
+private:
+    char *message;
+};
+
+inline std::ostream& operator<<(std::ostream& out, const CCERROR& e) {
+    out << (std::string)e;
+    return out;
+}
+
+extern thread_local CCERROR CCerror;
 
 /// @private
 template <class T>

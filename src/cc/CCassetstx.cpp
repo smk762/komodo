@@ -670,13 +670,13 @@ std::string FillSell(int64_t txfee, uint256 assetid, uint256 assetid2, uint256 a
     if (fillunits < 0)
     {
         CCerror = strprintf("negative fillunits %lld\n",(long long)fillunits);
-        fprintf(stderr,"%s\n",CCerror.c_str());
+        fprintf(stderr,"%s\n",CCerror.get_msg());
         return("");
     }
     if (assetid2 != zeroid)
     {
         CCerror = "asset swaps disabled";
-        fprintf(stderr,"%s\n",CCerror.c_str());
+        fprintf(stderr,"%s\n",CCerror.get_msg());
         return("");
     }
 
@@ -772,7 +772,7 @@ std::string FillSell(int64_t txfee, uint256 assetid, uint256 assetid2, uint256 a
                         std::make_pair(OPRETID_ASSETSDATA, EncodeAssetOpRet(assetid2 != zeroid ? 'E' : 'S', assetid2, remaining_nValue, origpubkey)))));
             } else {
                 CCerror = strprintf("filltx not enough utxos");
-                fprintf(stderr,"%s\n", CCerror.c_str());
+                fprintf(stderr,"%s\n", CCerror.get_msg());
             }
         }
     //}

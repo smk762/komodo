@@ -22,6 +22,9 @@
 #include "komodo_structs.h"
 #include "key_io.h"
 
+
+thread_local CCERROR CCerror = "";
+
 #ifdef TESTMODE           
     #define MIN_NON_NOTARIZED_CONFIRMS 2
 #else
@@ -1486,8 +1489,7 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
     {
 
         if (vParams.size() > 0)  {
-            vscript_t  vspk (vParams[0]);
-            COptCCParams parsed(vspk);
+            COptCCParams parsed(vParams[0]);
 
             LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)parsed.evalCode << " vKeys.size()=" << (int)parsed.vKeys.size() << " vData.size()=" << (int)parsed.vData.size() << std::endl);
             if (parsed.vData.size() > 0)      {

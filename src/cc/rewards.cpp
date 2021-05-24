@@ -600,7 +600,7 @@ std::string RewardsAddfunding(uint64_t txfee,char *planstr,uint256 fundingtxid,i
     if ( RewardsPlanExists(cp,sbits,rewardspk,a,b,c,d) == 0 )
     {
         CCerror = strprintf("Rewards plan %s doesnt exist\n",planstr);
-        fprintf(stderr,"%s\n",CCerror.c_str());
+        fprintf(stderr,"%s\n",CCerror.get_msg());
         return("");
     }
     sbits = stringbits(planstr);
@@ -610,10 +610,10 @@ std::string RewardsAddfunding(uint64_t txfee,char *planstr,uint256 fundingtxid,i
         return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeRewardsOpRet('A',sbits,fundingtxid)));
     } else {
         CCerror = "cant find enough inputs";
-        fprintf(stderr,"%s\n", CCerror.c_str());
+        fprintf(stderr,"%s\n", CCerror.get_msg());
     }
     CCerror = "cant find fundingtxid";
-    fprintf(stderr,"%s\n", CCerror.c_str());
+    fprintf(stderr,"%s\n", CCerror.get_msg());
     return("");
 }
 
@@ -624,7 +624,7 @@ std::string RewardsLock(uint64_t txfee,char *planstr,uint256 fundingtxid,int64_t
     if ( deposit < txfee )
     {
         CCerror = "deposit amount less than txfee";
-        fprintf(stderr,"%s\n",CCerror.c_str());
+        fprintf(stderr,"%s\n",CCerror.get_msg());
         return("");
     }
     cp = CCinit(&C,EVAL_REWARDS);
@@ -636,13 +636,13 @@ std::string RewardsLock(uint64_t txfee,char *planstr,uint256 fundingtxid,int64_t
     if ( RewardsPlanExists(cp,sbits,rewardspk,APR,minseconds,maxseconds,mindeposit) == 0 )
     {
         CCerror = strprintf("Rewards plan %s doesnt exist\n",planstr);
-        fprintf(stderr,"%s\n",CCerror.c_str());
+        fprintf(stderr,"%s\n",CCerror.get_msg());
         return("");
     }
     if ( deposit < mindeposit )
     {
         CCerror = strprintf("Rewards plan %s deposit %.8f < mindeposit %.8f\n",planstr,(double)deposit/COIN,(double)mindeposit/COIN);
-        fprintf(stderr,"%s\n",CCerror.c_str());
+        fprintf(stderr,"%s\n",CCerror.get_msg());
         return("");
     }
     if ( (funding= RewardsPlanFunds(lockedfunds,sbits,cp,rewardspk,fundingtxid)) >= deposit ) // arbitrary cmpval
@@ -654,7 +654,7 @@ std::string RewardsLock(uint64_t txfee,char *planstr,uint256 fundingtxid,int64_t
             return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeRewardsOpRet('L',sbits,fundingtxid)));
         } else {
             CCerror = strprintf("cant find enough inputs %.8f not enough for %.8f, make sure you imported privkey for the -pubkey address\n",(double)funding/COIN,(double)deposit/COIN);
-            fprintf(stderr,"%s\n",CCerror.c_str());
+            fprintf(stderr,"%s\n",CCerror.get_msg());
         }
     }
     fprintf(stderr,"cant find rewards inputs funding %.8f locked %.8f vs deposit %.8f\n",(double)funding/COIN,(double)lockedfunds/COIN,(double)deposit/COIN);
@@ -734,19 +734,19 @@ std::string RewardsUnlock(uint64_t txfee,char *planstr,uint256 fundingtxid,uint2
             else
             {
                 CCerror = strprintf("reward %.8f is <= the transaction fee", reward);
-                fprintf(stderr,"%s\n", CCerror.c_str());
+                fprintf(stderr,"%s\n", CCerror.get_msg());
             }
         }
         else
         {
             CCerror = "invalid scriptPubKey";
-            fprintf(stderr,"%s\n", CCerror.c_str());
+            fprintf(stderr,"%s\n", CCerror.get_msg());
         }
     }
     else
     {
         CCerror = "amount must be more than txfee";
-        fprintf(stderr,"%s\n", CCerror.c_str());
+        fprintf(stderr,"%s\n", CCerror.get_msg());
     }
     fprintf(stderr,"amount %.8f -> reward %.8f\n",(double)amount/COIN,(double)reward/COIN);
     return("");
