@@ -4,6 +4,7 @@ from lib import rpclib, tuilib
 import os
 import time
 import json
+from slickrpc.exc import RpcException
 
 # test creates fungible and non-fungible tokens
 # performs transfers and multiple transfers
@@ -55,7 +56,7 @@ def run_tokens_create(rpc):
         assert(check_result(result))
         tokenid1 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", tokenid1)
-
+        
         print("creating fungible token 2...")
         result = call_rpc(rpc1, "token"+v+"create", "T2", str(0.1))
         assert(check_result(result))
@@ -98,7 +99,7 @@ def run_tokens_create(rpc):
         run_assets_orders(rpc1, rpc2, v, nft_00_id1, 1, 1, True)
 
     run_MofN_transfers(rpc1, rpc2, tokenid1, 10)
-    # run_MofN_transfers(rpc1, rpc2, nft_00_id1, 1)
+    run_MofN_transfers(rpc1, rpc2, nft_00_id1, 1)
 
 
     print("assets tests finished okay")
@@ -132,8 +133,6 @@ def call_token_rpc_send_tx(rpc, rpcname, stop_error, *args) :
     assert(check_result(txid))            
     print(rpcname + " tx sent")
     return txid
-
-
 
 def call_rpc_retry(rpc, rpcname, stop_error, *args) :
     retries = 24
@@ -268,6 +267,14 @@ def run_MofN_transfers(rpc1, rpc2, tokenid, amount):
     print("creating tokenv2transfer tokenid tx spending 2of2 back to pk1...", json.dumps(param))
     partialtx = call_token_rpc(rpc1, "tokenv2transfer", '', json.dumps(param))
     assert partialtx['hex'], 'partial tx not created'
+
+    try :
+        print("trying to sendrawtransaction partially signed tx... ")
+        result = rpc2.sendrawtransaction(partialtx['hex'])
+        print("sending partially signed tx returned:", result)
+        assert not result, 'sending partially signed 2of2 tx should return error'
+    except (RpcException) :
+        pass # should be error 
 
     tx2of2 = call_rpc_retry(rpc2, "addccv2signature", '', partialtx['hex'], ccaddr2of2)
     assert tx2of2['hex'], 'sig 2 not added to tx'
