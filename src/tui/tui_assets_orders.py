@@ -37,17 +37,20 @@ def check_result(r):
     # print("r has unknown, true")
     return True
     
+def check_txid(txid) :
+    if isinstance(txid, str) :
+        if len(txid) == 64 :
+            return True
+    return False
+
 def run_tokens_create(rpc):
 
     # set your own two node params
     # DIMXY20 
     rpc1 = rpclib.rpc_connect("user2135429985", "passe26e9bce922bb0005fff3c41c20e7ea033399104aab3f148c515a2fa72fa4a9272", 14723)
     rpc2 = rpclib.rpc_connect("user3701990598", "pass6df4dc57b2ee49b9e591ac6c8cb6aa89f0a06056ce67c6c45bbb14c0d63170e8a0", 15723)
+    rpc3 = rpclib.rpc_connect("user472219135", "passf6651258f69a92af554a7976ba44707db8eeb2372e6bb89e5557b8d7ee906eecbc", 16723)
 
-    #tokenid = "b08775cf3b3b371f97256b427af005d5573a2868106a8c4dd4e8c76e87d476d7" # fungible
-    #tokenid = "3b0003561fb98b332452e71208f13e4379fa6987577c3dcd2aef6199b54111ae" # NFT 0 royalty
-    #tokenid = "03b0018da699af63a40595cc93b5e3b097a88225e51e767efbe1425aa4698a65" # NFT 1/1000 royalty - spent
-    #tokenid = "9f051912b13b707b64b65bb179649901449f7ae78d74e78a813dffb2cf7705f8" # NFT eval=00
 
     # for v in ["", "v2"] :
     for v in ["v2"] :
@@ -66,40 +69,46 @@ def run_tokens_create(rpc):
         print("creating NFT 1 with 00...")
         result = call_rpc(rpc1, "token"+v+"create", "NFT-00-1", str(0.00000001), "nft eval 00", "00010203")
         assert(check_result(result))
-        nft_00_id1 = rpc1.sendrawtransaction(result['hex'])
-        print("created token:", nft_00_id1)
+        nft00id1 = rpc1.sendrawtransaction(result['hex'])
+        print("created token:", nft00id1)
 
         print("creating NFT 2 with 00...")
         result = call_rpc(rpc1, "token"+v+"create", "NFT-00-2", str(0.00000001), "nft eval 00", "00010203")
         assert(check_result(result))
-        nft_00_id2 = rpc1.sendrawtransaction(result['hex'])
-        print("created token:", nft_00_id2)
+        nft00id2 = rpc1.sendrawtransaction(result['hex'])
+        print("created token:", nft00id2)
 
         #  tokel nft data F7 evalcode
         print("creating NFT with F7, no royalty, with arbitary data...")
         result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
         assert(check_result(result))
-        nft_f7_id1 = rpc1.sendrawtransaction(result['hex'])
-        print("created token:", nft_f7_id1)
+        nftf7id1 = rpc1.sendrawtransaction(result['hex'])
+        print("created token:", nftf7id1)
 
         print("creating NFT with F7 and royalty 0xAA...")
         result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
         assert(check_result(result))
-        nft_f7_id2 = rpc1.sendrawtransaction(result['hex'])
-        print("created token:", nft_f7_id2)
+        nftf7id2 = rpc1.sendrawtransaction(result['hex'])
+        print("created token:", nftf7id2)
 
         # first try transfer tokens to a pk and back, then run assets tests
         print("starting token transfers tests...")
-        run_transfers(rpc1, rpc2, v, tokenid1, tokenid2, nft_00_id1, nft_00_id2)
+        run_transfers(rpc1, rpc2, v, tokenid1, tokenid2, 10)
+        run_transfers(rpc1, rpc2, v, nft00id1, nft00id2, 1)
+
+        run_transfers(rpc1, rpc2, v, nftf7id1, nftf7id2, 1)
         print("token transfers tests finished okay")
         time.sleep(3)
 
         print("starting assets tests...")
         run_assets_orders(rpc1, rpc2, v, tokenid1, 10, 8, False)
-        run_assets_orders(rpc1, rpc2, v, nft_00_id1, 1, 1, True)
+        run_assets_orders(rpc1, rpc2, v, nft00id1, 1, 1, True)
+        run_assets_orders(rpc1, rpc2, v, nftf7id1, 1, 1, True)
 
-    run_MofN_transfers(rpc1, rpc2, tokenid1, 10)
-    run_MofN_transfers(rpc1, rpc2, nft_00_id1, 1)
+
+    run_MofN_transfers(rpc1, rpc2, rpc3, tokenid1, 10)
+    run_MofN_transfers(rpc1, rpc2, rpc3, nft00id1, 1)
+    run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id2, 1)
 
 
     print("assets tests finished okay")
@@ -110,14 +119,14 @@ def call_rpc(rpc, rpcname, *args) :
     rpcfunc = getattr(rpc, rpcname)
     return rpcfunc(*args)
 
-def call_token_rpc_send_tx(rpc, rpcname, stop_error, *args) :
+def call_token_rpc_create_tx(rpc, rpcname, stop_error, *args) :
     retries = 24
     delay = 10
     rpcfunc = getattr(rpc, rpcname)
     for i in range(retries):
         print("calling " + rpcname)
         result = rpcfunc(*args)
-        print(rpcname + " create tx result:", result, " tokenid=", args[0])
+        print(rpcname + " create tx result:", result, " arg=", args[0])
         if  check_result(result):
             break
         if stop_error and get_result_error(result) == stop_error :  
@@ -128,7 +137,11 @@ def call_token_rpc_send_tx(rpc, rpcname, stop_error, *args) :
             time.sleep(delay)                
     assert(check_result(result))
     print(rpcname + " tx created")
-    txid = rpc.sendrawtransaction(result['hex'])
+    return result
+
+def call_token_rpc_send_tx(rpc, rpcname, stop_error, *args) :
+    tx = call_token_rpc_create_tx(rpc, rpcname, stop_error, *args)
+    txid = rpc.sendrawtransaction(tx['hex'])
     print("sendrawtransaction result: ", txid)
     assert(check_result(txid))            
     print(rpcname + " tx sent")
@@ -158,9 +171,7 @@ def call_token_rpc(rpc, rpcname, stop_error, *args) :
     print("calling " + rpcname + " for tokenid=", args[0])
     return call_rpc_retry(rpc, rpcname, stop_error, *args)
 
-def run_transfers(rpc1, rpc2, v, tokenid1, tokenid2, nftid1, nftid2):
-
-    amount  = 10
+def run_transfers(rpc1, rpc2, v, tokenid1, tokenid2, amount):
    
     pubkey1 = rpc1.getinfo()['pubkey']
     pubkey2 = rpc2.getinfo()['pubkey']
@@ -173,47 +184,37 @@ def run_transfers(rpc1, rpc2, v, tokenid1, tokenid2, nftid1, nftid2):
     else :
         # try two transfers
         print("creating token"+v+"transfer tokenid1 amount-1 tx...")
-        call_token_rpc_send_tx(rpc1, "token"+v+"transfer", '', tokenid1, pubkey2,  str(amount-1))
+        txid = call_token_rpc_send_tx(rpc1, "token"+v+"transfer", '', tokenid1, pubkey2,  str(amount-1))
+        assert(check_txid(txid))   
+
         print("creating token"+v+"transfer tokenid1 1 tx...")
-        call_token_rpc_send_tx(rpc1, "token"+v+"transfer", '', tokenid1, pubkey2,  str(1))
+        txid = call_token_rpc_send_tx(rpc1, "token"+v+"transfer", '', tokenid1, pubkey2,  str(1))
+        assert(check_txid(txid))   
 
     print("creating token"+v+"transfer tokenid1 tx back...")
-    call_token_rpc_send_tx(rpc2, "token"+v+"transfer", '', tokenid1, pubkey1,  str(amount))
-
-    print("creating token"+v+"transfer nftid1 tx...")
-    call_token_rpc_send_tx(rpc1, "token"+v+"transfer", '', nftid1, pubkey2,  str(1))
-
-    print("creating token"+v+"transfer nftid1 tx back...")
-    call_token_rpc_send_tx(rpc2, "token"+v+"transfer", '', nftid1, pubkey1,  str(1))
+    txid = call_token_rpc_send_tx(rpc2, "token"+v+"transfer", '', tokenid1, pubkey1,  str(amount))
+    assert(check_txid(txid))   
 
     print("creating token"+v+"transfermany tokenid1 tokenid2 tx...")
-    call_token_rpc_send_tx(rpc1, "token"+v+"transfermany", '', tokenid1, tokenid2, pubkey2,  str(amount))
+    txid = call_token_rpc_send_tx(rpc1, "token"+v+"transfermany", '', tokenid1, tokenid2, pubkey2,  str(amount))
+    assert(check_txid(txid))   
 
     print("creating token"+v+"transfermany tokenid1 tokenid2 tx back...")
-    call_token_rpc_send_tx(rpc2, "token"+v+"transfermany", '', tokenid1, tokenid2, pubkey1,  str(amount))
-
-    print("creating token"+v+"transfermany nftid1 nftid2 tx...")
-    call_token_rpc_send_tx(rpc1, "token"+v+"transfermany", '', nftid1, nftid2, pubkey2,  str(1))
-
-    print("creating token"+v+"transfermany nftid1 nftid2 tx back...")
-    call_token_rpc_send_tx(rpc2, "token"+v+"transfermany", '', nftid1, nftid2, pubkey1,  str(1))
+    txid = call_token_rpc_send_tx(rpc2, "token"+v+"transfermany", '', tokenid1, tokenid2, pubkey1,  str(amount))
+    assert(check_txid(txid))   
 
 
-def run_MofN_transfers(rpc1, rpc2, tokenid, amount):
+def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
    
     pubkey1 = rpc1.getinfo()['pubkey']
     pubkey2 = rpc2.getinfo()['pubkey']
+    pubkey3 = rpc3.getinfo()['pubkey']
+
 
     if  amount > 1 :
         amountback = int(amount / 2) # if not nft send half amount back twice
     else :
         amountback = amount
- 
-
-    ccaddrpk1 = "RJRjg45Tcx8tsvv6bzqjUFFsajXoJMH6bR"
-    ccaddrpk2 = "RJkivfMQjLxfHyVHs1EY43Lr71YvLbZPL9"
-    ccaddr1of2 = "RNdhZvBMvbKVCBRNt21QCJzjAvoBLshPez"
-    ccaddr2of2 = "RMD2V7dgzfoy5xyupmiZ28v6fdNd73Gd2p"
 
     # try 1of2
     param = {}
@@ -222,8 +223,13 @@ def run_MofN_transfers(rpc1, rpc2, tokenid, amount):
     param["M"] = 1
     param["amount"] = amount
     print("creating tokenv2transfer tokenid amount tx to 1of2 tx...", json.dumps(param))
-    call_token_rpc_send_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+    tx1of2 = call_token_rpc_create_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+    txid = rpc1.sendrawtransaction(tx1of2['hex'])
+    print("sendrawtransaction result: ", txid)
+    assert(check_txid(txid))   
+    ccaddr1of2 = rpc1.decoderawtransaction(tx1of2['hex'])['vout'][0]['scriptPubKey']['addresses'][0]
     
+    # spend 1of2 to pk1 or pk2
     param = {}
     param["tokenid"] = tokenid
     param["ccaddressMofN"] = ccaddr1of2
@@ -233,19 +239,24 @@ def run_MofN_transfers(rpc1, rpc2, tokenid, amount):
         # try firs1 to pk2
         param["destpubkeys"] = [ pubkey2 ]
         print("creating tokenv2transfer tokenid1 tx spending 1of2 back to pk2...", json.dumps(param))
-        call_token_rpc_send_tx(rpc2, "tokenv2transfer", '', json.dumps(param))
+        txid = call_token_rpc_send_tx(rpc2, "tokenv2transfer", '', json.dumps(param))
+        assert(check_txid(txid))   
+
     else :
         # if nft send 1 back to pk1 for the next test
         param["destpubkeys"] = [ pubkey1 ]
         print("creating tokenv2transfer tokenid tx spending 1of2 back to pk1...", json.dumps(param))
-        call_token_rpc_send_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+        txid = call_token_rpc_send_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+        assert(check_txid(txid))   
 
     if amount > 1 :  # if not nft send half amount back to pk1
         # wait to prevent adding same inputs while tx is not propagated to this node mempool
         time.sleep(3)   
         param["destpubkeys"] = [ pubkey1 ]
         print("creating tokenv2transfer tokenid tx spending 1of2 back to pk1...",json.dumps(param))
-        call_token_rpc_send_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+        txid = call_token_rpc_send_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+        assert(check_txid(txid))   
+
 
 
     # try 2of2
@@ -255,34 +266,140 @@ def run_MofN_transfers(rpc1, rpc2, tokenid, amount):
     param["M"] = 2
     param["amount"] = amount
     print("creating tokenv2transfer tokenid amount tx to 2of2 ...", json.dumps(param))
-    call_token_rpc_send_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+    tx2of2 = call_token_rpc_create_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+    txid = rpc1.sendrawtransaction(tx2of2['hex'])
+    print("sendrawtransaction result: ", txid)
+    assert(check_txid(txid))   
+    ccaddr2of2 = rpc1.decoderawtransaction(tx2of2['hex'])['vout'][0]['scriptPubKey']['addresses'][0]
 
+    # spend 2of2 to pk1
     param = {}
     param["tokenid"] = tokenid
     param["ccaddressMofN"] = ccaddr2of2
     param["destpubkeys"] = [ pubkey1 ]
     param["M"] = 1
     param["amount"] = amount
-    print("creating tokenv2transfer tokenid amount tx to 2of2 ...")
     print("creating tokenv2transfer tokenid tx spending 2of2 back to pk1...", json.dumps(param))
     partialtx = call_token_rpc(rpc1, "tokenv2transfer", '', json.dumps(param))
     assert partialtx['hex'], 'partial tx not created'
+    assert partialtx['PartiallySigned'], 'partially signed object'
 
     try :
-        print("trying to sendrawtransaction partially signed tx... ")
+        print("trying to sendrawtransaction partially 1 signed tx... ")
         result = rpc2.sendrawtransaction(partialtx['hex'])
-        print("sending partially signed tx returned:", result)
+        print("sending partially1 signed tx returned:", result)
         assert not result, 'sending partially signed 2of2 tx should return error'
+    except RpcException as e :
+        print ('got normal exception', e.message)
+        pass # should be error 
+
+    tx2of2back = call_rpc_retry(rpc2, "addccv2signature", '', partialtx['hex'], partialtx['PartiallySigned'])
+    assert tx2of2back['hex'], 'sig 2 not added to tx'
+    txid = rpc2.sendrawtransaction(tx2of2back['hex'])
+    print("sendrawtransaction result: ", txid)
+    assert(check_txid(txid))            
+    print("tx 2of2 back sent")
+
+
+    # try 2of3
+    param = {}
+    param["tokenid"] = tokenid
+    param["destpubkeys"] = [ pubkey1, pubkey2, pubkey3 ]
+    param["M"] = 2
+    param["amount"] = amount
+    print("creating tokenv2transfer tokenid amount tx to 2of3 tx...", json.dumps(param))
+    tx2of3 = call_token_rpc_create_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+    txid = rpc1.sendrawtransaction(tx2of3['hex'])
+    print("sendrawtransaction result: ", txid)
+    assert(check_txid(txid))   
+    ccaddr2of3 = rpc1.decoderawtransaction(tx2of3['hex'])['vout'][0]['scriptPubKey']['addresses'][0]
+    
+    # spend 2of3 to pk1
+    param = {}
+    param["tokenid"] = tokenid
+    param["ccaddressMofN"] = ccaddr2of3
+    param["M"] = 1
+    param["amount"] = amountback
+    param["destpubkeys"] = [ pubkey1 ]
+    print("creating tokenv2transfer tokenid tx spending 2of3 back to pk1...", json.dumps(param))
+    partialtx = call_token_rpc(rpc1, "tokenv2transfer", '', json.dumps(param))
+    assert partialtx['hex'], 'partial tx not created'
+    assert partialtx['PartiallySigned'], 'partially signed object'
+
+    try :
+        print("trying to sendrawtransaction partially 1 signed tx... ")
+        result = rpc2.sendrawtransaction(partialtx['hex'])
+        print("sending partially1 signed tx returned:", result)
+        assert not result, 'sending partially signed 2of3 tx should return error'
+    except RpcException as e :
+        print ('got normal exception', e.message)
+        pass # should be error 
+
+
+    # add sig 2
+    tx2of3back = call_rpc_retry(rpc2, "addccv2signature", '', partialtx['hex'], partialtx['PartiallySigned'])
+    assert tx2of3back['hex'], 'sig 2 not added to tx'
+    txid = rpc2.sendrawtransaction(tx2of3back['hex'])
+    print("sendrawtransaction result: ", txid)
+    assert(check_txid(txid))            
+    print("tx 2of3 back sent")
+
+    # try 3of3
+    param = {}
+    param["tokenid"] = tokenid
+    param["destpubkeys"] = [ pubkey1, pubkey2, pubkey3 ]
+    param["M"] = 3
+    param["amount"] = amount
+    print("creating tokenv2transfer tokenid amount tx to 3of3 ...", json.dumps(param))
+    tx3of3 = call_token_rpc_create_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
+    txid = rpc1.sendrawtransaction(tx3of3['hex'])
+    print("sendrawtransaction result: ", txid)
+    assert(check_txid(txid))   
+    ccaddr3of3 = rpc1.decoderawtransaction(tx3of3['hex'])['vout'][0]['scriptPubKey']['addresses'][0]
+
+    # spend 3of3 to pk1
+    param = {}
+    param["tokenid"] = tokenid
+    param["ccaddressMofN"] = ccaddr3of3
+    param["destpubkeys"] = [ pubkey1 ]
+    param["M"] = 1
+    param["amount"] = amount
+    print("creating tokenv2transfer tokenid tx spending 3of3 back to pk1...", json.dumps(param))
+    partialtx1 = call_token_rpc(rpc1, "tokenv2transfer", '', json.dumps(param))
+    assert partialtx1['hex'], 'partial tx not created'
+    assert partialtx1['PartiallySigned'], 'partially signed object'
+
+    try :
+        print("trying to sendrawtransaction partially 1 signed tx... ")
+        result = rpc2.sendrawtransaction(partialtx1['hex'])
+        print("sending partially1 signed tx returned:", result)
+        assert not result, 'sending partially signed 3of3 tx should return error'
+    except RpcException as e :
+        print ('got normal exception', e.message)
+        pass # should be error 
+
+    # add sig 2
+    partialtx2 = call_rpc_retry(rpc2, "addccv2signature", '', partialtx1['hex'], partialtx1['PartiallySigned'])
+    assert partialtx2['hex'], 'sig 2 not added to tx'
+    assert partialtx2['PartiallySigned'], 'partially signed object'
+
+    try :
+        print("trying to sendrawtransaction partially 2 signed tx... ")
+        result = rpc2.sendrawtransaction(partialtx2['hex'])
+        print("sending partially2 signed tx returned:", result)
+        assert not result, 'sending partially signed 3of3 tx should return error'
     except (RpcException) :
         pass # should be error 
 
-    tx2of2 = call_rpc_retry(rpc2, "addccv2signature", '', partialtx['hex'], ccaddr2of2)
-    assert tx2of2['hex'], 'sig 2 not added to tx'
-    txid = rpc2.sendrawtransaction(tx2of2['hex'])
-    print("sendrawtransaction result: ", txid)
-    assert(check_result(txid))            
-    print("tx 2of2 sent")
 
+    # add sig 3
+    tx3of3back = call_rpc_retry(rpc3, "addccv2signature", '', partialtx2['hex'], partialtx2['PartiallySigned'])
+    assert tx3of3back['hex'], 'sig 3 not added to tx'
+
+    txid = rpc2.sendrawtransaction(tx3of3back['hex'])
+    print("sendrawtransaction result: ", txid)
+    assert(check_txid(txid))            
+    print("tx 3of3 back sent")
 
 
 def run_assets_orders(rpc1, rpc2, v, tokenid, total, units, isnft):
