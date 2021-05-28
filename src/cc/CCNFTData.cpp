@@ -149,7 +149,7 @@ static bool ValidateNftData(const vuint8_t &vdata, std::string &sError)
     return false;    
 }
 
-bool ValidateNFTOpretV1(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, const CScript &opret)
+bool ValidatePrevTxNFTOpretV1(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, const CScript &opret)
 {
     uint256 tokenid;
     std::vector<CPubKey> vpks;
@@ -225,7 +225,8 @@ bool NFTDataValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
             return true; // do not check further tokens txns
     }
 
-    // find NFT vout:
+    // for token v1 we do not have create tx in validation
+    // let's find NFT vout and check if previous tx 
     for (int i = 0; i < tx.vout.size(); i ++)   {
         //uint256 tokenid;
         //std::string errstr;
@@ -238,23 +239,19 @@ bool NFTDataValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
                 vopdrop.size() > 2 &&
                 vopdrop[0] == EVAL_TOKENS)
             {
-                if( !ValidateNFTOpretV1(cp, eval, tx, ccdata) )
+                if( !ValidatePrevTxNFTOpretV1(cp, eval, tx, ccdata) )
                     return false;  // eval is set
-                else
-                    goodTokenData ++;
             }
         }
     }
 
-    // if last vout opreturn exists
+    // if last vout v1 opreturn exists
     if (vopret.size() > 2 &&
         vopret[0] == EVAL_TOKENS)
     {
-        if (!ValidateNFTOpretV1(cp, eval, tx, tx.vout.back().scriptPubKey))
+        if (!ValidatePrevTxNFTOpretV1(cp, eval, tx, tx.vout.back().scriptPubKey))
             return false;
-        else
-            goodTokenData ++;
     }
-    return goodTokenData > 0 ? true : eval->Error("no nft data found");
+    return true; // no prev tx is token create tx
 }
 
