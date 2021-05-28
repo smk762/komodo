@@ -18,7 +18,7 @@ def get_result_error(r):
             return r.get('error')
     return ''
 
-def check_result(r):
+def check_tx(r):
     if isinstance(r, str) :
         # print("r is str, true")
         return True
@@ -52,63 +52,68 @@ def run_tokens_create(rpc):
     rpc3 = rpclib.rpc_connect("user472219135", "passf6651258f69a92af554a7976ba44707db8eeb2372e6bb89e5557b8d7ee906eecbc", 16723)
 
 
-    # for v in ["", "v2"] :
-    for v in ["v2"] :
+    for v in ["", "v2"] :
+    # for v in ["v2"] :
         print("creating fungible token 1...")
         result = call_rpc(rpc1, "token"+v+"create", "T1", str(0.000001))  # 100
-        assert(check_result(result))
+        assert(check_tx(result))
         tokenid1 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", tokenid1)
         
         print("creating fungible token 2...")
         result = call_rpc(rpc1, "token"+v+"create", "T2", str(0.1))
-        assert(check_result(result))
+        assert(check_tx(result))
         tokenid2 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", tokenid2)
 
         print("creating NFT 1 with 00...")
         result = call_rpc(rpc1, "token"+v+"create", "NFT-00-1", str(0.00000001), "nft eval 00", "00010203")
-        assert(check_result(result))
+        assert(check_tx(result))
         nft00id1 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nft00id1)
 
         print("creating NFT 2 with 00...")
         result = call_rpc(rpc1, "token"+v+"create", "NFT-00-2", str(0.00000001), "nft eval 00", "00010203")
-        assert(check_result(result))
+        assert(check_tx(result))
         nft00id2 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nft00id2)
 
         #  tokel nft data F7 evalcode
         print("creating NFT with F7, no royalty, with arbitary data...")
         result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
-        assert(check_result(result))
+        assert(check_tx(result))
         nftf7id1 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nftf7id1)
 
         print("creating NFT with F7 and royalty 0xAA...")
         result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
-        assert(check_result(result))
+        assert(check_tx(result))
         nftf7id2 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nftf7id2)
 
         # first try transfer tokens to a pk and back, then run assets tests
-        print("starting token transfers tests...")
+        print("starting transfer tests for tokenid version=" + v + "...")
         run_transfers(rpc1, rpc2, v, tokenid1, tokenid2, 10)
+        print("starting transfer tests for nft00id version=" + v + "...")
         run_transfers(rpc1, rpc2, v, nft00id1, nft00id2, 1)
-
+        print("starting transfer tests for nftf7id version=" + v + "...")
         run_transfers(rpc1, rpc2, v, nftf7id1, nftf7id2, 1)
         print("token transfers tests finished okay")
         time.sleep(3)
 
-        print("starting assets tests...")
+        print("starting assets tests for tokenid1 version=" + v + "...")
         run_assets_orders(rpc1, rpc2, v, tokenid1, 10, 8, False)
+        print("starting assets tests for nft00id1 version=" + v + "...")
         run_assets_orders(rpc1, rpc2, v, nft00id1, 1, 1, True)
+        print("starting assets tests for nftf7id1 version=" + v + "...")
         run_assets_orders(rpc1, rpc2, v, nftf7id1, 1, 1, True)
 
-
+    print("starting MofN tests for tokenid1...")
     run_MofN_transfers(rpc1, rpc2, rpc3, tokenid1, 10)
+    print("starting MofN tests for nft00id1...")
     run_MofN_transfers(rpc1, rpc2, rpc3, nft00id1, 1)
-    run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id2, 1)
+    print("starting MofN tests for nftf7id1...")
+    run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id1, 1)
 
 
     print("assets tests finished okay")
@@ -127,7 +132,7 @@ def call_token_rpc_create_tx(rpc, rpcname, stop_error, *args) :
         print("calling " + rpcname)
         result = rpcfunc(*args)
         print(rpcname + " create tx result:", result, " arg=", args[0])
-        if  check_result(result):
+        if  check_tx(result):
             break
         if stop_error and get_result_error(result) == stop_error :  
             print(rpcname + " retrying stopped because of expected stop error received: " + stop_error)
@@ -135,17 +140,30 @@ def call_token_rpc_create_tx(rpc, rpcname, stop_error, *args) :
         if i < retries-1:
             print("retrying " + rpcname + '...')
             time.sleep(delay)                
-    assert(check_result(result))
+    assert(check_tx(result))
     print(rpcname + " tx created")
     return result
 
 def call_token_rpc_send_tx(rpc, rpcname, stop_error, *args) :
-    tx = call_token_rpc_create_tx(rpc, rpcname, stop_error, *args)
-    txid = rpc.sendrawtransaction(tx['hex'])
-    print("sendrawtransaction result: ", txid)
-    assert(check_result(txid))            
-    print(rpcname + " tx sent")
-    return txid
+
+    for i in range(3) :
+        result = call_token_rpc_create_tx(rpc, rpcname, stop_error, *args)
+        if check_tx(result) :
+            try :
+                txid = rpc.sendrawtransaction(result['hex'])
+                print("sendrawtransaction result: ", txid)
+                assert(check_tx(txid))            
+                print(rpcname + " tx sent")
+                return txid
+            except RpcException as e :
+                if e.message.find('replacement in mempool') or e.message.find('missing inputs') :
+                    print('double spending in mempool - retrying...')
+                    pass
+                else :
+                    assert False, e
+        else :
+            return result
+    assert False, 'sendrawtransaction no more retries'
 
 def call_rpc_retry(rpc, rpcname, stop_error, *args) :
     retries = 24
@@ -155,7 +173,7 @@ def call_rpc_retry(rpc, rpcname, stop_error, *args) :
         print("calling " + rpcname)
         result = rpcfunc(*args)
         print(rpcname + " result:", result)
-        if  check_result(result):
+        if  check_tx(result):
             break
         if stop_error and get_result_error(result) == stop_error :  
             print(rpcname + " retrying stopped because of expected stop error received: " + stop_error)
@@ -163,7 +181,7 @@ def call_rpc_retry(rpc, rpcname, stop_error, *args) :
         if i < retries-1:
             print("retrying " + rpcname + '...')
             time.sleep(delay)                
-    assert(check_result(result))
+    assert(check_tx(result))
     print(rpcname + " tx created")
     return result
 
@@ -216,6 +234,8 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
     else :
         amountback = amount
 
+    time.sleep(1) # pause to allow tx in mempool to propagate to prevent double spending in mempool               
+
     # try 1of2
     param = {}
     param["tokenid"] = tokenid
@@ -229,6 +249,8 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
     assert(check_txid(txid))   
     ccaddr1of2 = rpc1.decoderawtransaction(tx1of2['hex'])['vout'][0]['scriptPubKey']['addresses'][0]
     
+    time.sleep(1) # pause to allow tx in mempool to propagate to prevent double spending in mempool               
+
     # spend 1of2 to pk1 or pk2
     param = {}
     param["tokenid"] = tokenid
@@ -257,7 +279,7 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
         txid = call_token_rpc_send_tx(rpc1, "tokenv2transfer", '', json.dumps(param))
         assert(check_txid(txid))   
 
-
+    time.sleep(1) # pause to allow tx in mempool to propagate to prevent double spending in mempool               
 
     # try 2of2
     param = {}
@@ -271,6 +293,8 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
     print("sendrawtransaction result: ", txid)
     assert(check_txid(txid))   
     ccaddr2of2 = rpc1.decoderawtransaction(tx2of2['hex'])['vout'][0]['scriptPubKey']['addresses'][0]
+
+    time.sleep(1) # pause to allow tx in mempool to propagate to prevent double spending in mempool               
 
     # spend 2of2 to pk1
     param = {}
@@ -300,6 +324,7 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
     assert(check_txid(txid))            
     print("tx 2of2 back sent")
 
+    time.sleep(1) # pause to allow tx in mempool to propagate to prevent double spending in mempool               
 
     # try 2of3
     param = {}
@@ -314,6 +339,8 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
     assert(check_txid(txid))   
     ccaddr2of3 = rpc1.decoderawtransaction(tx2of3['hex'])['vout'][0]['scriptPubKey']['addresses'][0]
     
+    time.sleep(1) # pause to allow tx in mempool to propagate to prevent double spending in mempool               
+
     # spend 2of3 to pk1
     param = {}
     param["tokenid"] = tokenid
@@ -344,6 +371,8 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
     assert(check_txid(txid))            
     print("tx 2of3 back sent")
 
+    time.sleep(1) # pause to allow tx in mempool to propagate to prevent double spending in mempool               
+
     # try 3of3
     param = {}
     param["tokenid"] = tokenid
@@ -356,6 +385,8 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
     print("sendrawtransaction result: ", txid)
     assert(check_txid(txid))   
     ccaddr3of3 = rpc1.decoderawtransaction(tx3of3['hex'])['vout'][0]['scriptPubKey']['addresses'][0]
+
+    time.sleep(1) # pause to allow tx in mempool to propagate to prevent double spending in mempool               
 
     # spend 3of3 to pk1
     param = {}
@@ -391,12 +422,11 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
     except (RpcException) :
         pass # should be error 
 
-
     # add sig 3
     tx3of3back = call_rpc_retry(rpc3, "addccv2signature", '', partialtx2['hex'], partialtx2['PartiallySigned'])
     assert tx3of3back['hex'], 'sig 3 not added to tx'
 
-    txid = rpc2.sendrawtransaction(tx3of3back['hex'])
+    txid = rpc3.sendrawtransaction(tx3of3back['hex'])
     print("sendrawtransaction result: ", txid)
     assert(check_txid(txid))            
     print("tx 3of3 back sent")
@@ -424,7 +454,7 @@ def run_assets_orders(rpc1, rpc2, v, tokenid, total, units, isnft):
 
     # get initial balance
     result = call_rpc(rpc1, "token"+v+"balance", tokenid)
-    assert(check_result(result))
+    assert(check_tx(result))
     initial_balance = int(result["balance"])
     print("initial balance for tokenid " + tokenid + " = " + str(initial_balance))
 
@@ -496,7 +526,7 @@ def run_assets_orders(rpc1, rpc2, v, tokenid, total, units, isnft):
     for i in range(retries):
         print("calling " + "token"+v+"balance")
         finresult = call_rpc(rpc1, "token"+v+"balance", tokenid)
-        assert(check_result(result))
+        assert(check_tx(result))
         if int(finresult["balance"]) == initial_balance :
             break
         if i < retries-1:
