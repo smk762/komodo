@@ -357,6 +357,10 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
             return MakeResultError("amount must be positive");
         hex = TokenTransfer<V>(0, tokenid, 1, pks, amount);
         RETURN_IF_ERROR(CCerror);
+        if (!hex.empty())
+            return MakeResultSuccess(hex);
+        else
+            return MakeResultError("could not create transfer token transaction");
     }
     else
     {
@@ -409,17 +413,20 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
         if (ccaddressMofN.empty()) {
             hex = TokenTransfer<V>(0, tokenid, M, pks, amount);
             RETURN_IF_ERROR(CCerror);
+            if (!hex.empty())
+                return MakeResultSuccess(hex);
+            else
+                return MakeResultError("could not create transfer token transaction");
         }
         else {
             UniValue transferred = TokenTransferExt<V>(CPubKey(), 0, tokenid, ccaddressMofN.c_str(), {}, (uint8_t)M, pks, amount, false);
             RETURN_IF_ERROR(CCerror);
-            hex = ResultGetTx(transferred);
+            if (!ResultGetTx(transferred).empty())
+                return transferred;
+            else
+                return MakeResultError("could not create transfer token transaction");
         }     
     }
-    if (!hex.empty())
-        return MakeResultSuccess(hex);
-    else
-        return MakeResultError("could not create transfer token transaction");
 }
 
 UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -938,37 +945,30 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remote
     return result;
 }
 
-// not used yet
 UniValue addccv2signature(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    UniValue result(UniValue::VOBJ); 
+    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ); 
 
     CCerror.clear();
     if (fHelp || params.size() != 2)
-        throw runtime_error("addccv2signature hextx ccaddress\n");
+        throw runtime_error("addccv2signature hextx '[ { \"ccaddress\": \"address\", \"condition\":\"cond-in-json\" },.. ]' \n");
     if (!IsCryptoConditionsEnabled())
         throw runtime_error("cc not enabled");
         
     if (!EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     LOCK2(cs_main, pwalletMain->cs_wallet);
-
-
-    CMutableTransaction mtx; 
     
     vuint8_t vtx = ParseHex(params[0].get_str().c_str());
-    if (!E_UNMARSHAL(vtx, ss >> mtx) || mtx.vin.size() == 0)
-        throw runtime_error("no vins in tx");
+    if (params[1].getType() == UniValue::VARR)
+        jsonParams = params[1].get_array();
+    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[1].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VARR)
+        throw runtime_error("parameter 2 must be array\n");
 
-    std::string ccaddress = params[1].get_str();
-
-    std::string err;
-    if ((err = AddSignatureCCTxV2(mtx, ccaddress)).empty())  {
-        vuint8_t vtxsigned = E_MARSHAL(ss << mtx);
-        return MakeResultSuccess(HexStr(vtxsigned));
-    }
-    else 
-        return MakeResultError(err);
+    result = AddSignatureCCTxV2(vtx, jsonParams);
+    return result;
 }
 
 

@@ -406,7 +406,6 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                                 mtx.vout.push_back(V::MakeTokensCCMofNvout(destEvalCode, 0, CCchange, ccparams.m, ccparams.vKeys));
                                 CCchange = 0;
                             }
-
                             CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(destEvalCode, 0, ccparams.m, ccparams.vKeys) );
                             CCAddVintxCond(cp, ccprobeMofN, nullptr); //add MofN probe to find vins and sign
                             break;
@@ -418,13 +417,15 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
 			if (CCchange != 0)
 				mtx.vout.push_back(V::MakeTokensCC1vout(destEvalCode, CCchange, mypk));
 
+            // no need this: this prbe added in FinalizeCCV2Tx
+            //CCwrapper ccprobeNFT( MakeTokensv2CCcond1(destEvalCode, mypk) );
+            //CCAddVintxCond(cp, ccprobeNFT, nullptr); //add NFT probe to find vins and sign
+
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
 			UniValue sigData = V::FinalizeCCTx(isRemote, 0LL, cp, mtx, mypk, txfee, V::EncodeTokenOpRet(tokenid, destpubkeys, {} )); 
             if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
-            //else reserved for use in memory mtx:
-            //    LockUtxoInMemory::AddInMemoryTransaction(mtx);  // to be able to spend mtx change
             return sigData;
                                                                                                                                                    
 		}

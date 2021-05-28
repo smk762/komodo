@@ -900,14 +900,15 @@ std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTr
 /// @returns signed transaction in hex encoding
 UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
 
-/// version FinalizeCCTx for CC v2 @see FinalizeCCTxExt
+/// version FinalizeCCTx for CC v2, for params @see FinalizeCCTxExt
+/// @returns signed transaction in hex and optional PartiallySigned univalue object with vin indexes and partially signed conditions (if signature threshold not reached)
 UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret);
 
 /// Add signature to multisig scriptSig
 /// @param mtx mutable tx with multisig cc vins
-/// @param ccaddress cc address of outputs to add signature for
-/// @returns string with an error or empty string if success
-std::string AddSignatureCCTxV2(CMutableTransaction & mtx, const std::string &ccaddress);
+/// @param PartiallySigned univalue object with vin indexes and partially signed conditions
+/// @returns univalue with hex tx and optional updated 'PartiallySigned' object (if signature threshold not reached) or error
+UniValue AddSignatureCCTxV2(vuint8_t & vtx, const UniValue &jsonParams);
 
 
 /// SetCCunspents returns a vector of unspent outputs on an address 
