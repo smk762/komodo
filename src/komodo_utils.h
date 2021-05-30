@@ -2490,7 +2490,8 @@ void komodo_prefetch(FILE *fp)
     fseek(fp,fpos,SEEK_SET);
 }
 
-bool komodo_Is2021JuneHFActive()
+// not used for tokel chains
+/* bool komodo_Is2021JuneHFActive()
 {
     return GetLatestTimestamp(komodo_currentheight()) > JUNE2021_NNELECTION_HARDFORK;
-}
+} */

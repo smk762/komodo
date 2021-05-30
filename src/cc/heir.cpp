@@ -29,28 +29,7 @@ class TokenHelper;
 // return false if v0 is still active  
 bool HeirIsVer1Active(const Eval *eval)
 {
-    static const char *chains_only_version1[] = {
-    //    "RFOXLIKE",
-    //    "DIMXY11",
-    //    "DIMXY14", "DIMXY14_2"
-        "HEIR1"
-    };
-
-    bool isTimev1 = true;
-    if (eval == NULL)   {
-        // std::cerr << __func__ << " komodo_currentheight()=" << komodo_currentheight() << " GetLatestTimestamp(komodo_currentheight())=" << GetLatestTimestamp(komodo_currentheight()) << std::endl;
-        if (GetLatestTimestamp(komodo_currentheight()) < JUNE2021_NNELECTION_HARDFORK)
-            isTimev1 = false;
-    }
-    else   {
-        // std::cerr << __func__ << " eval->GetCurrentHeight()=" << eval->GetCurrentHeight() << " GetLatestTimestamp(eval->GetCurrentHeight())=" << GetLatestTimestamp(eval->GetCurrentHeight()) << std::endl;
-        if (GetLatestTimestamp(eval->GetCurrentHeight()) < JUNE2021_NNELECTION_HARDFORK)
-            isTimev1 = false;
-    }
-    for (auto const name : chains_only_version1)
-        if (strcmp(name, ASSETCHAINS_SYMBOL) == 0)
-            return true;
-    return isTimev1;
+    return true; // aleays true for tokel chains
 }
 
 /*

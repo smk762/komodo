@@ -356,9 +356,3 @@ int main(int argc, char* argv[])
     else
         return -1;
 }
-
-// stub function to make compile this binary
-bool komodo_Is2021JuneHFActive()
-{
-    return false;
-}

@@ -34,43 +34,7 @@
 // return false if v0 is still active  
 bool TokensIsVer1Active(const Eval *eval)
 {
-    static const char *chains_only_version1[] = {
-    //    "RFOXLIKE",
-    //    "DIMXY11",
-    //    "DIMXY14", "DIMXY14_2"
-    //    "DIMXY20"
-        "TONYCI",  // for qa tests
-        "TKLTEST", // tokel test chain
-        "DIMXY20",
-        "DIMXY23",
-        "DIMXY25",
-    };
-    static bool isReported = false;
-
-    bool isTimev1 = true;
-    if (eval == NULL)   {
-        if (GetLatestTimestamp(komodo_currentheight()) < JUNE2021_NNELECTION_HARDFORK)
-            isTimev1 = false;
-    }
-    else   {
-        if (GetLatestTimestamp(eval->GetCurrentHeight()) < JUNE2021_NNELECTION_HARDFORK)
-            isTimev1 = false;
-    }
-    for (auto const name : chains_only_version1)
-        if (strcmp(name, ASSETCHAINS_SYMBOL) == 0)  {
-            if (!isReported)    {
-                LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream <<  " for chain " << ASSETCHAINS_SYMBOL << " tokens version >=1 always activated" << std::endl);
-                isReported = true;
-            }
-            
-            return true;
-        }
-
-    if (!isReported)    {
-        LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "for chain " << ASSETCHAINS_SYMBOL << " tokens version >=1 is already time activated: " << (isTimev1 ? "true" : "false") << std::endl);
-        isReported = true;
-    }
-    return isTimev1;
+    return true; // aleays true for tokel chains
 }
 
 // compatibility code
@@ -139,10 +103,12 @@ static std::vector<std::pair<uint8_t, vscript_t>> NonCreationOpretsToOpretsWithI
 
 CScript EncodeTokenCreateOpRetV1(const std::vector<uint8_t> &origpubkey, const std::string &name, const std::string &description, const std::vector<vscript_t> &oprets)
 {        
+    /* no tokens v0 for tokel
     // call compatibility code:
     if (!TokensIsVer1Active(NULL))   {
         return tokensv0::EncodeTokenCreateOpRet('c', origpubkey, name, description, CreationOpretsToOpretsWithId(oprets));  // route to the previous version
     }
+    */
 
     CScript opret;
     uint8_t evalcode = EVAL_TOKENS;
@@ -170,21 +136,15 @@ CScript EncodeTokenCreateOpRetV2(const std::vector<uint8_t> &origpubkey, const s
     return(opret);
 }
 
-/*
-CScript EncodeTokenOpRet(uint256 tokenid, std::vector<CPubKey> voutPubkeys, std::pair<uint8_t, vscript_t> opretWithId)
-{
-    std::vector<std::pair<uint8_t, vscript_t>>  oprets;
-    oprets.push_back(opretWithId);
-    return EncodeTokenOpRet(tokenid, voutPubkeys, oprets);
-}*/
-
 // v1 format with no opretid (evalcode is used instead)
 CScript EncodeTokenOpRetV1(uint256 tokenid, const std::vector<CPubKey> &voutPubkeys, const std::vector<vscript_t> &oprets)
 {
+    /* no tokens v0 for tokel
     // call compatibility code:
     if (!TokensIsVer1Active(NULL))   {
         return tokensv0::EncodeTokenOpRet(tokenid, voutPubkeys, NonCreationOpretsToOpretsWithId(oprets));  // route to the previous version
     }
+    */
 
     CScript opret;
     uint8_t tokenFuncId = 'T'; // 'T' indicates v1
@@ -246,6 +206,7 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
 
     oprets.clear();
 
+    /* no token v0 for tokel
     // try to decode old version:
     std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
     if ((funcid = tokensv0::DecodeTokenCreateOpRet(scriptPubKey, origpubkey, name, description, opretswithid)) != 0) // check pubkey is parsed okay
@@ -255,6 +216,7 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcid << " name=" << name << std::endl);
         return funcid;
     }
+    */
     
 
     GetOpReturnData(scriptPubKey, vopret);
@@ -311,6 +273,7 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
 
     oprets.clear();
 
+    /* no tokens v0 for tokel
     // try to decode old opreturn version (check tokenid is not null):
     std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
     if ((funcId = tokensv0::DecodeTokenOpRet(scriptPubKey, evalCodeOld, tokenid, voutPubkeys, opretswithid)) != 0) 
@@ -320,6 +283,7 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcId << " tokenid=" << tokenid.GetHex() << std::endl);
         return funcId;
     }
+    */
 
     GetOpReturnData(scriptPubKey, vopret);
     // tokenid = zeroid; this was incorrect: cleared the passed tokenid if creation tx
