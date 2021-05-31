@@ -17,26 +17,23 @@ jobs:
 
       - name: Install deps (macOS)
         run: |
-          softwareupdate --install -a
           brew update
-          brew uninstall php glib gcc gcc@8 gcc@9 python@3.9 pipx
           brew upgrade
-          brew install gcc@8 gcc
-          brew install boost
           brew tap discoteq/discoteq; brew install flock
           brew install autoconf autogen automake
+          brew install gcc@8
           brew install binutils
           brew install protobuf
           brew install coreutils
-          pip install --upgrade pip
-          pip install setuptools wheel wget
-
+          brew install wget
+          brew install python3
+          brew install gmp
       - name: Build (macOS)
         run: |
           # flag for some CC tests transactions - so DO NOT USE THIS CI ARTIFACTS IN PRODUCTION!!!
-          ./zcutil/build-mac-dtest.sh -j$(nproc)
+          export CPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/
+          ./zcutil/build-mac-dtest.sh -j4
           tar -czvf komodo-macos.tar.gz src/komodod src/komodo-cli
-
       - name: Upload komodo-macos.tar.gz as artifact
         uses: actions/upload-artifact@v1
         with:
@@ -83,7 +80,7 @@ jobs:
 
       - name: Install deps (OraclesCC)
         run: |
-          brew install curl
+          brew install python3 curl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
       - name: Download komodo-macos.tar.gz
@@ -99,7 +96,6 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh cc_modules/test_oracles.py
-
   macos-test-baserpc:
 
     name: Test (macos/BasicRPC)
@@ -111,7 +107,7 @@ jobs:
 
       - name: Install deps (BasicRPC)
         run: |
-          brew install curl
+          brew install python3 curl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
       - name: Download komodo-macos.tar.gz
