@@ -5,10 +5,8 @@
 
 import pytest
 import time
-import sys
 import re
-sys.path.append('../')
-from basic.pytest_util import validate_template, mine_and_waitconfirms, randomstring, check_synced, wait_blocks
+from lib.pytest_util import validate_template, mine_and_waitconfirms, randomstring, check_synced, wait_blocks
 
 
 @pytest.mark.usefixtures("proxy_connection")
@@ -59,9 +57,22 @@ class TestHeirCCcalls:
 
         rpc1 = test_params.get('node1').get('rpc')
         pubkey1 = test_params.get('node1').get('pubkey')
+        address_pattern = re.compile(r"R[a-zA-Z0-9]{33}\Z")  # normal R-addr
         res = rpc1.heiraddress(pubkey1)
         validate_template(res, heiraddress_schema)
         assert res.get('result') == 'success'
+
+        # verify all keys look like valid AC addrs
+        res = rpc1.heiraddress('')
+        for key in res.keys():
+            if key.find('ddress') > 0:
+                assert address_pattern.match(str(res.get(key)))
+
+        # test that additional CCaddress key is returned
+        res = rpc1.heiraddress(pubkey1)
+        for key in res.keys():
+            if key.find('ddress') > 0:
+                assert address_pattern.match(str(res.get(key)))
 
     def test_heirlist(self, test_params):
         heirlist_schema = {
@@ -185,23 +196,6 @@ class TestHeirCCcalls:
 
 @pytest.mark.usefixtures("proxy_connection")
 class TestHeirFunc:
-
-    def test_heir_addresses(self, test_params):
-        rpc1 = test_params.get('node1').get('rpc')
-        pubkey = test_params.get('node2').get('pubkey')
-        address_pattern = re.compile(r"R[a-zA-Z0-9]{33}\Z")  # normal R-addr
-
-        # verify all keys look like valid AC addrs
-        res = rpc1.faucetaddress('')
-        for key in res.keys():
-            if key.find('ddress') > 0:
-                assert address_pattern.match(str(res.get(key)))
-
-        # test that additional CCaddress key is returned
-        res = rpc1.faucetaddress(pubkey)
-        for key in res.keys():
-            if key.find('ddress') > 0:
-                assert address_pattern.match(str(res.get(key)))
 
     def test_heir_flow(self, test_params):
         # Check basic heirCC flow from fund to claim

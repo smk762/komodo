@@ -2,11 +2,8 @@ import pytest
 import json
 import os
 import time
-# Using different proxy to bypass libcurl issues on Windows
-try:
-    from slickrpc import Proxy
-except ImportError:
-    from bitcoinrpc.authproxy import AuthServiceProxy as Proxy
+from lib.pytest_util import OraclesCC, TokenCC, DiceCC, ChannelsCC, RewardsCC
+from slickrpc import Proxy
 
 
 @pytest.fixture(scope='session')
@@ -55,3 +52,33 @@ def test_params(proxy_connection):
         test_params.update({node: node_params})
         test_params[node].update({'rpc': rpc})
     return test_params
+
+
+@pytest.fixture(scope='session')
+def oracle_instance(test_params):
+    oracle = OraclesCC(test_params)
+    return oracle
+
+
+@pytest.fixture(scope='session')
+def token_instance(test_params):
+    token = TokenCC(test_params)
+    return token
+
+
+@pytest.fixture(scope='session')
+def dice_casino(test_params):
+    dice = DiceCC(test_params)
+    return dice
+
+
+@pytest.fixture(scope='session')
+def channel_instance(test_params):
+    channel = ChannelsCC(test_params)
+    return channel
+
+
+@pytest.fixture(scope='session')
+def rewards_plan(test_params):
+    rewards_plan = RewardsCC(test_params)
+    return rewards_plan

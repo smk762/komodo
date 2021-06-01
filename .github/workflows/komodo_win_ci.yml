@@ -95,7 +95,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install slick-bitcoinrpc requests
           zcutil\fetch-params.bat
       - name: Base RPC Test (Windows)
         shell: cmd
@@ -125,7 +125,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install slick-bitcoinrpc requests
           zcutil\fetch-params.bat
       - name: CC Dice Faucet Tokens Rewards (Windows)
         shell: cmd
@@ -155,7 +155,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install slick-bitcoinrpc requests
           zcutil\fetch-params.bat
       - name: CC Oracles (Windows)
         shell: cmd
@@ -185,7 +185,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install slick-bitcoinrpc requests
           zcutil\fetch-params.bat
       - name: CC Heir (Windows)
         shell: cmd
@@ -215,7 +215,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install slick-bitcoinrpc requests
           zcutil\fetch-params.bat
       - name: ChannelsCC (Windows)
         shell: cmd
