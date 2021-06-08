@@ -7886,7 +7886,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         std::vector<uint8_t> payload;
         vRecv >> payload;
 
-        if (strCommand == "getnSPV" && KOMODO_NSPV == 0) {
+        if (strCommand == "getnSPV" && KOMODO_NSPV_FULLNODE) {
             komodo_nSPVreq(pfrom, payload);
         } else if (strCommand == "nSPV" && KOMODO_NSPV_SUPERLITE) {
             komodo_nSPVresp(pfrom, payload);
