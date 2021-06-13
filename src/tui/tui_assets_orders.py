@@ -47,9 +47,9 @@ def run_tokens_create(rpc):
 
     # set your own two node params
     # DIMXY20 
-    rpc1 = rpclib.rpc_connect("user2135429985", "passe26e9bce922bb0005fff3c41c20e7ea033399104aab3f148c515a2fa72fa4a9272", 14723)
-    rpc2 = rpclib.rpc_connect("user3701990598", "pass6df4dc57b2ee49b9e591ac6c8cb6aa89f0a06056ce67c6c45bbb14c0d63170e8a0", 15723)
-    rpc3 = rpclib.rpc_connect("user472219135", "passf6651258f69a92af554a7976ba44707db8eeb2372e6bb89e5557b8d7ee906eecbc", 16723)
+    rpc1 = rpclib.rpc_connect("user3088995989", "pass53c05895f37aa1eda9b0de63944275668e1956abb8c38f186132262fe53ae9be7c", 14723)
+    rpc2 = rpclib.rpc_connect("user2898668153", "passe99167496d2bbe43876e60430d52eb37b547fa1085b741a15776454eb126d9a603", 15723)
+    rpc3 = rpclib.rpc_connect("user972794450", "passe7eb16f5c015a53463cc5f27a004854cb76f4ec5c9aece177f01d8b3d13119e445", 16723)
 
 
     for v in ["", "v2"] :
