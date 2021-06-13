@@ -1193,7 +1193,7 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
 
     stream << (category ? category : "") << " ";
     if (functionName != NULL)
-        stream << functionName << " ";
+        stream << functionName << "() ";
     if (level < 0)
         stream << "ERROR:" << " ";
     print_to_stream(stream);
@@ -1217,6 +1217,9 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
 /// @see LOGSTREAM
 #define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [&](std::ostringstream &stream) {logoperator;} )
 
+/// class CCERROR to replace old single threaded CCerror global var
+/// CCERROR is instanciated as thread_local and allows safely set error in cc rpc calls
+/// Note: we cannot use std::string as the 'message' member as it would fail in thread_local mode
 class CCERROR {
 private:
     void init()  {
