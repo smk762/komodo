@@ -808,7 +808,7 @@ private:
     CScript scriptPubKey;
     CAmount amount;
     const CTransaction *ptxTo;
-    unsigned int n;
+    unsigned int n;  // vin/vout index, since ccv2 unused for cc validation (it always validates the whole cc tx and does not re-enter validation for each vin)
     unsigned int nFlags;
     bool cacheStore;
     uint32_t consensusBranchId;
