@@ -536,12 +536,12 @@ CAmount TokensV2::CheckTokensvout(bool goDeeper, bool checkPubkeys, struct CCcon
 	// this is just for log messages indentation fur debugging recursive calls:
 	std::string indentStr = std::string().append(tokenValIndentSize, '.');
 	
-    LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << "CheckTokensvout()" << " entered for txid=" << tx.GetHash().GetHex() << " v=" << v << std::endl);
+    LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << "TokensV2::CheckTokensvout()" << " entered for txid=" << tx.GetHash().GetHex() << " v=" << v << std::endl);
 
     int32_t n = tx.vout.size();
     // just check boundaries:
     if (n == 0 || v < 0 || v >= n) {  
-        LOGSTREAM(cctokens_log, CCLOG_INFO, stream << indentStr << "CheckTokensvout()" << " incorrect params: (n == 0 or v < 0 or v >= n)" << " v=" << v << " n=" << n << " returning error" << std::endl);
+        LOGSTREAM(cctokens_log, CCLOG_INFO, stream << indentStr << "TokensV2::CheckTokensvout()" << " incorrect params: (n == 0 or v < 0 or v >= n)" << " v=" << v << " n=" << n << " returning error" << std::endl);
         errorStr = "out of bounds";
         return -1;
     }
@@ -551,59 +551,60 @@ CAmount TokensV2::CheckTokensvout(bool goDeeper, bool checkPubkeys, struct CCcon
     CScript dummy;	
     if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition(&dummy, vParams)) 
 	{
-        CScript opret;
-        bool isLastVoutOpret;
-        if (GetCCDropAsOpret(tx.vout[v].scriptPubKey, opret))
-        {
-            isLastVoutOpret = false;    
-        }
-        else
-        {
-            isLastVoutOpret = true;
-            opret = tx.vout.back().scriptPubKey;
-        }
-
-        uint256 tokenIdOpret;
-        std::vector<vscript_t>  oprets;
-        std::vector<CPubKey> vpksdummy;
-
-        // token opret most important checks (tokenid == reftokenid, tokenid is non-zero, tx is 'tokenbase'):
-        uint8_t funcId = TokensV2::DecodeTokenOpRet(opret, tokenIdOpret, vpksdummy, oprets);
-        if (funcId == 0)    {
-            // bad opreturn
-            // errorStr = "can't decode opreturn data";
-            // return -1;
-            return 0;  // not token vout, skip
-        } 
-
-        // basic checks:
-        if (IsTokenCreateFuncid(funcId))    {
-            // set returned tokend to tokenbase txid:
-            reftokenid = tx.GetHash();
-        }
-        else if (IsTokenTransferFuncid(funcId))      {
-            // set returned tokenid to tokenid in opreturn:
-            reftokenid = tokenIdOpret;
-        }
-        else       {
-            errorStr = "funcid not supported";
-            return -1;
-        }
-        
-        if (reftokenid.IsNull())    {
-            errorStr = "null tokenid";
-            return -1;
-        }
-
-        // skip token marker (token global address)
-        if (IsTokenMarkerVout<TokensV2>(tx.vout[v]))
-            return 0;
-
-
         if (tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2))  // it's token output, check it
-        {
-            /* let's do not verify opdrop in V2
-            it is a just hint to users and does not really affect vaidation:
+        {        
+            CScript opret;
+            bool isLastVoutOpret;
+            if (GetCCDropAsOpret(tx.vout[v].scriptPubKey, opret))
+            {
+                isLastVoutOpret = false;    
+            }
+            else
+            {
+                isLastVoutOpret = true;
+                opret = tx.vout.back().scriptPubKey;
+            }
+
+            uint256 tokenIdOpret;
+            std::vector<vscript_t>  oprets;
+            std::vector<CPubKey> vpksdummy;
+
+            // token opret most important checks (tokenid == reftokenid, tokenid is non-zero, tx is 'tokenbase'):
+            uint8_t funcId = TokensV2::DecodeTokenOpRet(opret, tokenIdOpret, vpksdummy, oprets);
+            if (funcId == 0)    {
+                // bad opreturn
+                errorStr = "can't decode opreturn data";
+                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << "TokensV2::CheckTokensvout()" << " skipping vout with non token opret for txid=" << tx.GetHash().GetHex() << " v=" << v << " isLastVoutOpret=" << isLastVoutOpret << std::endl);
+                return -1;  // not token vout, skip
+            } 
+
+            // basic checks:
+            if (IsTokenCreateFuncid(funcId))    {
+                // set returned tokend to tokenbase txid:
+                reftokenid = tx.GetHash();
+            }
+            else if (IsTokenTransferFuncid(funcId))      {
+                // set returned tokenid to tokenid in opreturn:
+                reftokenid = tokenIdOpret;
+            }
+            else       {
+                errorStr = "funcid not supported";
+                return -1;
+            }
+            
+            if (reftokenid.IsNull())    {
+                errorStr = "null tokenid";
+                return -1;
+            }
+
+            // skip token marker (token global address)
+            if (IsTokenMarkerVout<TokensV2>(tx.vout[v]))   {
+                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << "TokensV2::CheckTokensvout()" << " skipping marker vout for txid=" << tx.GetHash().GetHex() << " v=" << v << std::endl);
+                return 0;
+            }
+
+            /* let's do not verify opdrop data in V2
+               it is a just hint to users and does not really affect vaidation:
             // get output pubkeys and verify vout
             if (vParams.size() == 0) {
                 errorStr = "no opdrop data";
@@ -626,10 +627,12 @@ CAmount TokensV2::CheckTokensvout(bool goDeeper, bool checkPubkeys, struct CCcon
             if (!IsEqualScriptPubKeys(testVout.scriptPubKey, tx.vout[v].scriptPubKey)) {
                 errorStr = "pubkeys in opdrop don't match vout";
                 return -1;
-            }
-            */
-           
+            }  */
             return tx.vout[v].nValue;
+        }
+        else 
+        {
+            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << "TokensV2::CheckTokensvout()" << " skipping vout with non-token evalcode for txid=" << tx.GetHash().GetHex() << " v=" << v << std::endl);
         }
 	}
 	return(0);  // normal or non-token2 vout

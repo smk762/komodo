@@ -2785,18 +2785,15 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight)
     UpdateCoins(tx, inputs, txundo, nHeight);
 }
 
-bool CScriptCheck::operator()() {
-    if (vout!=0)
-    {
+bool CScriptCheck::operator()()
+{
+    if (vout != 0) {
         ServerTransactionSignatureChecker checker(ptxTo, n, amount, cacheStore, evalcodeChecker, *txdata);
-        if (checker.CheckCryptoCondition(scriptPubKey.GetCCV2SPK(),&error)!=1)
-        {
+        if (checker.CheckCryptoCondition(scriptPubKey.GetCCV2SPK(), &error) != 1) {
             return ::error("CScriptCheck(): %s:%d CC validation failed: %s", ptxTo->GetHash().ToString(), n, ScriptErrorString(error));
         }
-    }
-    else
-    {
-        const CScript &scriptSig = ptxTo->vin[n].scriptSig;
+    } else {
+        const CScript& scriptSig = ptxTo->vin[n].scriptSig;
         ServerTransactionSignatureChecker checker(ptxTo, n, amount, cacheStore, evalcodeChecker, *txdata);
         if (!VerifyScript(scriptSig, scriptPubKey, nFlags, checker, consensusBranchId, &error)) {
             return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), n, ScriptErrorString(error));
@@ -2999,30 +2996,28 @@ bool ContextualCheckOutputs(
                            std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker,
                            std::vector<CScriptCheck> *pvChecks)
 {
-    if (!tx.IsCoinBase())
-    {
-        if (pvChecks)
-            pvChecks->reserve(tx.vout.size());
+    if (pvChecks)
+        pvChecks->reserve(tx.vout.size());
 
-        if (fScriptChecks) {
-            for (unsigned int i = 0; i < tx.vout.size(); i++) {
-                if (tx.vout[i].scriptPubKey.IsPayToCCV2() )
+    if (fScriptChecks) 
+    {
+        for (unsigned int i = 0; i < tx.vout.size(); i++) 
+        {
+            if (tx.vout[i].scriptPubKey.IsPayToCCV2() )
+            {
+                CScriptCheck check(tx.vout[i].scriptPubKey, tx.vout[i].nValue, tx, i, evalcodeChecker, &txdata);
+                if (pvChecks)
                 {
-                    CScriptCheck check(tx.vout[i].scriptPubKey, tx.vout[i].nValue, tx, i, evalcodeChecker, &txdata);
-                    if (pvChecks)
-                    {
-                        pvChecks->push_back(CScriptCheck());
-                        check.swap(pvChecks->back());
-                    }
-                    else if (!check())
-                    {
-                        return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
-                    }
+                    pvChecks->push_back(CScriptCheck());
+                    check.swap(pvChecks->back());
+                }
+                else if (!check())
+                {
+                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
             }
         }
     }
-
     return true;
 }
 
@@ -3856,6 +3851,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             std::vector<CScriptCheck> vChecks;
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, flags, false, txdata[i], chainparams.GetConsensus(), consensusBranchId, evalcodeChecker, nScriptCheckThreads ? &vChecks : NULL))
                 return false;
+        }
+
+        {   // check tx outputs including coinbases
+            std::vector<CScriptCheck> vChecks;
             if (!ContextualCheckOutputs(tx, state, fExpensiveChecks, txdata[i], evalcodeChecker, nScriptCheckThreads ? &vChecks : NULL))
                 return false;
             control.Add(vChecks);
@@ -7886,7 +7885,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         std::vector<uint8_t> payload;
         vRecv >> payload;
 
-        if (strCommand == "getnSPV" && KOMODO_NSPV == 0) {
+        if (strCommand == "getnSPV" && KOMODO_NSPV_FULLNODE) {
             komodo_nSPVreq(pfrom, payload);
         } else if (strCommand == "nSPV" && KOMODO_NSPV_SUPERLITE) {
             komodo_nSPVresp(pfrom, payload);

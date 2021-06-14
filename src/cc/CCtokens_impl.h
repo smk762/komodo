@@ -119,7 +119,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
                 strcmp(destaddr, cp->unspendableaddr2) != 0*/)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
 				return;
 			
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "checked tx vout destaddress=" << destaddr << " amount=" << tx.vout[index].nValue << std::endl);
+            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() checking tx vout destaddress=" << destaddr << " amount=" << tx.vout[index].nValue << std::endl);
 
 			if (IsTokensvout<V>(true, true, cp, NULL, tx, index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, txhash, index))
 			{                
@@ -127,12 +127,16 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 					mtx.vin.push_back(CTxIn(txhash, index, CScript()));
 
 				totalinputs += satoshis;
-                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "adding input nValue=" << satoshis  << std::endl);
+                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() adding input nValue=" << satoshis  << std::endl);
 				n++;
 
 				if ((total > 0 && totalinputs >= total) || (maxinputs > 0 && n >= maxinputs))
 					return;
 			}
+            else
+            {
+                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() IsTokensvout returned non-positive txid=" << txhash.GetHex() << " index=" << index << std::endl);
+            }
 		}
     }; // auto add_token_vin
 
@@ -145,7 +149,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
             AddCCunspentsCCIndexMempool(unspentOutputs, tokenaddr, tokenid);
             
         // threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);   // let's not use threshold
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found unspentOutputs=" << unspentOutputs.size() << std::endl);
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "unspent ccindex found unspentOutputs=" << unspentOutputs.size() << std::endl);
         for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
             add_token_vin(it->first.txhash, it->first.index, it->second.satoshis);
     }
@@ -158,7 +162,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
         else
         	SetCCunspents(unspentOutputs, (char*)tokenaddr, CC_INPUTS_TRUE);
             
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found unspentOutputs=" << unspentOutputs.size() << std::endl);
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "unspent index found unspentOutputs=" << unspentOutputs.size() << std::endl);
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
             add_token_vin(it->first.txhash, it->first.index, it->second.satoshis);
     }
