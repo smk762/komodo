@@ -52,8 +52,8 @@ def run_tokens_create(rpc):
     rpc3 = rpclib.rpc_connect("user972794450", "passe7eb16f5c015a53463cc5f27a004854cb76f4ec5c9aece177f01d8b3d13119e445", 16723)
 
 
-    # for v in ["", "v2"] :
-    for v in [""] :
+    for v in ["", "v2"] :
+    # for v in ["v2"] :
         print("creating fungible token 1...")
         result = call_rpc(rpc1, "token"+v+"create", "T1", str(0.000001))  # 100
         assert(check_tx(result))
