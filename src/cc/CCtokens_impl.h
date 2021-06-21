@@ -500,9 +500,9 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
 	if (txfee == 0)
 		txfee = 10000;
 	
-    int32_t txfeeCount = 2;
+    int32_t markerCount = 1;
     if (additionalMarkerEvalCode > 0)
-        txfeeCount++;
+        markerCount++;
     
     bool isRemote = remotepk.IsValid();
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
@@ -514,7 +514,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
     CAmount totalInputs;
     // always add inputs only from the mypk passed in the param to prove the token creator has the token originator pubkey
     // This what the AddNormalinputsRemote does (and it is not necessary that this is done only for nspv calls):
-	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000, useMempool)) > 0)
+	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfee + markerCount * TOKENS_MARKER_VALUE, 0x10000, useMempool)) > 0)
 	{
         CAmount mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
@@ -527,7 +527,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
             destEvalCode = nonfungibleData[0];
 
         // NOTE: we should prevent spending fake-tokens from this marker in IsTokenvout():
-        mtx.vout.push_back(V::MakeCC1vout(V::EvalCode(), txfee, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
+        mtx.vout.push_back(V::MakeCC1vout(V::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
 		mtx.vout.push_back(V::MakeTokensCC1vout(destEvalCode, tokensupply, mypk));
 
         if (additionalMarkerEvalCode > 0) 
@@ -535,7 +535,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
             // add additional marker for NFT cc evalcode:
             struct CCcontract_info *cpNFT, CNFT;
             cpNFT = CCinit(&CNFT, additionalMarkerEvalCode);
-            mtx.vout.push_back(V::MakeCC1vout(additionalMarkerEvalCode, txfee, GetUnspendable(cpNFT, NULL)));
+            mtx.vout.push_back(V::MakeCC1vout(additionalMarkerEvalCode, TOKENS_MARKER_VALUE, GetUnspendable(cpNFT, NULL)));
         }
 
 		sigData = V::FinalizeCCTx(isRemote, FINALIZECCTX_NO_CHANGE_WHEN_ZERO, cp, mtx, mypk, txfee, V::EncodeTokenCreateOpRet(vscript_t(mypk.begin(), mypk.end()), name, description, { nonfungibleData }));
@@ -875,15 +875,19 @@ static CAmount HasBurnedTokensvouts(const CTransaction& tx, uint256 reftokenid)
     return burnedAmount;
 }
 
+// checks if this is tokens marker (sent to the token shared address)
+// and the marker value is fixed
+// returns -1 if this is a bad marker or marker's nValue
+// return 0 if this is not a token marker
 template <class V>
-bool IsTokenMarkerVout(CTxOut vout) {
+CAmount IsTokenMarkerVout(CTxOut vout) {
     struct CCcontract_info *cpTokens, CCtokens_info;
     cpTokens = CCinit(&CCtokens_info, V::EvalCode());
-    return IsEqualScriptPubKeys(vout.scriptPubKey, V::MakeCC1vout(V::EvalCode(), vout.nValue, GetUnspendable(cpTokens, NULL)).scriptPubKey);
+    if (IsEqualDestinations(vout.scriptPubKey, V::MakeCC1vout(V::EvalCode(), vout.nValue, GetUnspendable(cpTokens, NULL)).scriptPubKey)) 
+        return vout.nValue == TOKENS_MARKER_VALUE ? vout.nValue : -1; 
+    else
+        return 0;
 }
-
-
-
 
 // Checks if the vout is a really Tokens CC vout. 
 // For this the function takes eval codes and pubkeys from the token opret and tries to construct possible token vouts
@@ -895,9 +899,11 @@ bool IsTokenMarkerVout(CTxOut vout) {
 template <class V>
 CAmount IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid)
 {
+    uint8_t funcId = 0;
     uint256 tokenIdInOpret;
     std::string errorStr;
-    CAmount retAmount = V::CheckTokensvout(goDeeper, checkPubkeys, cp, eval, tx, v, tokenIdInOpret, errorStr);
+    CAmount retAmount = V::CheckTokensvout(goDeeper, checkPubkeys, cp, eval, tx, v, tokenIdInOpret, funcId, errorStr);
+    std::cerr << __func__ << " tokenIdInOpret=" << tokenIdInOpret.GetHex() << " funcId=" << (int)funcId << std::endl;
     if (!errorStr.empty())
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "error=" << errorStr << std::endl);
     if (retAmount < 0)
@@ -962,12 +968,6 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 	CTransaction vinTx; 
 	uint256 hashBlock; 
 	CAmount tokenoshis; 
-
-	//struct CCcontract_info *cpTokens, tokensC;
-	//cpTokens = CCinit(&tokensC, EVAL_TOKENS);
-
-	int32_t numvins = tx.vin.size();
-	int32_t numvouts = tx.vout.size();
 	
     std::map <uint256, CAmount> mapinputs, mapoutputs;
 
@@ -977,7 +977,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
     //LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << "TokensExactAmounts() entered for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl);
 
     // pick token vouts in vin transactions and calculate input total
-	for (int32_t i = 0; i<numvins; i++)
+	for (int32_t i = 0; i < tx.vin.size(); i++)
 	{												  // check for additional contracts which may send tokens to the Tokens contract
 		if ((*cp->ismyvin)(tx.vin[i].scriptSig) /*|| IsVinAllowed(tx.vin[i].scriptSig) != 0*/)
 		{
@@ -985,7 +985,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 			// we are not inside the validation code -- dimxy
 			if ((eval && eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock) == 0) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
 			{
-                LOGSTREAM(cctokens_log, CCLOG_ERROR, stream << indentStr << "TokensExactAmounts() cannot read vintx for i." << i << " numvins." << numvins << std::endl);
+                LOGSTREAM(cctokens_log, CCLOG_ERROR, stream << indentStr << "TokensExactAmounts() cannot read vintx for vin i=" << i << std::endl);
 				return (!eval) ? false : eval->Invalid("could not load vin tx " + std::to_string(i));
 			}
 			else 
@@ -993,18 +993,20 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
                 LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << "TokensExactAmounts() checking vintx.vout for tx.vin[" << i << "] nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl);
 
                 uint256 reftokenid;
+                uint8_t funcId = 0;
                 // validate vouts of vintx  
                 tokenValIndentSize++;
-				tokenoshis = V::CheckTokensvout(goDeeper, true, cp, eval, vinTx, tx.vin[i].prevout.n, reftokenid, errorStr);
+				tokenoshis = V::CheckTokensvout(goDeeper, true, cp, eval, vinTx, tx.vin[i].prevout.n, reftokenid, funcId, errorStr);
 				tokenValIndentSize--;
                 if (tokenoshis < 0) 
                     return false;
 
                 // skip marker spending
                 // later it will be checked if marker spending is allowed
-                if (IsTokenMarkerVout<V>(vinTx.vout[tx.vin[i].prevout.n])) {
+                if (IsTokenMarkerVout<V>(vinTx.vout[tx.vin[i].prevout.n]) > 0LL) {
                     LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << "TokensExactAmounts() skipping marker vintx.vout for tx.vin[" << i << "] nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl);
                     continue;
+                    // do not check for marker count for on-chain transacitions, no point in checking this (for token v1) as it is an antispam feature
                 }
                    
 				if (tokenoshis != 0)
@@ -1017,23 +1019,43 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 	}
 
     // pick token vouts in the current transaction and calculate output total
-	for (int32_t i = 0; i < numvouts; i ++)  
+    int markerVouts = 0;
+    int createVouts = 0;
+    int transferVouts = 0;
+	for (int32_t i = 0; i < tx.vout.size(); i ++)  
 	{
         uint256 reftokenid;
+        uint8_t funcId = 0;
         LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << "TokensExactAmounts() recursively checking tx.vout[" << i << "] nValue=" << tx.vout[i].nValue << std::endl);
 
         // Note: we pass in here IsTokensvout(false,...) because we don't need to call TokenExactAmounts() recursively from IsTokensvout here
         // indeed, if we pass 'true' we'll be checking this tx vout again
         tokenValIndentSize++;
-		tokenoshis = V::CheckTokensvout(false, true, cp, eval, tx, i, reftokenid, errorStr);
+		tokenoshis = V::CheckTokensvout(false, true, cp, eval, tx, i, reftokenid, funcId, errorStr);
 		tokenValIndentSize--;
         if (tokenoshis < 0) 
             return false;
 
-        if (IsTokenMarkerVout<V>(tx.vout[i]))  {
+        CAmount markerAmount = IsTokenMarkerVout<V>(tx.vout[i]);
+        if (markerAmount > 0)  {
+            ++ markerVouts;
+            if (IsTokenCreateFuncid(funcId) && markerVouts > 1) {
+                errorStr = "tokencreate cannot have more than one marker";
+                return false;
+            }
+
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << "TokensExactAmounts() skipping marker tx.vout[" << i << "] nValue=" << tx.vout[i].nValue << std::endl);
-            continue;
+            continue; // skip marker
         }
+        else if (markerAmount < 0) {
+            errorStr = "invalid marker value";
+            return false;
+        }
+
+        if (IsTokenCreateFuncid(funcId))
+            ++ createVouts;
+        if (IsTokenTransferFuncid(funcId))
+            ++ transferVouts;
 
 		if (tokenoshis != 0)
 		{
@@ -1042,26 +1064,61 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 		}
 	}
 
-	//std::cerr << indentStr << "TokensExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
-
-	if (mapinputs.size() > 0 && mapinputs.size() == mapoutputs.size()) 
-    {
-		for(auto const &m : mapinputs)  {
-            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << "TokensExactAmounts() inputs[" << m.first.GetHex() << "]=" << m.second << " outputs=" << mapoutputs[m.first] << std::endl);
-            if (m.second != mapoutputs[m.first])    {
-                errorStr = "cc inputs not equal outputs for tokenid=" + m.first.GetHex();
-                return false;
-            }
-
-            // check marker spending:
-            if (!CheckMarkerSpending<V>(cp, eval, tx, m.first))    {
-                errorStr = "marker spending is not allowed for tokenid=" + m.first.GetHex();
-                return false;
-            }
-            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << "TokensExactAmounts() mapinput.second=" << m.second << " mapoutputs[m.first]=" << mapoutputs[m.first] << std::endl);
+    // can't mix tokencreate and tokentransfer
+    if (createVouts > 0 && transferVouts > 0)  {
+        errorStr = "can't have both create and transfer vouts"; 
+        return false;
+    }
+    
+    // tokencreate checks (this would work only for tokens v2 as tokens v1 tokencreate does not pass cc validation when it is added to the chain)
+    if (createVouts > 0)  {
+         // check that creation tx does not have my cc vins
+        bool hasMyccvin = false;
+        std::for_each (tx.vin.begin(), tx.vin.end(), [&](const CTxIn &vin){ cp->ismyvin(vin.scriptSig) ? hasMyccvin = true : hasMyccvin = hasMyccvin; });
+        if (hasMyccvin) {
+            errorStr = "creation tx can't have token vins"; 
+            return false;
         }
-        return true;
-	}
+        if (createVouts > 1) {
+            errorStr = "creation tx can't have several token vouts"; 
+            return false;
+        }
+        // marker antispam check:
+        if (markerVouts > 1) {
+            errorStr = "tokencreate cannot have more than one marker";
+            return false;
+        }
+        return true; // tokencreate checks finished
+    }
+
+    // tokentransfer checks
+    if (transferVouts > 0)  {
+        // markers are not allowed for tokentransfer (for antispam reasons)
+        if (markerVouts > 0) {
+            errorStr = "tokentransfer cannot have markers";
+            return false;
+        }
+
+        // check token value balance:
+        if (mapinputs.size() > 0 && mapinputs.size() == mapoutputs.size()) 
+        {
+            for(auto const &m : mapinputs)  {
+                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << "TokensExactAmounts() inputs[" << m.first.GetHex() << "]=" << m.second << " outputs=" << mapoutputs[m.first] << std::endl);
+                if (m.second != mapoutputs[m.first])    {
+                    errorStr = "cc inputs not equal outputs for tokenid=" + m.first.GetHex();
+                    return false;
+                }
+
+                // check marker spending:
+                if (!CheckMarkerSpending<V>(cp, eval, tx, m.first))    {
+                    errorStr = "marker spending is not allowed for tokenid=" + m.first.GetHex();
+                    return false;
+                }
+                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << "TokensExactAmounts() mapinput.second=" << m.second << " mapoutputs[m.first]=" << mapoutputs[m.first] << std::endl);
+            }
+            return true;
+        }
+    }
     LOGSTREAM(cctokens_log, CCLOG_INFO, stream << indentStr << "TokensExactAmounts() no cc inputs or cc outputs for a tokenid, mapinputs.size()=" << mapinputs.size() << " mapoutputs.size()=" << mapoutputs.size() << std::endl);
     errorStr = "no cc vins or cc vouts for tokenid";
 	return false;

@@ -23,23 +23,15 @@
 #include <tuple>
 #include "CCinclude.h"
 
+const CAmount TOKENS_MARKER_VALUE = 10000;
+
 // implementation of basic token functions
 
-/// Returns non-fungible data of token if this is a NFT
-/// @param tokenid id of token
-/// @param vopretNonfungible non-fungible token data. The first byte is the evalcode of the contract that validates the NFT-data
-//void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible);  // see template impl
 typedef std::tuple<vuint8_t, std::string, std::string> TokenDataTuple;  // pubkey, name, desc
 
 // CCcustom
 bool TokensValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
 bool Tokensv2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
-
-//bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, std::string &errorStr);
-
-// wrappers for tokens cc v1 or v2
-////std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData);
-//bool IsTokenMarkerVout(CTxOut vout);
 
 /// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set additionalTokensEvalcode2 variable in the cp object to the eval code from NFT data to spend NFT outputs properly
 /// @param cp CCcontract_info structure
@@ -287,7 +279,7 @@ UniValue TokenV2List();
 inline bool IsTokenCreateFuncid(uint8_t funcid) { return funcid == 'c'; }
 inline bool IsTokenTransferFuncid(uint8_t funcid) { return funcid == 't'; }
 
-bool IsEqualScriptPubKeys(const CScript &spk1, const CScript &spk2);
+bool IsEqualDestinations(const CScript &spk1, const CScript &spk2);
 
 bool TokensIsVer1Active(const Eval *eval);
 
@@ -298,7 +290,6 @@ class TokensV1 {
 public:
     static uint8_t EvalCode() { return EVAL_TOKENS; }
     static bool IsMixed() { return false; }
-
 
     static CScript EncodeTokenCreateOpRet(const std::vector<uint8_t> &origpubkey, const std::string &name, const std::string &description, const std::vector<vscript_t> &oprets)
     {
@@ -318,7 +309,7 @@ public:
         return ::DecodeTokenOpRetV1(scriptPubKey, tokenid, voutPubkeys, oprets);
     }
 
-    static CAmount CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 &reftokenid, std::string &errorStr);    
+    static CAmount CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 &reftokenid, uint8_t &funcId, std::string &errorStr);    
 
     // conds:
     static CC *MakeTokensCCcond1(uint8_t evalcode, CPubKey pk)
@@ -401,7 +392,7 @@ public:
         return ::DecodeTokenOpRetV2(scriptPubKey, tokenid, oprets);
     }
 
-    static CAmount CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 &reftokenid, std::string &errorStr);    
+    static CAmount CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 &reftokenid, uint8_t &funcId, std::string &errorStr);    
         
     // conds:
     static CC *MakeTokensCCcond1(uint8_t evalcode, CPubKey pk)
@@ -458,7 +449,7 @@ template <class V> uint8_t ValidateTokenOpret(uint256 txid, const CScript &scrip
 /// @private 
 template <class V> bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys);
 /// @private 
-template <class V> bool IsTokenMarkerVout(CTxOut vout);
+template <class V> CAmount IsTokenMarkerVout(CTxOut vout);
 /// @private 
 uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey);
 
