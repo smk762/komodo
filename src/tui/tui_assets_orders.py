@@ -108,13 +108,14 @@ def run_tokens_create(rpc):
         print("starting assets tests for nftf7id1 version=" + v + "...")
         run_assets_orders(rpc1, rpc2, v, nftf7id1, 1, 1, True)
 
-    print("starting MofN tests for tokenid1...")
-    run_MofN_transfers(rpc1, rpc2, rpc3, tokenid1, 10)
-    print("starting MofN tests for nft00id1...")
-    run_MofN_transfers(rpc1, rpc2, rpc3, nft00id1, 1)
-    print("starting MofN tests for nftf7id1...")
-    run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id1, 1)
-
+        if v == "v2" :
+            print("running MofN tests for tokens v2:")
+            print("starting MofN tests for tokenid1...")
+            run_MofN_transfers(rpc1, rpc2, rpc3, tokenid1, 10)
+            print("starting MofN tests for nft00id1...")
+            run_MofN_transfers(rpc1, rpc2, rpc3, nft00id1, 1)
+            print("starting MofN tests for nftf7id1...")
+            run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id1, 1)
 
     print("assets tests finished okay")
     time.sleep(3)
@@ -314,7 +315,7 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
         print("sending partially1 signed tx returned:", result)
         assert not result, 'sending partially signed 2of2 tx should return error'
     except RpcException as e :
-        print ('got normal exception', e.message)
+        print ('got a normal exception (note "FULFILLMENT NOT ENCODED" msg on console is normal)', e.message)
         pass # should be error 
 
     tx2of2back = call_rpc_retry(rpc2, "addccv2signature", '', partialtx['hex'], partialtx['PartiallySigned'])
@@ -359,7 +360,7 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
         print("sending partially1 signed tx returned:", result)
         assert not result, 'sending partially signed 2of3 tx should return error'
     except RpcException as e :
-        print ('got normal exception', e.message)
+        print ('got a normal exception (note "FULFILLMENT NOT ENCODED" msg on console is normal)', e.message)
         pass # should be error 
 
 
@@ -406,7 +407,7 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
         print("sending partially1 signed tx returned:", result)
         assert not result, 'sending partially signed 3of3 tx should return error'
     except RpcException as e :
-        print ('got normal exception', e.message)
+        print ('got a normal exception (note "FULFILLMENT NOT ENCODED" msg on console is normal)', e.message)
         pass # should be error 
 
     # add sig 2
@@ -419,7 +420,8 @@ def run_MofN_transfers(rpc1, rpc2, rpc3, tokenid, amount):
         result = rpc2.sendrawtransaction(partialtx2['hex'])
         print("sending partially2 signed tx returned:", result)
         assert not result, 'sending partially signed 3of3 tx should return error'
-    except (RpcException) :
+    except RpcException as e :
+        print ('got a normal exception (note "FULFILLMENT NOT ENCODED" msg on console is normal)', e.message)
         pass # should be error 
 
     # add sig 3
