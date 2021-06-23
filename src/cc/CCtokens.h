@@ -445,7 +445,7 @@ public:
 };
 
 /// @private 
-template <class V> uint8_t ValidateTokenOpret(uint256 txid, const CScript &scriptPubKey, uint256 tokenid);
+//template <class V> uint8_t ValidateTokenOpret(uint256 txid, const CScript &scriptPubKey, uint256 tokenid);
 /// @private 
 template <class V> bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys);
 /// @private 
