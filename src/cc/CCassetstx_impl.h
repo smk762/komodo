@@ -43,6 +43,7 @@ template<class T, class A>
 UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeNFT)
 {
 	UniValue result(UniValue::VARR);  
+    const char *funcname = __func__;
 
     struct CCcontract_info *cpAssets, assetsC;
     struct CCcontract_info *cpTokens, tokensC;
@@ -57,69 +58,85 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeNFT)
 		std::vector<uint8_t> origpubkey;
 		CTransaction ordertx;
 		uint8_t funcid, evalCode;
-		char numstr[32], origaddr[KOMODO_ADDRESS_BUFSIZE], origtokenaddr[KOMODO_ADDRESS_BUFSIZE];
+		char origaddr[KOMODO_ADDRESS_BUFSIZE], origtokenaddr[KOMODO_ADDRESS_BUFSIZE];
 
         txid = it->first.txhash;
-        LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << "addOrders() checking txid=" << txid.GetHex() << std::endl);
-        if ( myGetTransaction(txid, ordertx, hashBlock) != 0)
+        LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " checking txid=" << txid.GetHex() << std::endl);
+        if (!myGetTransaction(txid, ordertx, hashBlock)) {
+            LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname <<" could not load order txid=" << txid.GetHex() << std::endl);
+            return;
+        }
+
+        if (ordertx.vout.size() > 1 && (funcid = A::DecodeAssetTokenOpRet(ordertx.vout.back().scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey)) != 0)
         {
-            if (ordertx.vout.size() > ASSETS_GLOBALADDR_VOUT && (funcid = A::DecodeAssetTokenOpRet(ordertx.vout.back().scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey)) != 0)
+            LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " checking ordertx.vout.size()=" << ordertx.vout.size() << " funcid=" << (char)(funcid ? funcid : ' ') << " assetid=" << assetid.GetHex() << std::endl);
+
+            if (!pk.IsValid() && (refassetid == zeroid || assetid == refassetid) || // tokenorders
+                pk.IsValid() && pk == pubkey2pk(origpubkey))  // mytokenorders
             {
-                LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << "addOrders() checking ordertx.vout.size()=" << ordertx.vout.size() << " funcid=" << (char)(funcid ? funcid : ' ') << " assetid=" << assetid.GetHex() << std::endl);
-
-                if (!pk.IsValid() && (refassetid == zeroid || assetid == refassetid) || // tokenorders
-                    pk.IsValid() && pk == pubkey2pk(origpubkey))  // mytokenorders
-                {
-
-                    LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << "addOrders() it->first.index=" << it->first.index << " ordertx.vout[it->first.index].nValue=" << ordertx.vout[it->first.index].nValue << std::endl);
-                    if (ordertx.vout[it->first.index].nValue == 0) {
-                        LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << "addOrders() order with value=0 skipped" << std::endl);
+                uint256 spenttxid;
+                uint256 init_txid = txid;
+                int32_t spentvin;
+                int32_t height;
+                while(CCgetspenttxid(spenttxid, spentvin, height, init_txid, ASSETS_GLOBALADDR_VOUT) == 0 && IsTxidInActiveChain(spenttxid)) {
+                    init_txid = spenttxid;
+                }
+                if (init_txid != txid) {
+                    txid = init_txid;
+                    if (!myGetTransaction(txid, ordertx, hashBlock)) {
+                        LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " could not load order txid=" << txid.GetHex() << std::endl);
                         return;
                     }
-
-                    UniValue item(UniValue::VOBJ);
-
-                    std::string funcidstr(1, (char)funcid);
-                    item.push_back(Pair("funcid", funcidstr));
-                    item.push_back(Pair("txid", txid.GetHex()));
-                    item.push_back(Pair("vout", (int64_t)it->first.index));
-                    if (funcid == 'b' || funcid == 'B')
-                    {
-                        item.push_back(Pair("amount", ValueFromAmount(ordertx.vout[it->first.index].nValue)));
-                        item.push_back(Pair("bidamount", ValueFromAmount(ordertx.vout[0].nValue)));
+                    if ((funcid = A::DecodeAssetTokenOpRet(ordertx.vout.back().scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey)) == 0) {
+                        LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " could not decode order txid=" << txid.GetHex() << std::endl);
+                        return;
                     }
-                    else
-                    {
-                        item.push_back(Pair("amount", ordertx.vout[it->first.index].nValue));
-                        item.push_back(Pair("askamount", ordertx.vout[0].nValue));
-                    }
-                    if (origpubkey.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
-                    {
-                        GetCCaddress(cp, origaddr, pubkey2pk(origpubkey), A::IsMixed());  
-                        item.push_back(Pair("origaddress", origaddr));
-                        GetTokensCCaddress(cpTokens, origtokenaddr, pubkey2pk(origpubkey), A::IsMixed());
-                        item.push_back(Pair("origtokenaddress", origtokenaddr));
-                    }
-                    if (assetid != zeroid)
-                        item.push_back(Pair("tokenid", assetid.GetHex()));
-                    if (assetid2 != zeroid)
-                        item.push_back(Pair("otherid", assetid2.GetHex()));
-                    if (unit_price > 0)
-                    {
-                        if (funcid == 's' || funcid == 'S' || funcid == 'e' || funcid == 'E')
-                        {
-                            item.push_back(Pair("totalrequired", ValueFromAmount(unit_price * ordertx.vout[ASSETS_GLOBALADDR_VOUT].nValue)));
-                            item.push_back(Pair("price", ValueFromAmount(unit_price)));
-                        }
-                        else
-                        {
-                            item.push_back(Pair("totalrequired", unit_price ? ordertx.vout[ASSETS_GLOBALADDR_VOUT].nValue / unit_price : 0));
-                            item.push_back(Pair("price", ValueFromAmount(unit_price)));
-                        }
-                    }
-                    result.push_back(item);
-                    LOGSTREAM(ccassets_log, CCLOG_DEBUG1, stream << "addOrders() added order funcId=" << (char)(funcid ? funcid : ' ') << " it->first.index=" << it->first.index << " ordertx.vout[it->first.index].nValue=" << ordertx.vout[it->first.index].nValue << " tokenid=" << assetid.GetHex() << std::endl);
                 }
+
+                if (ordertx.vout.size() < 2)  {
+                    LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " txid skipped " << txid.GetHex() << std::endl);
+                    return;
+                }
+
+                UniValue item(UniValue::VOBJ);
+
+                std::string funcidstr(1, (char)funcid);
+                item.push_back(Pair("funcid", funcidstr));
+                item.push_back(Pair("txid", txid.GetHex()));
+                if (funcid == 'b' || funcid == 'B')
+                {
+                    item.push_back(Pair("bidamount", ValueFromAmount(ordertx.vout[0].nValue)));
+                }
+                else if (funcid == 's' || funcid == 'S')
+                {
+                    item.push_back(Pair("askamount", ordertx.vout[0].nValue));
+                }
+                if (origpubkey.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+                {
+                    GetCCaddress(cp, origaddr, pubkey2pk(origpubkey), A::IsMixed());  
+                    item.push_back(Pair("origaddress", origaddr));
+                    GetTokensCCaddress(cpTokens, origtokenaddr, pubkey2pk(origpubkey), A::IsMixed());
+                    item.push_back(Pair("origtokenaddress", origtokenaddr));
+                }
+                if (assetid != zeroid)
+                    item.push_back(Pair("tokenid", assetid.GetHex()));
+                if (assetid2 != zeroid)
+                    item.push_back(Pair("otherid", assetid2.GetHex()));
+                if (unit_price > 0)
+                {
+                    if (funcid == 's' || funcid == 'S' /*|| funcid == 'e' || funcid == 'E' not supported */)
+                    {
+                        item.push_back(Pair("totalrequired", ValueFromAmount(unit_price * ordertx.vout[0].nValue)));
+                        item.push_back(Pair("price", ValueFromAmount(unit_price)));
+                    }
+                    else if (funcid == 'b' || funcid == 'B')
+                    {
+                        item.push_back(Pair("totalrequired", unit_price ? ordertx.vout[0].nValue / unit_price : 0));
+                        item.push_back(Pair("price", ValueFromAmount(unit_price)));
+                    }
+                }
+                result.push_back(item);
+                LOGSTREAM(ccassets_log, CCLOG_DEBUG1, stream << funcname << " added order funcId=" << (char)(funcid ? funcid : ' ') << " it->first.index=" << it->first.index << " ordertx.vout[it->first.index].nValue=" << ordertx.vout[it->first.index].nValue << " tokenid=" << assetid.GetHex() << std::endl);
             }
         }
 	};
