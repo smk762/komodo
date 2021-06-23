@@ -100,12 +100,12 @@ int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &remaining_units_out, st
 
 // extract sell/buy owner's pubkey from the opret
 template<class A>
-uint8_t SetAssetOrigpubkey(std::vector<uint8_t> &origpubkey_out, CAmount &unit_price, const CTransaction &tx)
+uint8_t GetOrderParams(std::vector<uint8_t> &origpubkey_out, CAmount &unit_price, uint256 &assetid, const CTransaction &tx)
 {
-    uint256 assetid, assetid2;
+    uint256 assetid2;
     uint8_t evalCode, funcid;
 
-    if (tx.vout.size() > 0 && (funcid = A::DecodeAssetTokenOpRet(tx.vout[tx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey_out)) != 0)
+    if (tx.vout.size() > 0 && (funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey_out)) != 0)
         return funcid;
     else
         return 0;

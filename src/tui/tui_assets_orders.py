@@ -117,7 +117,7 @@ def run_tokens_create(rpc):
             print("starting MofN tests for nftf7id1...")
             run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id1, 1)
 
-    print("assets tests finished okay")
+    print("token/assets tests finished okay")
     time.sleep(3)
     exit
 
@@ -521,6 +521,15 @@ def run_assets_orders(rpc1, rpc2, v, tokenid, total, units, isnft):
         cancelid = call_token_rpc_send_tx(rpc1, "token"+v+"cancelbid", 'bid is empty', tokenid, fillbidid2)
         print("creating token"+v+"cancelbid tx #3...")
         cancelid = call_token_rpc_send_tx(rpc1, "token"+v+"cancelbid", 'bid is empty', tokenid, fillbidid3)
+
+    # create tokenbid to test dust
+    print("creating token"+v+"bid tx #4...")
+    bidid4 = call_token_rpc_send_tx(rpc1, "token"+v+"bid", '', str(1), tokenid, str(0.0000_01))
+    
+    # fill bid to self with dust
+    print("creating token"+v+"fillbid tx #4 (to create dust)...")
+    fillbidid4 = call_token_rpc_send_tx(rpc1, "token"+v+"fillbid", '', tokenid, bidid4, str(1), str(0.0000_005))
+
 
     # check balance after 
     retries = 24
