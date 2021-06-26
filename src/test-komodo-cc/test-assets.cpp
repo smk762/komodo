@@ -929,7 +929,6 @@ TEST_F(TestAssetsCC, tokenv2create)
     EXPECT_TRUE(TestRunCCEval(mtx1));  // allow sent created tokens to any pk!!
 
     // invalid pk in opreturn:
-    //mtx2.vout[2] = CTxOut(0, TokensV2::EncodeTokenCreateOpRet(vscript_t(pk2.begin(), pk2.end()), name, description, {  }));  // should send to self (?)
     ASSERT_TRUE(TestFinalizeTx(mtx2, cp, testKeys[pk1], txfee,
                         TokensV2::EncodeTokenCreateOpRet(vscript_t(pk2.begin(), pk2.end()), name, description, {  })));
     EXPECT_FALSE(TestRunCCEval(mtx2)); // must fail
@@ -945,14 +944,6 @@ TEST_F(TestAssetsCC, tokenv2create)
     mtx3.vin.push_back(CTxIn(txnormalg.GetHash(), 0));
     mtx3.vout.push_back(TokensV2::MakeCC1vout(TokensV2::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));           
     mtx3.vout.push_back(TokensV2::MakeTokensCC1vout(0, 10, pk1));
-    /*  CKey keyg;
-    keyg.Set(privkeyg, privkeyg+sizeof(privkeyg), true);
-    CBasicKeyStore tempKeystoreg;
-    tempKeystoreg.AddKey(keyg);
-    // change opreturn
-    mtx3.vout[2] = CTxOut(0, TokensV2::EncodeTokenCreateOpRet(vscript_t(pkg.begin(), pkg.end()), name, description, {  }));  // should send to self (?)
-    ivin = 0; 
-    ASSERT_TRUE(TestSignTx(tempKeystoreg, mtx3, ivin, txnormalg.vout[0].nValue, txnormalg.vout[0].scriptPubKey)); */
 
     ASSERT_TRUE(TestFinalizeTx(mtx3, cp, privkeyg, txfee,
                         TokensV2::EncodeTokenCreateOpRet(vscript_t(pkg.begin(), pkg.end()), name, description, {  })));
