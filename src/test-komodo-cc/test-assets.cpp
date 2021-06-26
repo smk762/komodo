@@ -48,7 +48,7 @@ public:
     int currentHeight;
     std::map<uint256, CTransaction> txs;
     std::map<uint256, CBlockIndex> blocks;
-    std::map<uint256, std::vector<CTransaction>> spends;
+    //sstd::map<uint256, std::vector<CTransaction>> spends;
 
     bool GetTxUnconfirmed(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock) const
     {
@@ -65,8 +65,8 @@ public:
 
 static EvalMock eval;
 
-static CTransaction txnormal1, txnormal2, txnormal3, txnormal4, txnormalg, txask, txbid, txtokencreate1, txtokencreate2, txtokencreate3;
-static uint256 tokenid1, tokenid2, tokenid3;
+static CTransaction txnormal1, txnormal2, txnormal3, txnormal4, txnormalg, txask, txbid, txtokencreate1, txtokencreate2, txtokencreate3, txtokencreateUnused;
+static uint256 tokenid1, tokenid2, tokenid3, tokenidUnused;
 
 //  RJXkCF7mn2DRpUZ77XBNTKCe55M2rJbTcu
 static CPubKey pk1 = CPubKey(ParseHex("035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db"));
@@ -78,10 +78,37 @@ static uint8_t privkey2[] = { 0x9e, 0x69, 0x33, 0x27, 0x1c, 0x1c, 0x60, 0x5e, 0x
 static CPubKey pk3 = CPubKey(ParseHex("025f97b6c42409e8e69eb2fdab281219aafe15169deec801ee621c63cc1ba0bb8c"));
 static uint8_t privkey3[] = { 0x0d, 0xf8, 0xcd, 0xd4, 0x42, 0xbd, 0x77, 0xd2, 0xdd, 0x44, 0x89, 0x4b, 0x21, 0x78, 0xbf, 0x8d, 0x8a, 0xc3, 0x30, 0x0c, 0x5a, 0x70, 0x3d, 0xbe, 0xc9, 0x21, 0x75, 0x33, 0x23, 0x77, 0xd3, 0xde };
 
+std::map<CPubKey, uint8_t*> testKeys = {
+    { pk1, privkey1 },
+    { pk2, privkey2 },
+    { pk3, privkey3 },
+};
+
 //char Tokensv2CChexstr[] = { "032fd27f72591b02f13a7f9701246eb0296b2be7cfdad32c520e594844ec3d4801" };
 //uint8_t Tokensv2CCpriv[] = { 0xb5, 0xba, 0x92, 0x7f, 0x53, 0x45, 0x4f, 0xf8, 0xa4, 0xad, 0x0d, 0x38, 0x30, 0x4f, 0xd0, 0x97, 0xd1, 0xb7, 0x94, 0x1b, 0x1f, 0x52, 0xbd, 0xae, 0xa2, 0xe7, 0x49, 0x06, 0x2e, 0xd2, 0x2d, 0xa5 };
 
-static uint8_t privkeyGlobal[] = { };
+static CPubKey pkunused = CPubKey(ParseHex("034b082c5819b5bf8798a387630ad236a8e800dbce4c4e24a46f36dfddab3cbff5"));
+
+CAmount TestAddNormalInputs(CMutableTransaction &mtx, CPubKey mypk, CAmount amount)
+{
+    CAmount totalInputs = 0LL;
+    char mypkaddr[KOMODO_ADDRESS_BUFSIZE];
+    Getscriptaddress(mypkaddr,  CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
+    for (auto const &t : eval.txs) {
+        for (int32_t v = 0; v < t.second.vout.size(); v ++) {
+            char utxoaddr[KOMODO_ADDRESS_BUFSIZE];
+            Getscriptaddress(utxoaddr, t.second.vout[v].scriptPubKey);
+            //std::cerr << __func__ << " utxoaddr=" << utxoaddr << " mypkaddr=" << mypkaddr << " tx=" << t.second.GetHash().GetHex() << " v=" << v << std::endl;
+            if (strcmp(utxoaddr, mypkaddr) == 0)    {
+                mtx.vin.push_back(CTxIn(t.second.GetHash(), v));
+                totalInputs += t.second.vout[v].nValue;
+                if (totalInputs >= amount)
+                    return totalInputs;
+            }
+        }
+    }
+    return 0LL;
+}
 
 bool TestSignTx(const CKeyStore& keystore, CMutableTransaction& mtx, int32_t vini, int64_t utxovalue, const CScript scriptPubKey)
 {
@@ -90,11 +117,161 @@ bool TestSignTx(const CKeyStore& keystore, CMutableTransaction& mtx, int32_t vin
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     if (ProduceSignature(TransactionSignatureCreator(&keystore, &txNewConst, vini, utxovalue, SIGHASH_ALL), scriptPubKey, sigdata, consensusBranchId) != 0) {
         UpdateTransaction(mtx, vini, sigdata);
-        return (true);
-    } else
-        std::cerr << __func__ << "signing error for vini=" << vini << " amount=" << utxovalue << std::endl;
-    return (false);
+        return true;
+    } else {
+        std::cerr << __func__ << " signing error for vini=" << vini << " amount=" << utxovalue << std::endl;
+        return false;
+    }
 }
+
+bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp, uint8_t *myprivkey, CAmount txfee, CScript opret)
+{
+    auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
+    CAmount totaloutputs = 0LL;
+    for (int i = 0; i < mtx.vout.size(); i ++) 
+        totaloutputs += mtx.vout[i].nValue;
+
+    if (!cp || !cp->evalcode)  {
+        std::cerr << __func__ << " invalid cp param" << std::endl;
+        return false;
+    }
+
+    CAmount totalinputs = 0LL;
+    for (int i = 0; i < mtx.vin.size(); i ++) 
+    {
+        CTransaction vintx;
+        uint256 hashBlock;
+        if (i == 0 && mtx.vin[i].prevout.n == 10e8)
+            continue; // skip pegs vin
+        
+        if (GetTxUnconfirmedOpt(&eval, mtx.vin[i].prevout.hash, vintx, hashBlock)) {
+            totalinputs += vintx.vout[mtx.vin[i].prevout.n].nValue;
+        } else {
+            fprintf(stderr, "%s couldnt find vintx %s\n", __func__, mtx.vin[i].prevout.hash.ToString().c_str());
+            return false;
+        }
+    }
+
+    if (!myprivkey)  {
+        std::cerr << __func__ << "myprivkey not set" << std::endl;
+        return false;
+    }
+
+    CKey mykey;
+    mykey.SetKey32(myprivkey);
+    CPubKey mypk = mykey.GetPubKey();
+    if (totalinputs >= totaloutputs + txfee) {
+        CAmount change = totalinputs - (totaloutputs + txfee);
+        if (change > 0)
+            mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+    }
+
+    if (opret.size() > 0)
+        mtx.vout.push_back(CTxOut(0, opret));
+
+    CPubKey globalpk;
+    char myccaddr[KOMODO_ADDRESS_BUFSIZE], 
+         globaladdr[KOMODO_ADDRESS_BUFSIZE],
+         mytokenaddr[KOMODO_ADDRESS_BUFSIZE] = { '\0' };
+    globalpk = GetUnspendable(cp, NULL);
+    _GetCCaddress(myccaddr, cp->evalcode, mypk, true);
+    _GetCCaddress(globaladdr, cp->evalcode, globalpk, true);
+    GetTokensCCaddress(cp, mytokenaddr, mypk, true); // get token or nft probe
+
+    PrecomputedTransactionData txdata(mtx);
+    for (int i = 0; i < mtx.vin.size(); i++) 
+    {
+        CTransaction vintx;
+        uint256 hashBlock;
+        bool mgret;
+
+        if (i == 0 && mtx.vin[i].prevout.n == 10e8) // skip PEGS vin
+            continue;
+        if ((mgret = GetTxUnconfirmedOpt(&eval, mtx.vin[i].prevout.hash, vintx, hashBlock)) != false) {
+            CCwrapper cond;
+            uint8_t *privkey = NULL;
+
+            if (!vintx.vout[mtx.vin[i].prevout.n].scriptPubKey.IsPayToCryptoCondition()) 
+            {
+                /*char coinaddr[KOMODO_ADDRESS_BUFSIZE];
+                Getscriptaddress(coinaddr, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
+                if (strcmp(destaddr, coinaddr) != 0)    {
+                    fprintf(stderr, "%s signing error for normal vini.%d myprivkey does not match\n", __func__, i);
+                    return false;
+                }*/
+
+                CBasicKeyStore tempKeystore;
+                CKey key;
+                key.Set(myprivkey, myprivkey+32, true);
+                tempKeystore.AddKey(key);
+                if (!TestSignTx(tempKeystore, mtx, i, vintx.vout[mtx.vin[i].prevout.n].nValue, vintx.vout[mtx.vin[i].prevout.n].scriptPubKey))  {
+                    fprintf(stderr, "%s signing error for normal vini.%d\n", __func__, i);
+                    return false;
+                }
+
+            } else {
+                char destaddr[KOMODO_ADDRESS_BUFSIZE];
+                if (!Getscriptaddress(destaddr, vintx.vout[mtx.vin[i].prevout.n].scriptPubKey))  {
+                    std::cerr << __func__ << " could not Getscriptaddress for scriptPubKey=" << vintx.vout[mtx.vin[i].prevout.n].scriptPubKey.ToString() << std::endl;
+                    return false;
+                }
+
+                if (strcmp(destaddr, globaladdr) == 0) {
+                    std::cerr << __func__ << " found globaladdress=" << globaladdr << " destaddr=" << destaddr << " strlen=" << strlen(globaladdr) << " evalcode=" << (int)cp->evalcode << std::endl;
+
+                    privkey = cp->CCpriv;
+                    cond.reset(MakeCCcond1(cp->evalcode, globalpk));
+                } else if (strcmp(destaddr, myccaddr) == 0) {
+                    privkey = myprivkey;
+                    cond.reset(MakeCCcond1(cp->evalcode, mypk));
+                    std::cerr << __func__ << " found myccaddr=" << myccaddr << std::endl;
+
+                } else if (strcmp(destaddr, mytokenaddr) == 0) {
+                    privkey = myprivkey;
+                    cond.reset(MakeTokensv2CCcond1(cp->evalcode, cp->evalcodeNFT, mypk));
+                    std::cerr << __func__ << " found mytokenaddr=" << mytokenaddr << " evalcode=" << (int)cp->evalcode << " evalcodeNFT=" << (int)cp->evalcodeNFT << std::endl;
+                } else {
+                    const uint8_t nullpriv[32] = {'\0'};
+                    // use vector of dest addresses and conds to probe vintxconds
+                    for (auto& t : cp->CCvintxprobes) {
+                        char coinaddr[KOMODO_ADDRESS_BUFSIZE];
+                        if (t.CCwrapped.get() != NULL) {
+                            CCwrapper anonCond = t.CCwrapped;
+                            CCtoAnon(anonCond.get());
+                            Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), true));
+                            if (strcmp(destaddr, coinaddr) == 0) {
+                                std::cerr << __func__ << " found vintxprobe=" << coinaddr  << " privkey=" << (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0) << std::endl;
+                                if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
+                                    privkey = t.CCpriv;
+                                else
+                                    privkey = myprivkey;
+                                cond = t.CCwrapped;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (cond.get() == NULL) {
+                    fprintf(stderr, "%s vini.%d has CC signing error: could not find matching cond, address.(%s) %s\n", __func__, i, destaddr, EncodeHexTx(mtx).c_str());
+                    return false;
+                }
+
+                uint256 sighash = SignatureHash(CCPubKey(cond.get()), mtx, i, SIGHASH_ALL, vintx.vout[mtx.vin[i].prevout.n].nValue, consensusBranchId, &txdata);
+                if (cc_signTreeSecp256k1Msg32(cond.get(), privkey, sighash.begin()) == 0) {
+                    fprintf(stderr, "%s vini.%d has CC signing error: cc_signTreeSecp256k1Msg32 returned error, address.(%s) %s\n", __func__, i, destaddr, EncodeHexTx(mtx).c_str());
+                    return false;
+                }
+                mtx.vin[i].scriptSig = CCSig(cond.get());
+            }
+        } else {
+            fprintf(stderr, "%s could not find tx %s myGetTransaction returned %d\n", __func__, mtx.vin[i].prevout.hash.ToString().c_str(), mgret);
+            return false;
+        }
+    }
+    return true;
+}
+
+
 
 class TestAssetsCC : public ::testing::Test {
 public:
@@ -104,7 +281,9 @@ public:
 protected:
     static void SetUpTestCase() {  
         // setup eval for tests
-        CreateTransactions(&eval);
+        ASSETCHAINS_CC = 2;
+
+        CreateTransactions();
     }
     virtual void SetUp() {
         // enable print
@@ -113,38 +292,32 @@ protected:
         mapMultiArgs["-debug"] = { "cctokens", "ccassets" };
     }
 
-    static void CreateTransactions(EvalMock *eval)
+    static void CreateTransactions()
     {
         std::cerr << __func__ << " enterred" << std::endl;
-        txnormal1 = MakeNormalTx(pk1, 1000);
-        txnormal2 = MakeNormalTx(pk1, 1000);
-        txnormal3 = MakeNormalTx(pk2, 1000);
-        txnormal4 = MakeNormalTx(pk2, 1000);
-        txnormalg = MakeNormalTxG();
+        txnormal1 = MakeNormalTx(pk1, 20000);
+        txnormal2 = MakeNormalTx(pk1, 20000);
+        txnormal3 = MakeNormalTx(pk2, 20000);
+        txnormal4 = MakeNormalTx(pk2, 20000);
 
-        eval->txs[txnormal1.GetHash()] = txnormal1;
-        eval->txs[txnormal2.GetHash()] = txnormal2;
-        eval->txs[txnormal3.GetHash()] = txnormal3;
-        eval->txs[txnormal4.GetHash()] = txnormal4;
-        eval->txs[txnormalg.GetHash()] = txnormalg;
+        struct CCcontract_info *cpTokens, tokensC;  
+        cpTokens = CCinit(&tokensC, TokensV2::EvalCode());
+        txnormalg = MakeNormalTx(GetUnspendable(cpTokens, NULL), 20000);
 
         txtokencreate1 = MakeTokenV2CreateTx(pk1);
-        eval->txs[txtokencreate1.GetHash()] = txtokencreate1;
         tokenid1 = txtokencreate1.GetHash();
 
         txtokencreate2 = MakeTokenV2CreateTx(pk2);
-        eval->txs[txtokencreate2.GetHash()] = txtokencreate2;
         tokenid2 = txtokencreate2.GetHash();
 
         txtokencreate3 = MakeTokenV2CreateTx(pk2);
-        eval->txs[txtokencreate3.GetHash()] = txtokencreate3;
         tokenid3 = txtokencreate3.GetHash();
 
-        txask = MakeTokenV2AskTx(pk1);
-        eval->txs[txask.GetHash()] = txask;
+        txtokencreateUnused = MakeTokenV2CreateTx(pk1);
+        tokenidUnused = txtokencreateUnused.GetHash();
 
+        txask = MakeTokenV2AskTx(pk1);
         txbid = MakeTokenV2BidTx(pk2);
-        eval->txs[txbid.GetHash()] = txbid;
     }
 
     static CTransaction MakeNormalTx(CPubKey pk, CAmount val)
@@ -152,10 +325,11 @@ protected:
         CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
         mtx.vin.push_back(CTxIn(getRandomHash(), 0));
         mtx.vout.push_back(CTxOut(val, GetScriptForDestination(pk)));
+        eval.txs[mtx.GetHash()] = mtx;
         return CTransaction(mtx);
     }
 
-    static CTransaction MakeNormalTxG()
+    /*static CTransaction MakeNormalTxG()
     {
         struct CCcontract_info *cpTokens, tokensC;  
         cpTokens = CCinit(&tokensC, TokensV2::EvalCode());
@@ -165,7 +339,7 @@ protected:
         mtx.vin.push_back(CTxIn(getRandomHash(), 0));
         mtx.vout.push_back(CTxOut(100000, GetScriptForDestination(pkg)));
         return CTransaction(mtx);
-    }
+    }*/
 
     static CTransaction MakeTokenV2CreateTx(CPubKey pk)
     {
@@ -179,6 +353,7 @@ protected:
         mtx.vout.push_back(TokensV2::MakeCC1vout(TokensV2::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));           
 		mtx.vout.push_back(TokensV2::MakeTokensCC1vout(0, 10, pk));
         mtx.vout.push_back(CTxOut(0, TokensV2::EncodeTokenCreateOpRet(vscript_t(pk.begin(), pk.end()), name, description, {  })));
+        eval.txs[mtx.GetHash()] = mtx;
         return CTransaction(mtx);
     }
 
@@ -205,6 +380,7 @@ protected:
         mtx.vout.push_back(CTxOut(0, 
             TokensV2::EncodeTokenOpRet(tokenid1, {},     
                 { AssetsV2::EncodeAssetOpRet('s', zeroid, unit_price, vuint8_t(pk.begin(), pk.end())) })));
+        eval.txs[mtx.GetHash()] = mtx;
         return CTransaction(mtx);
     }
 
@@ -231,6 +407,7 @@ protected:
         mtx.vout.push_back(CTxOut(0, 
             TokensV2::EncodeTokenOpRet(tokenid2, {},     
                 { AssetsV2::EncodeAssetOpRet('b', zeroid, unit_price, vuint8_t(pk.begin(), pk.end())) })));
+        eval.txs[mtx.GetHash()] = mtx;
         return CTransaction(mtx);
     }
 
@@ -247,7 +424,6 @@ protected:
 
         // set some vars used in validation:
         KOMODO_CONNECTING = 1;
-        ASSETCHAINS_CC = 2;
         KOMODO_CCACTIVATE = 1;
         eval.state = CValidationState(); // clear validation state
         EVAL_TEST = &eval;
@@ -296,14 +472,13 @@ TEST_F(TestAssetsCC, tokenv2ask)
     CAmount numtokens = 2;
     CAmount txfee = 10000;
 
-    //CPubKey mypk(ParseHex("035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db"));
     cpAssets = CCinit(&C, AssetsV2::EvalCode());   
     cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
 
     uint8_t evalcodeNFT = cpTokens->evalcodeNFT ? cpTokens->evalcodeNFT : 0;
     CAmount unit_price = askamount / numtokens;
 
-    mtx.vin.push_back(CTxIn(txnormal2.GetHash(), 0));
+    ASSERT_TRUE( TestAddNormalInputs(mtx, pk1, txfee) > 0LL);
     mtx.vin.push_back(CTxIn(txtokencreate1.GetHash(), 1));
 
     CAmount inputs = txtokencreate1.vout[1].nValue;
@@ -317,26 +492,14 @@ TEST_F(TestAssetsCC, tokenv2ask)
         mtx.vout.push_back(TokensV2::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : TokensV2::EvalCode(), CCchange, pk1));	
     }
 
-    mtx.vout.push_back(CTxOut(0, 
-        TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey },     
-            { AssetsV2::EncodeAssetOpRet('s', zeroid, unit_price, vuint8_t(pk1.begin(), pk1.end())) })));
+    // cond to spend NFT from mypk 
+    CCwrapper wrCond(TokensV2::MakeTokensCCcond1(evalcodeNFT, pk1));
+    CCAddVintxCond(cpTokens, wrCond, NULL); //NULL indicates to use myprivkey
 
     // sign vins:
-    // sign normal vin:
-    CBasicKeyStore tempKeystore;
-    CKey key;
-    key.Set(privkey1, privkey1+sizeof(privkey1), true);
-    tempKeystore.AddKey(key);
-    int32_t ivin = 0;
-    ASSERT_TRUE( TestSignTx(tempKeystore, mtx, ivin, txnormal2.vout[0].nValue, txnormal2.vout[0].scriptPubKey) );
-
-    ++ivin;
-    // sign cc vin:
-    PrecomputedTransactionData txdata(mtx);
-    CCwrapper cond(TokensV2::MakeTokensCCcond1(evalcodeNFT ? evalcodeNFT : TokensV2::EvalCode(), pk1));
-    uint256 sighash = SignatureHash(CCPubKey(cond.get()), mtx, ivin, SIGHASH_ALL, 0, 0, &txdata);
-    ASSERT_TRUE( cc_signTreeSecp256k1Msg32(cond.get(), privkey1, sighash.begin()) > 0 );
-    mtx.vin[ivin].scriptSig = CCSig(cond.get());
+    ASSERT_TRUE(TestFinalizeTx(mtx, cpTokens, testKeys[pk1], txfee,
+        TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey },     
+            { AssetsV2::EncodeAssetOpRet('s', zeroid, unit_price, vuint8_t(pk1.begin(), pk1.end())) })));  
 
     EXPECT_TRUE(TestRunCCEval(mtx));
 }
@@ -354,24 +517,16 @@ TEST_F(TestAssetsCC, tokenv2bid)
 
     CAmount unit_price = bidamount / numtokens;
 
-    mtx.vin.push_back(CTxIn(txnormal2.GetHash(), 0));
+    ASSERT_TRUE( TestAddNormalInputs(mtx, pk1, txfee) > 0LL);
 
     CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, 0);
     mtx.vout.push_back(TokensV2::MakeCC1vout(AssetsV2::EvalCode(), bidamount, unspendableAssetsPubkey));
     mtx.vout.push_back(TokensV2::MakeCC1vout(AssetsV2::EvalCode(), ASSETS_MARKER_AMOUNT, pk1));  // marker for my orders
 
-    mtx.vout.push_back(CTxOut(0, 
-        TokensV2::EncodeTokenOpRet(tokenid1, {},     
-            { AssetsV2::EncodeAssetOpRet('b', zeroid, unit_price, vuint8_t(pk1.begin(), pk1.end())) })));
-
     // sign vins:
-    // normal vin:
-    CBasicKeyStore tempKeystore;
-    CKey key;
-    key.Set(privkey1, privkey1+sizeof(privkey1), true);
-    tempKeystore.AddKey(key);
-    int32_t ivin = 0;
-    ASSERT_TRUE( TestSignTx(tempKeystore, mtx, ivin, txnormal2.vout[0].nValue, txnormal2.vout[0].scriptPubKey) );
+    ASSERT_TRUE(TestFinalizeTx(mtx, cpAssets, testKeys[pk1], txfee,
+        TokensV2::EncodeTokenOpRet(tokenid1, {},     
+            { AssetsV2::EncodeAssetOpRet('b', zeroid, unit_price, vuint8_t(pk1.begin(), pk1.end())) })));   
 
     EXPECT_TRUE(TestRunCCEval(mtx));
 }
@@ -415,12 +570,10 @@ TEST_F(TestAssetsCC, tokenv2fillask)
         paid_unit_price = unit_price;
 
     CAmount paid_nValue = paid_unit_price * fillunits;
-
     CAmount royaltyValue = royaltyFract > 0 ? paid_nValue / NFTROYALTY_DIVISOR * royaltyFract : 0;
 
-    mtx.vin.push_back(CTxIn(txnormal2.GetHash(), 0));
+    ASSERT_TRUE( TestAddNormalInputs(mtx, pk2, txfee) > 0LL);
     mtx.vin.push_back(CTxIn(txask.GetHash(), askvout, CScript()));  // spend order tx
-
 
     // vout.0 tokens remainder to unspendable cc addr:
     mtx.vout.push_back(TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), evalcodeNFT, orig_assetoshis - fillunits, GetUnspendable(cpAssets, NULL)));  // token remainder on cc global addr
@@ -434,26 +587,15 @@ TEST_F(TestAssetsCC, tokenv2fillask)
     if (orig_assetoshis - fillunits > 0) // we dont need the marker if order is filled
         mtx.vout.push_back(TokensV2::MakeCC1vout(AssetsV2::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));    //vout.3(4 if royalty) marker to origpubkey (for my tokenorders?)
 
+    uint8_t unspendableAssetsPrivkey[32];
+    CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 
-    mtx.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid1, { pk2 }, 
-                                    { AssetsV2::EncodeAssetOpRet('S', zeroid, unit_price, origpubkey) } )));
+    CCwrapper wrCond(TokensV2::MakeTokensCCcond1(AssetsV2::EvalCode(), evalcodeNFT, unspendableAssetsPk));
+    CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
 
-    // sign normal vin:
-    CBasicKeyStore tempKeystore;
-    CKey key;
-    key.Set(privkey1, privkey1+sizeof(privkey1), true);
-    tempKeystore.AddKey(key);
-    int32_t ivin = 0;
-    ASSERT_TRUE( TestSignTx(tempKeystore, mtx, ivin, txnormal2.vout[0].nValue, txnormal2.vout[0].scriptPubKey) );
-
-    ++ivin;
-    // sign cc vin:
-    PrecomputedTransactionData txdata(mtx);
-    uint8_t privkeyAssets[32];
-    CCwrapper cond(TokensV2::MakeTokensCCcond1(AssetsV2::EvalCode(), evalcodeNFT ? evalcodeNFT : TokensV2::EvalCode(), GetUnspendable(cpAssets, privkeyAssets)));
-    uint256 sighash = SignatureHash(CCPubKey(cond.get()), mtx, ivin, SIGHASH_ALL, 0, 0, &txdata);
-    ASSERT_TRUE( cc_signTreeSecp256k1Msg32(cond.get(), privkeyAssets, sighash.begin()) > 0 );
-    mtx.vin[ivin].scriptSig = CCSig(cond.get());
+    ASSERT_TRUE(TestFinalizeTx(mtx, cpAssets, testKeys[pk2], txfee,
+        TokensV2::EncodeTokenOpRet(tokenid1, { pk2 }, 
+            { AssetsV2::EncodeAssetOpRet('S', zeroid, unit_price, origpubkey) } )));   
 
     EXPECT_TRUE(TestRunCCEval(mtx));
 }
@@ -461,7 +603,6 @@ TEST_F(TestAssetsCC, tokenv2fillask)
 
 TEST_F(TestAssetsCC, tokenv2fillbid)
 {
-
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	struct CCcontract_info *cpAssets, C; 
 	struct CCcontract_info *cpTokens, tokensC;
@@ -502,14 +643,12 @@ TEST_F(TestAssetsCC, tokenv2fillbid)
     if (paid_unit_price <= 0LL)
         paid_unit_price = unit_price;
 
-
-    mtx.vin.push_back(CTxIn(txnormal2.GetHash(), 0));
+    ASSERT_TRUE( TestAddNormalInputs(mtx, pk2, txfee) > 0LL);
     mtx.vin.push_back(CTxIn(txtokencreate2.GetHash(), 1, CScript()));  // spend token tx
     mtx.vin.push_back(CTxIn(txbid.GetHash(), bidvout, CScript()));  // spend order tx
 
-    CAmount inputs = txnormal2.vout[0].nValue;
+    //CAmount inputs = txnormal2.vout[0].nValue;
     CAmount tokenInputs = txtokencreate2.vout[1].nValue;
-
 
     ASSERT_TRUE(SetBidFillamounts(unit_price, paid_amount, bid_amount, fill_units, orig_units, paid_unit_price));
 
@@ -535,54 +674,220 @@ TEST_F(TestAssetsCC, tokenv2fillbid)
 
     if (tokensChange != 0LL)
         mtx.vout.push_back(TokensV2::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : TokensV2::EvalCode(), tokensChange, pk2));  // change in single-eval tokens
+
+    CMutableTransaction mtx2(mtx);  // copy
+
+    CCwrapper wrCond1(MakeCCcond1(AssetsV2::EvalCode(), unspendableAssetsPk));  // spend coins
+    CCAddVintxCond(cpTokens, wrCond1, unspendableAssetsPrivkey);
     
-    mtx.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid2, { pubkey2pk(origpubkey) },
-            { AssetsV2::EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) })));
+    CCwrapper wrCond2(TokensV2::MakeTokensCCcond1(evalcodeNFT, pk2));  // spend my tokens to fill buy
+    CCAddVintxCond(cpTokens, wrCond2, NULL); //NULL indicates to use myprivkey
 
-    // sign normal vin:
-    CBasicKeyStore tempKeystore;
-    CKey key;
-    key.Set(privkey1, privkey1+sizeof(privkey1), true);
-    tempKeystore.AddKey(key);
-    int32_t ivin = 0;
-    ASSERT_TRUE( TestSignTx(tempKeystore, mtx, ivin, txnormal2.vout[0].nValue, txnormal2.vout[0].scriptPubKey) );
-
-    ++ivin;
-    // sign cc token vin:
-    PrecomputedTransactionData txdata(mtx);
-    CCwrapper cond1(TokensV2::MakeTokensCCcond1(evalcodeNFT ? evalcodeNFT : TokensV2::EvalCode(), pk2));
-    uint256 sighash1 = SignatureHash(CCPubKey(cond1.get()), mtx, ivin, SIGHASH_ALL, 0, 0, &txdata);
-    ASSERT_TRUE( cc_signTreeSecp256k1Msg32(cond1.get(), privkey2, sighash1.begin()) > 0 );
-    mtx.vin[ivin].scriptSig = CCSig(cond1.get());
-
-    ++ivin;
-    // sign cc assets vin:
-    uint8_t privkeyAssets[32];
-    CCwrapper cond2(MakeCCcond1(AssetsV2::EvalCode(), GetUnspendable(cpAssets, privkeyAssets)));
-    uint256 sighash2 = SignatureHash(CCPubKey(cond2.get()), mtx, ivin, SIGHASH_ALL, 0, 0, &txdata);
-    ASSERT_TRUE( cc_signTreeSecp256k1Msg32(cond2.get(), privkeyAssets, sighash2.begin()) > 0 );
-    mtx.vin[ivin].scriptSig = CCSig(cond2.get());
-
+    ASSERT_TRUE(TestFinalizeTx(mtx, cpTokens, testKeys[pk2], txfee,
+        TokensV2::EncodeTokenOpRet(tokenid2, { pubkey2pk(origpubkey) },
+            { AssetsV2::EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) })));    
     EXPECT_TRUE(TestRunCCEval(mtx));
 
-    // check bad tokenid bid
-    CMutableTransaction mtx2(mtx);
-    ivin = 1;
-    mtx2.vin[ivin] = CTxIn(txtokencreate3.GetHash(), 1, CScript());  // spend bad tokenid3
-    mtx2.vout.pop_back();
-    mtx2.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid3, { pubkey2pk(origpubkey) },
-            { AssetsV2::EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) })));
-    // sign cc token vin:
-    PrecomputedTransactionData txdata2(mtx2);
-    CCwrapper cond3(TokensV2::MakeTokensCCcond1(evalcodeNFT ? evalcodeNFT : TokensV2::EvalCode(), pk2));
-    uint256 sighash3 = SignatureHash(CCPubKey(cond3.get()), mtx2, ivin, SIGHASH_ALL, 0, 0, &txdata2);
-    ASSERT_TRUE( cc_signTreeSecp256k1Msg32(cond3.get(), privkey2, sighash3.begin()) > 0 );
-    mtx2.vin[ivin].scriptSig = CCSig(cond3.get());
+    // spend bad tokenid 
+    mtx2.vin[1] = CTxIn(txtokencreate3.GetHash(), 1, CScript());  // spend bad tokenid3
+    ASSERT_TRUE(TestFinalizeTx(mtx2, cpTokens, testKeys[pk2], txfee,
+        TokensV2::EncodeTokenOpRet(tokenid3, { pubkey2pk(origpubkey) },
+            { AssetsV2::EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) }))); 
 
     EXPECT_FALSE(TestRunCCEval(mtx2));
 
 
 }
+
+TEST_F(TestAssetsCC, tokenv2cancelask)
+{
+	struct CCcontract_info *cpAssets, C; 
+	struct CCcontract_info *cpTokens, tokensC;
+
+    CAmount txfee = 10000;
+
+    cpAssets = CCinit(&C, AssetsV2::EvalCode());   
+    cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+
+    for (CTransaction vintx : std::vector<CTransaction>{ txask })  // TODO add more txasks
+    {
+        CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+        uint256 asktxid = vintx.GetHash();
+        CAmount askamount = vintx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
+
+        TokenDataTuple tokenData;
+        vuint8_t vopretNonfungible;
+        ASSERT_TRUE( GetTokenData<TokensV2>(&eval, tokenid1, tokenData, vopretNonfungible) );
+        uint8_t evalcodeNFT = 0;
+        if (vopretNonfungible.size() > 0)
+            evalcodeNFT = vopretNonfungible[0];
+        vuint8_t ownerpubkey = std::get<0>(tokenData);
+
+        ASSERT_TRUE( TestAddNormalInputs(mtx, ownerpubkey, txfee) > 0LL);
+        mtx.vin.push_back(CTxIn(asktxid, ASSETS_GLOBALADDR_VOUT, CScript()));
+        
+        uint8_t dummyEvalCode; 
+        uint256 dummyAssetid, dummyAssetid2; 
+        int64_t dummyPrice; 
+        std::vector<uint8_t> dummyOrigpubkey;
+        uint8_t funcid = AssetsV2::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey);
+        if (funcid == 's' && vintx.vout.size() > 1)
+            mtx.vin.push_back(CTxIn(asktxid, 1, CScript()));		// spend marker if funcid='s'
+        else if (funcid == 'S' && vintx.vout.size() > 3)
+            mtx.vin.push_back(CTxIn(asktxid, 3, CScript()));		// spend marker if funcid='S'
+        else {
+            std::cerr << __func__ << "invalid ask tx" << std::endl;
+            ASSERT_FALSE(true);
+        }
+
+        mtx.vout.push_back(TokensV2::MakeTokensCC1vout(cpAssets->evalcodeNFT ? cpAssets->evalcodeNFT : TokensV2::EvalCode(), askamount, ownerpubkey));	// one-eval token vout
+
+        // init assets 'unspendable' privkey and pubkey
+        uint8_t unspendableAssetsPrivkey[32];
+        CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
+
+        CCwrapper wrCond(TokensV2::MakeTokensCCcond1(AssetsV2::EvalCode(), cpAssets->evalcodeNFT, unspendableAssetsPk));
+        CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
+
+        ASSERT_TRUE(TestFinalizeTx(mtx, cpAssets, testKeys[ownerpubkey], txfee,
+            TokensV2::EncodeTokenOpRet(tokenid1, { ownerpubkey },
+                { AssetsV2::EncodeAssetOpRet('x', zeroid, 0, vuint8_t(ownerpubkey.begin(), ownerpubkey.end())) } )));
+
+        EXPECT_TRUE(TestRunCCEval(mtx));
+
+        // invalid pk in assets opreturn
+        CMutableTransaction mtx2(mtx);
+        mtx2.vout.pop_back();
+        mtx2.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid1, { ownerpubkey },
+                                { AssetsV2::EncodeAssetOpRet('x', zeroid, 0, vuint8_t(pk2.begin(), pk2.end())) } )));
+        // EXPECT_FALSE(TestRunCCEval(mtx2)); // is not checked
+
+        // invalid pk in token opret
+        CMutableTransaction mtx3(mtx);
+        mtx3.vout.pop_back();
+        mtx3.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid1, { pkunused },
+                                { AssetsV2::EncodeAssetOpRet('x', zeroid, 0, vuint8_t(ownerpubkey.begin(), ownerpubkey.end())) } )));
+        // EXPECT_FALSE(TestRunCCEval(mtx3)); // is not checked
+
+        // invalid pk where to funds sent
+        CMutableTransaction mtx4(mtx);
+        mtx4.vout[0] = TokensV2::MakeTokensCC1vout(cpAssets->evalcodeNFT ? cpAssets->evalcodeNFT : TokensV2::EvalCode(), askamount, pk2);
+        EXPECT_FALSE(TestRunCCEval(mtx4)); // is not checked
+
+        // invalid tokenid in token opret
+        CMutableTransaction mtx5(mtx);
+        mtx5.vout.pop_back();
+        mtx5.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenidUnused, { ownerpubkey },
+                                { AssetsV2::EncodeAssetOpRet('x', zeroid, 0, vuint8_t(ownerpubkey.begin(), ownerpubkey.end())) } )));
+        EXPECT_FALSE(TestRunCCEval(mtx5)); // is not checked
+
+        // opposite funcid in token opret
+        CMutableTransaction mtx6(mtx);
+        mtx6.vout.pop_back();
+        mtx6.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid1, { ownerpubkey },
+                                { AssetsV2::EncodeAssetOpRet('o', zeroid, 0, vuint8_t(ownerpubkey.begin(), ownerpubkey.end())) } )));
+        EXPECT_FALSE(TestRunCCEval(mtx6)); // is not checked
+    }
+}
+
+TEST_F(TestAssetsCC, tokenv2cancelbid)
+{
+	struct CCcontract_info *cpAssets, C; 
+	struct CCcontract_info *cpTokens, tokensC;
+    CAmount txfee = 10000;
+
+    cpAssets = CCinit(&C, AssetsV2::EvalCode());   
+    cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+
+    for (CTransaction vintx : std::vector<CTransaction>{ txbid })  // TODO add more txasks
+    {
+        CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+        uint256 bidtxid = vintx.GetHash();
+        CAmount bidamount = vintx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
+
+        TokenDataTuple tokenData;
+        vuint8_t vopretNonfungible;
+        ASSERT_TRUE( GetTokenData<TokensV2>(&eval, tokenid2, tokenData, vopretNonfungible) );
+        uint8_t evalcodeNFT = 0;
+        if (vopretNonfungible.size() > 0)
+            evalcodeNFT = vopretNonfungible[0];
+        vuint8_t ownerpubkey = std::get<0>(tokenData);
+
+        ASSERT_TRUE( TestAddNormalInputs(mtx, ownerpubkey, txfee) > 0LL);
+        mtx.vin.push_back(CTxIn(bidtxid, ASSETS_GLOBALADDR_VOUT, CScript()));
+        
+        uint8_t dummyEvalCode; 
+        uint256 dummyAssetid, dummyAssetid2; 
+        int64_t dummyPrice; 
+        std::vector<uint8_t> dummyOrigpubkey;
+        uint8_t funcid = AssetsV2::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey);
+        if (funcid == 'b' && vintx.vout.size() > 1)
+            mtx.vin.push_back(CTxIn(bidtxid, 1, CScript()));		// spend marker if funcid='b'
+        else if (funcid == 'B' && vintx.vout.size() > 3)
+            mtx.vin.push_back(CTxIn(bidtxid, 3, CScript()));		// spend marker if funcid='B'
+        else {
+            std::cerr << __func__ << "invalid bid tx" << std::endl;
+            ASSERT_FALSE(true);
+        }
+
+        if (bidamount > ASSETS_NORMAL_DUST)  
+            mtx.vout.push_back(CTxOut(bidamount, CScript() << ParseHex(HexStr(ownerpubkey)) << OP_CHECKSIG));
+        else {
+            // send dust back to global addr
+            mtx.vout.push_back(TokensV2::MakeCC1vout(AssetsV2::EvalCode(), bidamount, GetUnspendable(cpAssets, NULL)));
+            std::cerr << __func__ << " dust detected bidamount=" << bidamount << std::endl;
+        }
+
+        // init assets 'unspendable' privkey and pubkey
+        uint8_t unspendableAssetsPrivkey[32];
+        CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
+
+        // sign, add change, add opreturn
+        ASSERT_TRUE(TestFinalizeTx(mtx, cpAssets, testKeys[ownerpubkey], txfee,
+                            TokensV2::EncodeTokenOpRet(tokenid2, { ownerpubkey },
+                                { AssetsV2::EncodeAssetOpRet('o', zeroid, 0, vuint8_t(ownerpubkey.begin(), ownerpubkey.end())) } )));
+
+        EXPECT_TRUE(TestRunCCEval(mtx));
+
+        // invalid pk in assets opreturn
+        CMutableTransaction mtx2(mtx);
+        mtx2.vout.pop_back();
+        mtx2.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid2, { ownerpubkey },
+                                { AssetsV2::EncodeAssetOpRet('o', zeroid, 0, vuint8_t(pk1.begin(), pk1.end())) } )));
+        // EXPECT_FALSE(TestRunCCEval(mtx2)); // is not checked
+
+        // invalid pk in token opret
+        CMutableTransaction mtx3(mtx);
+        mtx3.vout.pop_back();
+        mtx3.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid2, { pkunused },
+                                { AssetsV2::EncodeAssetOpRet('o', zeroid, 0, vuint8_t(ownerpubkey.begin(), ownerpubkey.end())) } )));
+        // EXPECT_FALSE(TestRunCCEval(mtx3)); // is not checked
+
+        // invalid pk where to funds sent
+        CMutableTransaction mtx4(mtx);
+        mtx4.vout[0] = CTxOut(bidamount, CScript() << ParseHex(HexStr(pkunused)) << OP_CHECKSIG);
+        EXPECT_FALSE(TestRunCCEval(mtx4)); // is not checked
+
+        // invalid tokenid in token opret
+        CMutableTransaction mtx5(mtx);
+        mtx5.vout.pop_back();
+        mtx5.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenidUnused, { ownerpubkey },
+                                { AssetsV2::EncodeAssetOpRet('o', zeroid, 0, vuint8_t(ownerpubkey.begin(), ownerpubkey.end())) } )));
+        EXPECT_FALSE(TestRunCCEval(mtx5)); 
+
+        // opposite funcid in token opret
+        CMutableTransaction mtx6(mtx);
+        mtx6.vout.pop_back();
+        mtx6.vout.push_back(CTxOut(0, TokensV2::EncodeTokenOpRet(tokenid2, { pk2 },
+                                { AssetsV2::EncodeAssetOpRet('x', zeroid, 0, vuint8_t(ownerpubkey.begin(), ownerpubkey.end())) } )));
+        EXPECT_FALSE(TestRunCCEval(mtx6)); 
+    }
+}
+
+
+/* ---------------------------------------------------------------------------------------------------------------------------------- */
+// tokens tests:
 
 TEST_F(TestAssetsCC, tokenv2create)
 {
@@ -590,49 +895,67 @@ TEST_F(TestAssetsCC, tokenv2create)
     cp = CCinit(&C, TokensV2::EvalCode());
     std::string name = "T1";
     std::string description = "desc";
+    CAmount txfee = 10000;
 
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    mtx.vin.push_back(CTxIn(txnormal1.GetHash(), 0));
+    ASSERT_TRUE( TestAddNormalInputs(mtx, pk1, txfee) > 0LL);
     mtx.vout.push_back(TokensV2::MakeCC1vout(TokensV2::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));           
     mtx.vout.push_back(TokensV2::MakeTokensCC1vout(0, 10, pk1));
-    mtx.vout.push_back(CTxOut(0, TokensV2::EncodeTokenCreateOpRet(vscript_t(pk1.begin(), pk1.end()), name, description, {  })));
 
-    CMutableTransaction mtx3(mtx);
+    // copies:
+    CMutableTransaction mtx1(mtx);
+    CMutableTransaction mtx2(mtx);
+    //CMutableTransaction mtx3(mtx);
 
     // sign vins:
     // normal vin:
-    CBasicKeyStore tempKeystore;
+    /*CBasicKeyStore tempKeystore;
     CKey key;
     key.Set(privkey1, privkey1+sizeof(privkey1), true);
     tempKeystore.AddKey(key);
     int32_t ivin = 0;
-    ASSERT_TRUE(TestSignTx(tempKeystore, mtx, ivin, txnormal2.vout[0].nValue, txnormal2.vout[0].scriptPubKey));
+    ASSERT_TRUE(TestSignTx(tempKeystore, mtx, ivin, txnormal2.vout[0].nValue, txnormal2.vout[0].scriptPubKey));*/
+
+    // sign, add change, add opreturn
+    ASSERT_TRUE(TestFinalizeTx(mtx, cp, testKeys[pk1], txfee,
+                        TokensV2::EncodeTokenCreateOpRet(vscript_t(pk1.begin(), pk1.end()), name, description, {  })));
+
     EXPECT_TRUE(TestRunCCEval(mtx));
 
     // token sent to another pk
-    CMutableTransaction mtx1(mtx);
     mtx1.vout[1] = TokensV2::MakeTokensCC1vout(0, 10, pk2); 
-    EXPECT_TRUE(TestRunCCEval(mtx1));   // allow sent created tokens to any pk!
+    ASSERT_TRUE(TestFinalizeTx(mtx1, cp, testKeys[pk1], txfee,
+                        TokensV2::EncodeTokenCreateOpRet(vscript_t(pk1.begin(), pk1.end()), name, description, {  })));
+    EXPECT_TRUE(TestRunCCEval(mtx1));  // allow sent created tokens to any pk!!
 
     // invalid pk in opreturn:
-    CMutableTransaction mtx2(mtx);
-    mtx2.vout[2] = CTxOut(0, TokensV2::EncodeTokenCreateOpRet(vscript_t(pk2.begin(), pk2.end()), name, description, {  }));  // should send to self (?)
+    //mtx2.vout[2] = CTxOut(0, TokensV2::EncodeTokenCreateOpRet(vscript_t(pk2.begin(), pk2.end()), name, description, {  }));  // should send to self (?)
+    ASSERT_TRUE(TestFinalizeTx(mtx2, cp, testKeys[pk1], txfee,
+                        TokensV2::EncodeTokenCreateOpRet(vscript_t(pk2.begin(), pk2.end()), name, description, {  })));
     EXPECT_FALSE(TestRunCCEval(mtx2)); // must fail
 
-    // create with global pk:
-    mtx3.vin[0] = CTxIn(txnormalg.GetHash(), 0);
-	struct CCcontract_info *cpTokens, tokensC;  
+    // create token with global pk:
+    CMutableTransaction mtx3 = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+	
+    struct CCcontract_info *cpTokens, tokensC;  
     cpTokens = CCinit(&tokensC, TokensV2::EvalCode());
     uint8_t privkeyg[32];
     CPubKey pkg = GetUnspendable(cpTokens, privkeyg);
-    CKey keyg;
+
+    mtx3.vin.push_back(CTxIn(txnormalg.GetHash(), 0));
+    mtx3.vout.push_back(TokensV2::MakeCC1vout(TokensV2::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));           
+    mtx3.vout.push_back(TokensV2::MakeTokensCC1vout(0, 10, pk1));
+    /*  CKey keyg;
     keyg.Set(privkeyg, privkeyg+sizeof(privkeyg), true);
     CBasicKeyStore tempKeystoreg;
     tempKeystoreg.AddKey(keyg);
     // change opreturn
     mtx3.vout[2] = CTxOut(0, TokensV2::EncodeTokenCreateOpRet(vscript_t(pkg.begin(), pkg.end()), name, description, {  }));  // should send to self (?)
-    ivin = 0;
-    ASSERT_TRUE(TestSignTx(tempKeystoreg, mtx3, ivin, txnormalg.vout[0].nValue, txnormalg.vout[0].scriptPubKey));
+    ivin = 0; 
+    ASSERT_TRUE(TestSignTx(tempKeystoreg, mtx3, ivin, txnormalg.vout[0].nValue, txnormalg.vout[0].scriptPubKey)); */
+
+    ASSERT_TRUE(TestFinalizeTx(mtx3, cp, privkeyg, txfee,
+                        TokensV2::EncodeTokenCreateOpRet(vscript_t(pkg.begin(), pkg.end()), name, description, {  })));
     EXPECT_FALSE(TestRunCCEval(mtx3));  // must fail
 
 }
