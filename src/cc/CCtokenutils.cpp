@@ -613,20 +613,3 @@ uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey)
     }
     return version;
 }
-
-template <class V>
-uint8_t GetTokenOpReturnVersion(uint256 tokenid)
-{
-    CTransaction tokencreatetx;
-    uint256 hashBlock;
-    vuint8_t vorigpk;
-    std::string name, desc;
-    std::vector<vuint8_t> oprets;
-
-    if (myGetTransaction(tokenid, tokencreatetx, hashBlock) && 
-        tokencreatetx.vout.size() > 0 && 
-        V::DecodeTokenCreateOpRet(tokencreatetx.vout.back().scriptPubKey, vorigpk, name, desc, oprets) != 0)
-        return DecodeTokenOpretVersion(tokencreatetx.vout.back().scriptPubKey);
-    else
-        return 0;
-}

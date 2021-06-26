@@ -66,17 +66,13 @@ bool Tokensv2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
 
 /// Checks if a transaction vout is true token vout, for this check pubkeys and eval code in token opreturn are used to recreate vout and compare it with the checked vout.
 /// Verifies that the transaction total token inputs value equals to total token outputs (that is, token balance is not changed in this transaction)
-/// @param goDeeper also recursively checks the previous token transactions (or the creation transaction) and ensures token balance is not changed for them too
-/// @param checkPubkeys always true
 /// @param cp CCcontract_info structure initialized for EVAL_TOKENS eval code
 /// @param eval could be NULL, if not NULL then the eval parameter is used to report validation error
 /// @param tx transaction object to check
 /// @param v vout number (starting from 0)
 /// @param reftokenid id of the token. The vout is checked if it has this tokenid
 /// @returns true if vout is true token with the reftokenid id
-//CAmount IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid);
-
-template <class V> CAmount IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid);
+template <class V> CAmount IsTokensvout(struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid);
 
 
 /// Creates a token cryptocondition that allows to spend it by one key
@@ -309,7 +305,7 @@ public:
         return ::DecodeTokenOpRetV1(scriptPubKey, tokenid, voutPubkeys, oprets);
     }
 
-    static CAmount CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 &reftokenid, uint8_t &funcId, std::string &errorStr);    
+    static CAmount CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, CScript &opret, uint256 &reftokenid, uint8_t &funcId, std::string &errorStr);    
 
     // conds:
     static CC *MakeTokensCCcond1(uint8_t evalcode, CPubKey pk)
@@ -392,7 +388,7 @@ public:
         return ::DecodeTokenOpRetV2(scriptPubKey, tokenid, oprets);
     }
 
-    static CAmount CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 &reftokenid, uint8_t &funcId, std::string &errorStr);    
+    static CAmount CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, CScript &opret, uint256 &reftokenid, uint8_t &funcId, std::string &errorStr);    
         
     // conds:
     static CC *MakeTokensCCcond1(uint8_t evalcode, CPubKey pk)

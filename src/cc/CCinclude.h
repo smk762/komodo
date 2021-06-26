@@ -1027,7 +1027,7 @@ int32_t oracleprice_add(std::vector<struct oracleprice_info> &publishers,CPubKey
 UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatlen);
 
 /// @private
-bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret);
+CScript GetCCDropAsOpret(const CScript &scriptPubKey);
 
 /*! \cond INTERNAL */
 // curve25519 and sha256
@@ -1040,8 +1040,8 @@ bits256 bits256_doublesha256(char *deprecated,uint8_t *data,int32_t datalen);
 /*! \endcond */
 
 /*! \cond INTERNAL */
-int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey);
-int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
+CAmount TotalPubkeyNormalInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey);
+CAmount TotalPubkeyCCInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 /*! \endcond */
 

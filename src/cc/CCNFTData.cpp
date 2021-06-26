@@ -234,7 +234,7 @@ bool NFTDataValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
         {
             CScript ccdata;
             vuint8_t vopdrop;
-            if (GetCCDropAsOpret(tx.vout[i].scriptPubKey, ccdata) &&
+            if (!(ccdata = GetCCDropAsOpret(tx.vout[i].scriptPubKey)).empty() &&
                 GetOpReturnData(ccdata, vopdrop) &&
                 vopdrop.size() > 2 &&
                 vopdrop[0] == EVAL_TOKENS)

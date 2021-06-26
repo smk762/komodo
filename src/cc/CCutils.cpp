@@ -282,7 +282,7 @@ bool GetCCParams(Eval* eval, const CTransaction &tx, uint32_t nIn,
 {
     uint256 blockHash;
 
-    if (myGetTransaction(tx.vin[nIn].prevout.hash, txOut, blockHash) && txOut.vout.size() > tx.vin[nIn].prevout.n)
+    if (eval->GetTxUnconfirmed(tx.vin[nIn].prevout.hash, txOut, blockHash) && txOut.vout.size() > tx.vin[nIn].prevout.n)
     {
         CBlockIndex index;
         if (eval->GetBlock(blockHash, index))
@@ -961,13 +961,14 @@ CPubKey check_signing_pubkey(CScript scriptSig)
 
 
 // returns total of normal inputs signed with this pubkey
-int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey)
+CAmount TotalPubkeyNormalInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey)
 {
-    int64_t total = 0;
-    for (auto vin : tx.vin) {
+    CAmount total = 0;
+
+    for (const auto &vin : tx.vin) {
         CTransaction vintx;
         uint256 hashBlock;
-        if (!IsCCInput(vin.scriptSig) && myGetTransaction(vin.prevout.hash, vintx, hashBlock)) {
+        if (!IsCCInput(vin.scriptSig) && GetTxUnconfirmedOpt(eval, vin.prevout.hash, vintx, hashBlock)) {
             typedef std::vector<unsigned char> valtype;
             std::vector<valtype> vSolutions;
             txnouttype whichType;
@@ -990,17 +991,17 @@ int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey)
 }
 
 // returns total of CC inputs signed with this pubkey
-int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey)
+CAmount TotalPubkeyCCInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey)
 {
-    int64_t total = 0;
-    for (auto vin : tx.vin) {
+    CAmount total = 0;
+    for (const auto &vin : tx.vin) {
         if (IsCCInput(vin.scriptSig)) {
             CPubKey vinPubkey = check_signing_pubkey(vin.scriptSig);
             if (vinPubkey.IsValid()) {
                 if (vinPubkey == pubkey) {
                     CTransaction vintx;
                     uint256 hashBlock;
-                    if (myGetTransaction(vin.prevout.hash, vintx, hashBlock)) {
+                    if (GetTxUnconfirmedOpt(eval, vin.prevout.hash, vintx, hashBlock)) {
                         total += vintx.vout[vin.prevout.n].nValue;
                     }
                 }
@@ -1480,10 +1481,11 @@ UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatl
 
 
 // get OP_DROP data:
-bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
+CScript GetCCDropAsOpret(const CScript &scriptPubKey)
 {
     std::vector<std::vector<unsigned char>> vParams;
     CScript dummy; 
+    CScript opret;
 
     if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams))
     {
@@ -1494,7 +1496,7 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
             LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)parsed.evalCode << " vKeys.size()=" << (int)parsed.vKeys.size() << " vData.size()=" << (int)parsed.vData.size() << std::endl);
             if (parsed.vData.size() > 0)      {
                 opret << OP_RETURN << parsed.vData[0];  // return vData[0] as cc opret
-                return true;
+                return opret;
             }
         }
 
@@ -1526,7 +1528,7 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
         }
         */
     }
-    return false;
+    return CScript();
 }
 
 // get OP_DROP data for mixed cc vouts
@@ -1627,7 +1629,7 @@ UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vect
 bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_t &funcid, uint8_t &version, uint256 &creationId)
 {
     CScript opdrop;
-    vscript_t ccdata;
+    vscript_t vccdata;
 
     if (tx.vout.size() > 0)     
     {
@@ -1635,18 +1637,23 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
 
         // first try if OP_DROP data exists
         bool usedOpreturn;
-        if (GetCCDropAsOpret(tx.vout[n].scriptPubKey, opdrop))
-            GetOpReturnData(opdrop, ccdata), usedOpreturn = false;
-        else
-            GetOpReturnData(tx.vout.back().scriptPubKey, ccdata), usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
+        CScript opdrop;
+        if (!(opdrop = GetCCDropAsOpret(tx.vout[n].scriptPubKey)).empty()) {
+            GetOpReturnData(opdrop, vccdata);
+            usedOpreturn = false;
+        }
+        else   {
+            GetOpReturnData(tx.vout.back().scriptPubKey, vccdata); 
+            usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
+        }
 
         // use following algotithm to determine creationId
         // get the evalcode from ccdata
         // if no cc vins found with this evalcode this is the creation tx and creationId = tx.GetHash()
         // else the creationId is after the version field: 'evalcode funcid version creationId'
-        if (ccdata.size() >= 3)  {
+        if (vccdata.size() >= 3)  {
             struct CCcontract_info *cp, C; 
-            cp = CCinit(&C, ccdata[0]);
+            cp = CCinit(&C, vccdata[0]);
             int32_t i = 0;
             for (; i < tx.vin.size(); i ++)
                 if (cp->ismyvin(tx.vin[i].scriptSig))
@@ -1654,17 +1661,17 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
             if (i == tx.vin.size()) 
             {
                 creationId = tx.GetHash(); // tx is the creation tx
-                evalcode = ccdata[0];
-                funcid = ccdata[1];
-                version = ccdata[2];
+                evalcode = vccdata[0];
+                funcid = vccdata[1];
+                version = vccdata[2];
                 LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << std::endl); 
             }
             else
             {
                 uint256 encodedCrid;
-                if (ccdata.size() >= 3 + sizeof(uint256))   {  // get creationId from the ccdata
+                if (vccdata.size() >= 3 + sizeof(uint256))   {  // get creationId from the ccdata
                     bool isEof = true;
-                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {  // E_UNMARSHAL might parse okay but return false if not EoF yet. So EoF==true means bad parse
+                    if (!E_UNMARSHAL(vccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {  // E_UNMARSHAL might parse okay but return false if not EoF yet. So EoF==true means bad parse
                         LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "failed to decode ccdata, isEof=" << isEof << " usedOpreturn=" << usedOpreturn << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
                         return false;
                     }

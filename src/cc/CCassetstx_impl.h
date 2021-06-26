@@ -154,7 +154,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeNFT)
         TokenDataTuple tokenData;
         vuint8_t vopretNFT;
         if (refassetid != zeroid) {
-            GetTokenData<T>(refassetid, tokenData, vopretNFT);
+            GetTokenData<T>(NULL, refassetid, tokenData, vopretNFT);
             if (vopretNFT.size() > 0)
                 cpAssets->evalcodeNFT = vopretNFT[0];
         }
@@ -519,7 +519,7 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256
 
             TokenDataTuple tokenData;
             vuint8_t vopretNonfungible;
-            GetTokenData<T>(assetid, tokenData, vopretNonfungible);
+            GetTokenData<T>(NULL, assetid, tokenData, vopretNonfungible);
             if (vopretNonfungible.size() > 0)
                 cpAssets->evalcodeNFT = vopretNonfungible.begin()[0];
 
@@ -573,7 +573,7 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
     vuint8_t vopretNonfungible;
     uint8_t evalcodeNFT = 0;
     uint64_t royaltyFract = 0;  // royaltyFract is N in N/1000 fraction
-    GetTokenData<T>(assetid, tokenData, vopretNonfungible);
+    GetTokenData<T>(NULL, assetid, tokenData, vopretNonfungible);
     if (vopretNonfungible.size() > 0)  {
         evalcodeNFT = vopretNonfungible.begin()[0];
         GetNftDataAsUint64(vopretNonfungible, NFTPROP_ROYALTY, royaltyFract);
@@ -700,7 +700,7 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
     vuint8_t vopretNonfungible;
     uint8_t evalcodeNFT = 0;
     uint64_t royaltyFract = 0;  // royaltyFract is N in N/1000 fraction
-    GetTokenData<T>(assetid, tokenData, vopretNonfungible);
+    GetTokenData<T>(NULL, assetid, tokenData, vopretNonfungible);
     if (vopretNonfungible.size() > 0)  {
         evalcodeNFT = vopretNonfungible.begin()[0];
         GetNftDataAsUint64(vopretNonfungible, NFTPROP_ROYALTY, royaltyFract);

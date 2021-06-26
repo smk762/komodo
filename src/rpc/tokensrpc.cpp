@@ -489,7 +489,7 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     {
         TokenDataTuple tokenData;
         vuint8_t vnftData;
-        GetTokenData<V>(tokenid, tokenData, vnftData);
+        GetTokenData<V>(NULL, tokenid, tokenData, vnftData);
         CCwrapper probeCond;
         if (vnftData.size() > 0)
             probeCond.reset( V::MakeTokensCCcond1(vnftData[0], mypk) );

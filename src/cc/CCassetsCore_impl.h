@@ -148,12 +148,12 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
 }
 
 template<class A>
-int64_t AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, int32_t vini, CTransaction &vinTx)
+CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, int32_t vini, CTransaction &vinTx)
 {
 	uint256 hashBlock;
     uint256 assetid, assetid2;
     uint256 vinAssetId, vinAssetId2;
-	int64_t tmpprice, vinPrice;
+	CAmount tmpprice, vinPrice;
     std::vector<uint8_t> tmporigpubkey;
     std::vector<uint8_t> vinOrigpubkey;
     uint8_t evalCode;
@@ -224,7 +224,7 @@ int64_t AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
     }
 
     // check no more other vins spending from global addr:
-    if (AssetsGetCCInputs(cpAssets, unspendableAddr, tx) != vinTx.vout[ASSETS_GLOBALADDR_VOUT].nValue)
+    if (AssetsGetCCInputs(eval, cpAssets, unspendableAddr, tx) != vinTx.vout[ASSETS_GLOBALADDR_VOUT].nValue)
         return eval->Invalid("invalid assets cc vins found");
 
     if (vinTx.vout[ASSETS_GLOBALADDR_VOUT].nValue == 0)
@@ -234,9 +234,9 @@ int64_t AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
 }
 
 template<class A>
-int64_t AssetValidateBuyvin(struct CCcontract_info *cpAssets, Eval* eval, int64_t &unit_price, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 refassetid)
+CAmount AssetValidateBuyvin(struct CCcontract_info *cpAssets, Eval* eval, CAmount &unit_price, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 refassetid)
 {
-    CTransaction vinTx; int64_t nValue; uint256 assetid, assetid2; uint8_t funcid, evalCode;
+    CTransaction vinTx; CAmount nValue; uint256 assetid, assetid2; uint8_t funcid, evalCode;
 
     origCCaddr_out[0] = origaddr_out[0] = 0;
 
@@ -271,9 +271,9 @@ int64_t AssetValidateBuyvin(struct CCcontract_info *cpAssets, Eval* eval, int64_
 }
 
 template<class A>
-int64_t AssetValidateSellvin(struct CCcontract_info *cpAssets, Eval* eval, int64_t &unit_price, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 assetid)
+CAmount AssetValidateSellvin(struct CCcontract_info *cpAssets, Eval* eval, CAmount &unit_price, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 assetid)
 {
-    CTransaction vinTx; int64_t nValue, assetoshis;
+    CTransaction vinTx; CAmount nValue, assetoshis;
 
     //fprintf(stderr,"AssetValidateSellvin()\n");
     // get first ccvin:
