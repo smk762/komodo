@@ -357,9 +357,9 @@ public:
             return CTxOut();
     }    
 
-    static UniValue FinalizeCCTx(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
+    static UniValue FinalizeCCTx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
     {
-        return ::FinalizeCCTxExt(remote, CCmask, cp, mtx, mypk, txfee, opret);
+        return ::FinalizeCCTxExt(remote, changeFlag, cp, mtx, mypk, txfee, opret);
     }
 };
 
@@ -434,9 +434,9 @@ public:
     {
         return ::MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, M, pks, (pvvData != nullptr ? &(*pvvData)[0] : nullptr));
     }
-    static UniValue FinalizeCCTx(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
+    static UniValue FinalizeCCTx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
     {
-        return ::FinalizeCCV2Tx(remote, CCmask, cp, mtx, mypk, txfee, opret);
+        return ::FinalizeCCV2Tx(remote, changeFlag, cp, mtx, mypk, txfee, opret);
     }
 };
 

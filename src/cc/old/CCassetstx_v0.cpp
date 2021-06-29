@@ -368,7 +368,7 @@ std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t p
 			std::vector<CPubKey> voutTokenPubkeys;
 			voutTokenPubkeys.push_back(unspendableAssetsPubkey);   
 
-            return FinalizeCCTx(mask, cpTokens, mtx, mypk, txfee, 
+            return FinalizeCCTx(0, cpTokens, mtx, mypk, txfee, 
                 EncodeTokenOpRet(assetid, voutTokenPubkeys, 
                     std::make_pair(OPRETID_ASSETSDATA, EncodeAssetOpRet('s', zeroid, pricetotal, Mypubkey()))));
 		}
@@ -565,7 +565,7 @@ std::string CancelSell(int64_t txfee,uint256 assetid,uint256 asktxid)
 			// add additional eval-tokens unspendable assets privkey:
 			CCaddr2set(cpAssets, EVAL_TOKENS, unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
 
-            return(FinalizeCCTx(mask, cpAssets, mtx, mypk, txfee, 
+            return(FinalizeCCTx(0, cpAssets, mtx, mypk, txfee, 
 				EncodeTokenOpRet(assetid, voutTokenPubkeys,  
                     std::make_pair(OPRETID_ASSETSDATA, EncodeAssetOpRet('x', zeroid, 0, Mypubkey())))));
         }
@@ -652,7 +652,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
 				std::vector<CPubKey> voutTokenPubkeys;
 				voutTokenPubkeys.push_back(pubkey2pk(origpubkey));
 
-                return(FinalizeCCTx(mask, cpTokens, mtx, mypk, txfee, 
+                return(FinalizeCCTx(0, cpTokens, mtx, mypk, txfee, 
 					EncodeTokenOpRet(assetid, voutTokenPubkeys, 
                         std::make_pair(OPRETID_ASSETSDATA, EncodeAssetOpRet('B', zeroid, remaining_required, origpubkey)))));
             } 
@@ -785,7 +785,7 @@ std::string FillSell(int64_t txfee, uint256 assetid, uint256 assetid2, uint256 a
 
             cpAssets->evalcodeNFT = additionalTokensEvalcode2;
 
-            return(FinalizeCCTx(mask, cpAssets, mtx, mypk, txfee,
+            return(FinalizeCCTx(0, cpAssets, mtx, mypk, txfee,
                 EncodeTokenOpRet(assetid, voutTokenPubkeys, 
                     std::make_pair(OPRETID_ASSETSDATA, EncodeAssetOpRet(assetid2 != zeroid ? 'E' : 'S', assetid2, remaining_nValue, origpubkey)))));
         } else {
