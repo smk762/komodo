@@ -436,7 +436,7 @@ public:
     }
     static UniValue FinalizeCCTx(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
     {
-        return ::FinalizeCCV2Tx(remote, FINALIZECCTX_NO_CHANGE_WHEN_ZERO, cp, mtx, mypk, txfee, opret);
+        return ::FinalizeCCV2Tx(remote, CCmask, cp, mtx, mypk, txfee, opret);
     }
 };
 

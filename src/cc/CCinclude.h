@@ -87,6 +87,8 @@ Details.
 #define CCENABLE(x) ASSETCHAINS_CCDISABLES[((uint8_t)x)] = 0
 #define bits256_nonz(a) (((a).ulongs[0] | (a).ulongs[1] | (a).ulongs[2] | (a).ulongs[3]) != 0)
 
+#define ASSETS_NORMAL_DUST 500
+
 #define MAY2020_NNELECTION_HARDFORK 1592146800 //(Sunday, June 14th, 2020 03:00:00 PM UTC) 
 #define JUNE2021_NNELECTION_HARDFORK 1623682800 // dPoW Season 5 Monday, June 14th, 2021 (03:00:00 PM UTC)
 
@@ -866,11 +868,14 @@ CPubKey check_signing_pubkey(CScript scriptSig);
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey);
 
 extern std::vector<CPubKey> NULL_pubkeys; //!< constant value for use in functions where such value might be passed @see FinalizeCCTx
-#define FINALIZECCTX_NO_CHANGE 0x1
+
+#define FINALIZECCTX_ALWAYS_CHANGE       0x0
+#define FINALIZECCTX_NO_CHANGE           0x1
 #define FINALIZECCTX_NO_CHANGE_WHEN_ZERO 0x2
+#define FINALIZECCTX_NO_CHANGE_WHEN_DUST 0x4
 
 /// overload old-style FinalizeCCTx for compatibility
-/// @param skipmask parameter is not used
+/// @param changeFlag whether or not add normal change. Default 0 is always add change even 0
 /// @param cp contract info structure with cc eval code, module's global address and privkey. It also could have a vector of probe cryptoconditions created by CCAddVintxCond
 /// @param mtx prepared transaction to sign
 /// @param mypk my pubkey to sign
@@ -878,7 +883,7 @@ extern std::vector<CPubKey> NULL_pubkeys; //!< constant value for use in functio
 /// @param opret opreturn vout which function will add if it is not empty 
 /// @param pubkeys array of pubkeys to make multiple probe 1of2 cc's with the call Make1of2cond(cp->evalcode, globalpk, pubkeys[i])
 /// @returns signed transaction in hex encoding
-std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey mypk,uint64_t txfee,CScript opret,std::vector<CPubKey> pubkeys = NULL_pubkeys);
+std::string FinalizeCCTx(uint32_t changeFlag,struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey mypk,uint64_t txfee,CScript opret,std::vector<CPubKey> pubkeys = NULL_pubkeys);
 
 /// FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and might add an opreturn output.
 /// This allows for Antara module transaction creation rpc functions to create an CMutableTransaction object, add the appropriate vins and vouts to it and use FinalizeCCTx to properly sign the transaction.
@@ -890,7 +895,7 @@ std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTr
 /// For a set of 1of2 cc with pairs of module globalpk and some other pk, spending with global pk, pass a vector with pubkeys as 'pubkeys' parameter.
 /// For any other cc case use CCAddVintxCond function to add any possible probe cryptoconditions to the cp opbject.
 /// @param remote true if the caller is in remote nspv mode
-/// @param skipmask parameter is not used
+/// @param changeFlag whether or not add normal change. Default 0 is always add change even 0
 /// @param cp contract info structure with cc eval code, module's global address and privkey. It also could have a vector of probe cryptoconditions created by CCAddVintxCond
 /// @param mtx prepared transaction to sign
 /// @param mypk my pubkey to sign
@@ -898,11 +903,11 @@ std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTr
 /// @param opret opreturn vout which function will add if it is not empty 
 /// @param pubkeys array of pubkeys to make multiple probe 1of2 cc's with the call Make1of2cond(cp->evalcode, globalpk, pubkeys[i])
 /// @returns signed transaction in hex encoding
-UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
+UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
 
 /// version FinalizeCCTx for CC v2, for params @see FinalizeCCTxExt
 /// @returns signed transaction in hex and optional PartiallySigned univalue object with vin indexes and partially signed conditions (if signature threshold not reached)
-UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret);
+UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret);
 
 /// Add signature to multisig scriptSig
 /// @param mtx mutable tx with multisig cc vins

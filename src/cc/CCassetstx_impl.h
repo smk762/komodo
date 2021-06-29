@@ -251,7 +251,7 @@ UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, u
         mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), bidamount, unspendableAssetsPubkey));
         mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, mypk));  // marker for my orders
 
-        UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), 0, cpAssets, mtx, mypk, txfee, 
+        UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee, 
 			T::EncodeTokenOpRet(assetid, {},     // TODO: actually this tx is not 'tokens', maybe it is better not to have token opret here but only asset opret.
 				{ A::EncodeAssetOpRet('b', zeroid, unit_price, vuint8_t(mypk.begin(), mypk.end())) } ));   // But still such token opret should not make problems because no token eval in these vouts
         if (!ResultHasTx(sigData))
@@ -315,7 +315,7 @@ UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint2
             CCwrapper wrCond(T::MakeTokensCCcond1(evalcodeNFT, mypk));
             CCAddVintxCond(cpTokens, wrCond, NULL); //NULL indicates to use myprivkey
 
-            UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), mask, cpTokens, mtx, mypk, txfee, 
+            UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpTokens, mtx, mypk, txfee, 
                 T::EncodeTokenOpRet(assetid, { unspendableAssetsPubkey }, 
                     { A::EncodeAssetOpRet('s', zeroid, unit_price, vuint8_t(mypk.begin(), mypk.end()) ) } ));
             if (!ResultHasTx(sigData))
@@ -389,7 +389,7 @@ std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 a
 							EncodeAssetOpRet('e', assetid2, pricetotal, Mypubkey()));
             } 
 			////////////////////////// NOT IMPLEMENTED YET/////////////////////////////////
-            return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,opret));
+            return(FinalizeCCTx(FINALIZECCTX_NO_CHANGE_WHEN_DUST,cp,mtx,mypk,txfee,opret));
         } 
 		else {
 			fprintf(stderr, "need some assets to place ask\n");
@@ -456,7 +456,7 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
 
             // mtx.vout.push_back(CTxOut(ASSETS_MARKER_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));  // we dont need a marker for cancelled orders
 
-            UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
+            UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
                 T::EncodeTokenOpRet(assetid, {},
                     { A::EncodeAssetOpRet('o', zeroid, 0, vuint8_t(mypk.begin(), mypk.end())) }));
             if (!ResultHasTx(sigData))
@@ -534,7 +534,7 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256
             CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), cpAssets->evalcodeNFT, unspendableAssetsPk));
             CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
 
-            UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
+            UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
                 T::EncodeTokenOpRet(assetid, { mypk },
                     { A::EncodeAssetOpRet('x', zeroid, 0, vuint8_t(mypk.begin(), mypk.end())) } ));
             if (!ResultHasTx(sigData))
@@ -651,7 +651,7 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                 CCwrapper wrCond2(T::MakeTokensCCcond1(evalcodeNFT, mypk));  // spend my tokens to fill buy
                 CCAddVintxCond(cpTokens, wrCond2, NULL); //NULL indicates to use myprivkey
 
-                UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), mask, cpTokens, mtx, mypk, txfee,
+                UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpTokens, mtx, mypk, txfee,
                     T::EncodeTokenOpRet(assetid, { pubkey2pk(origpubkey) },
                         { A::EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) }));
                 if (!ResultHasTx(sigData))
@@ -789,7 +789,7 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
 
             //cpAssets->evalcodeNFT = evalcodeNFT;  // set nft eval for signing
 
-            UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), mask, cpAssets, mtx, mypk, txfee,
+            UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
 				T::EncodeTokenOpRet(assetid, { mypk }, 
                     { A::EncodeAssetOpRet('S', assetid2, unit_price, origpubkey) } ));
             if (!ResultHasTx(sigData))

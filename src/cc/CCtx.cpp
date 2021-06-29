@@ -20,13 +20,6 @@
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
-#ifndef FINALIZECCTX_NO_CHANGE
-    #define FINALIZECCTX_NO_CHANGE 0x1
-#endif
-#ifndef FINALIZECCTX_NO_CHANGE_WHEN_ZERO
-    #define FINALIZECCTX_NO_CHANGE_WHEN_ZERO 0x2
-#endif
-
 /* see description to function definition in CCinclude.h */
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
 {
@@ -49,15 +42,15 @@ This allows the contract transaction functions to create the appropriate vins an
 
 By using -addressindex=1, it allows tracking of all the CC addresses
 */
-std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
+std::string FinalizeCCTx(uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
-    UniValue sigData = FinalizeCCTxExt(false, CCmask, cp, mtx, mypk, txfee, opret, pubkeys);
+    UniValue sigData = FinalizeCCTxExt(false, changeFlag, cp, mtx, mypk, txfee, opret, pubkeys);
     return sigData[JSON_HEXTX].getValStr();
 }
 
 
 // extended version that supports signInfo object with conds to vins map for remote cc calls
-UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
+UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; CPubKey globalpk; uint256 hashBlock; uint64_t mask=0,nmask=0,vinimask=0;
@@ -170,13 +163,21 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
             }
         } else fprintf(stderr,"FinalizeCCTx couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
     }
-    nmask = (1LL << n) - 1;
-    if ( 0 && (mask & nmask) != (CCmask & nmask) )
-        fprintf(stderr,"mask.%llx vs CCmask.%llx %llx %llx %llx\n",(long long)(mask & nmask),(long long)(CCmask & nmask),(long long)mask,(long long)CCmask,(long long)nmask);
-    if ( totalinputs >= totaloutputs+txfee )
-    {
-        change = totalinputs - (totaloutputs+txfee);
-        mtx.vout.push_back(CTxOut(change,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+    //nmask = (1LL << n) - 1;
+    //if ( 0 && (mask & nmask) != (CCmask & nmask) )
+    //    fprintf(stderr,"mask.%llx vs CCmask.%llx %llx %llx %llx\n",(long long)(mask & nmask),(long long)(CCmask & nmask),(long long)mask,(long long)CCmask,(long long)nmask);
+
+    // 
+    if (changeFlag != FINALIZECCTX_NO_CHANGE)  {   // no need change at all (already added by the caller itself)
+        CAmount change = totalinputs - (totaloutputs + txfee);
+        if (change >= 0)
+        {
+            if ((change != 0LL || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_ZERO) &&                // prevent adding zero change
+                (change > ASSETS_NORMAL_DUST || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
+            {    
+                mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+            }
+        }
     }
     if ( opret.size() > 0 )
         mtx.vout.push_back(CTxOut(0,opret));
@@ -424,7 +425,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 }
 
 // extended version that supports signInfo object with conds to vins map for remote cc calls - for V2 mixed mode cc vins
-UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info* cp, CMutableTransaction& mtx, CPubKey mypk, uint64_t txfee, CScript opret)
+UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info* cp, CMutableTransaction& mtx, CPubKey mypk, uint64_t txfee, CScript opret)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx;
@@ -474,10 +475,16 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info* cp, 
         } else
             fprintf(stderr, "%s couldnt find %s mgret.%d\n", __func__, mtx.vin[i].prevout.hash.ToString().c_str(), mgret);
     }
-    if (!(mask & FINALIZECCTX_NO_CHANGE) && totalinputs >= totaloutputs + txfee) {
-        change = totalinputs - (totaloutputs + txfee);
-        if (!(mask & FINALIZECCTX_NO_CHANGE_WHEN_ZERO) || change > 0)
-            mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+    if (changeFlag != FINALIZECCTX_NO_CHANGE) {  // no need change at all (already added by the caller itself)
+        CAmount change = totalinputs - (totaloutputs + txfee);
+        if (change >= 0)
+        {
+            if ((change != 0LL || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_ZERO) &&                // prevent adding zero change
+                (change > ASSETS_NORMAL_DUST || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
+            {    
+                mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+            }
+        }
     }
     if (opret.size() > 0)
         mtx.vout.push_back(CTxOut(0, opret));
