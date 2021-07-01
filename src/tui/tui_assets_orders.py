@@ -28,11 +28,12 @@ def check_tx(r):
         if isinstance(str_hex, str) :
             # print("r has hex, true")
             if str_hex.find('coins') >= 0 or str_hex.find('tokens') >= 0 or str_hex.find('assets') >= 0 :  # try to detect old code returning no coins err as success
+                print("bad tx result:", r)
                 return False
             else :
                 return True
         if r.get('result') == "error" :
-            # print("r has error, false")
+            print("bad tx result:", r)
             return False
     # print("r has unknown, true")
     return True
@@ -67,26 +68,30 @@ def run_tokens_create(rpc):
         print("created token:", tokenid2)
 
         print("creating NFT 1 with 00...")
-        result = call_rpc(rpc1, "token"+v+"create", "NFT-00-1", str(0.00000001), "nft eval 00", "00010203")
+        # result = call_rpc(rpc1, "token"+v+"create", "NFT-00-1", str(0.00000001), "nft eval 00", "00010203")
+        result = call_rpc(rpc1, "token"+v+"createtokel", "NFT-00-1", str(0.00000001), "nft eval 00", '{}')
         assert(check_tx(result))
         nft00id1 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nft00id1)
 
         print("creating NFT 2 with 00...")
-        result = call_rpc(rpc1, "token"+v+"create", "NFT-00-2", str(0.00000001), "nft eval 00", "00010203")
+        # result = call_rpc(rpc1, "token"+v+"create", "NFT-00-2", str(0.00000001), "nft eval 00", "00010203")
+        result = call_rpc(rpc1, "token"+v+"createtokel", "NFT-00-2", str(0.00000001), "nft eval 00", '{"arbitrary":"010203"}')
         assert(check_tx(result))
         nft00id2 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nft00id2)
 
         #  tokel nft data F7 evalcode
         print("creating NFT with F7, no royalty, with arbitary data...")
-        result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
+        # result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
+        result = call_rpc(rpc1, "token"+v+"createtokel", "NFT-F7-1", str(0.00000001), "nft eval=00 royalty=0", '{"royalty":0}')
         assert(check_tx(result))
         nftf7id1 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nftf7id1)
 
         print("creating NFT with F7 and royalty 0xAA...")
-        result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
+        # result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
+        result = call_rpc(rpc1, "token"+v+"createtokel", "NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=99", '{"royalty":99}')
         assert(check_tx(result))
         nftf7id2 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nftf7id2)
@@ -116,6 +121,7 @@ def run_tokens_create(rpc):
             run_MofN_transfers(rpc1, rpc2, rpc3, nft00id1, 1)
             print("starting MofN tests for nftf7id1...")
             run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id1, 1)
+
 
     print("token/assets tests finished okay")
     time.sleep(3)
@@ -522,14 +528,27 @@ def run_assets_orders(rpc1, rpc2, v, tokenid, total, units, isnft):
         print("creating token"+v+"cancelbid tx #3...")
         cancelid = call_token_rpc_send_tx(rpc1, "token"+v+"cancelbid", 'bid is empty', tokenid, fillbidid3)
 
-    # create tokenbid to test dust
+    # create tokenbid to self to test dust
     print("creating token"+v+"bid tx #4...")
-    bidid4 = call_token_rpc_send_tx(rpc1, "token"+v+"bid", '', str(1), tokenid, str(0.0000_01))
-    
+    bidid4 = call_token_rpc_send_tx(rpc1, "token"+v+"bid", '', str(1), tokenid, str(0.0000_0600))  # price more than dust
+
     # fill bid to self with dust
     print("creating token"+v+"fillbid tx #4 (to create dust)...")
-    fillbidid4 = call_token_rpc_send_tx(rpc1, "token"+v+"fillbid", '', tokenid, bidid4, str(1), str(0.0000_005))
+    # enable his if dust is enabled on normals in the chain:
+    # fillbidid4 = call_token_rpc_send_tx(rpc1, "token"+v+"fillbid", '', tokenid, bidid4, str(1), str(0.0000_005)) # fill with dust price (<=500sat)
+    # if dust not enabled we should get error:
+    fillbidid4 = call_token_rpc(rpc1, "token"+v+"fillbid", '', tokenid, bidid4, str(1), str(0.0000_005)) # fill with dust price (<=500sat)
+    assert fillbidid4['hex'], "token"+v+"fillbid" + ' tx not created'
 
+    try :
+        print("trying to sendrawtransaction tokenfillbid tx with dust... ")
+        result = rpc1.sendrawtransaction(fillbidid4['hex'])
+        print("sendrawtransaction tokenfillbid tx with dust returned:", result)
+        assert not result, 'sending tokenfillbid tx with dust should return error'
+    except RpcException as e :
+        print ('got a normal exception for tokenfillbid tx with dust', e.message)
+        pass # should be error 
+        # balance does not change as this is a tx to self
 
     # check balance after 
     retries = 24
