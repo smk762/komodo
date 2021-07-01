@@ -326,9 +326,15 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 return eval->Invalid("invalid unit price");
             else
             {
-                int32_t r = royaltyFract > 0 ? 1 : 0;
+                if (royaltyFract < 0LL || royaltyFract >= TKLROYALTY_DIVISOR)
+                    return eval->Invalid("invalid royalty value");
 
-                CAmount assetoshis = tx.vout[0].nValue + tx.vout[1].nValue + (r ? tx.vout[2].nValue : 0);
+                CAmount royaltyValue = royaltyFract > 0 ? tx.vout[1].nValue / (TKLROYALTY_DIVISOR - royaltyFract) * royaltyFract : 0LL;
+                if (royaltyValue <= ASSETS_NORMAL_DUST)
+                    royaltyValue = 0LL; // reset if dust
+                int32_t r = royaltyValue > 0LL ? 1 : 0;
+
+                CAmount assetoshis = tx.vout[0].nValue + tx.vout[1].nValue + (r ? tx.vout[2].nValue : 0LL);
                 if( vin_assetoshis != assetoshis )             // coins -> global cc address (remainder) + normal self address
                     return eval->Invalid("input cc value does not equal to vout0+1" + std::string(r ? "+2" : "") + " for fillbid");
 
@@ -378,11 +384,11 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                     ccvouts ++;
                 }
                 
-                CAmount received_value = royaltyFract > 0 ? tx.vout[1].nValue + tx.vout[2].nValue : tx.vout[1].nValue; // vout1 paid value to seller, vout2 royalty to owner
+                CAmount received_value = r ? tx.vout[1].nValue + tx.vout[2].nValue : tx.vout[1].nValue; // vout1 paid value to seller, vout2 royalty to owner
                 CAmount paid_units = tx.vout[2+r].nValue;
                 if (!ValidateBidRemainder(unit_price, tx.vout[0].nValue, vin_assetoshis, received_value, paid_units)) // check real price and coins spending from global addr
                     return eval->Invalid("vout" + std::to_string(2+r) + " mismatched remainder for fillbid");
-                if (royaltyFract > 0) {
+                if (r) {
                     if ((tx.vout[1].nValue + tx.vout[2].nValue) / TKLROYALTY_DIVISOR * royaltyFract != tx.vout[2].nValue)  // validate royalty value
                         return eval->Invalid("vout2 invalid royalty amount for fillask");
                     if (!A::ConstrainVout(tx.vout[2], NORMALVOUT, ownerNormalAddr, 0LL, 0))        // validate owner royalty dest
@@ -478,15 +484,20 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
             {
                 if (vin_tokens != tx.vout[0].nValue + tx.vout[1].nValue)
                     return eval->Invalid("locked value doesnt match vout0+1 fillask");
+                if (royaltyFract < 0LL || royaltyFract >= TKLROYALTY_DIVISOR)
+                    return eval->Invalid("invalid royalty value");
 
-                CAmount paid_value = royaltyFract > 0 ? tx.vout[2].nValue+tx.vout[3].nValue : tx.vout[2].nValue; // vout2 paid value to seller, vout3 royalty to owner
+                CAmount royaltyValue = royaltyFract > 0 ? tx.vout[2].nValue / (TKLROYALTY_DIVISOR - royaltyFract) * royaltyFract : 0LL;
+                if (royaltyValue <= ASSETS_NORMAL_DUST)
+                    royaltyValue = 0LL; // reset if dust
+                CAmount paid_value = royaltyValue > 0 ? tx.vout[2].nValue + tx.vout[3].nValue : tx.vout[2].nValue; // vout2 paid value to seller, vout3 royalty to owner
                 if (!ValidateAskRemainder(unit_price, tx.vout[0].nValue, vin_tokens, tx.vout[1].nValue, paid_value)) 
                     return eval->Invalid("mismatched vout0 remainder for fillask");
                 else if (!A::ConstrainVout(tx.vout[1], CCVOUT, NULL, 0LL, T::EvalCode()))      // do not check tokens buyer's 'self' cc addr
                     return eval->Invalid("vout1 should be cc for fillask");
                 else if (!A::ConstrainVout(tx.vout[2], NORMALVOUT, origNormalAddr, 0LL, 0))        // coins to originator normal addr
                     return eval->Invalid("vout2 should be cc for fillask");
-                if (royaltyFract > 0)  {
+                if (royaltyValue > 0)  {
                     if ((tx.vout[2].nValue + tx.vout[3].nValue) / TKLROYALTY_DIVISOR * royaltyFract != tx.vout[3].nValue)  // validate royalty value
                         return eval->Invalid("vout3 invalid royalty amount for fillask");
                     if (!A::ConstrainVout(tx.vout[3], NORMALVOUT, ownerNormalAddr, 0LL, 0))        // validate owner royalty dest
@@ -495,7 +506,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 if (!A::ConstrainVout(tx.vout[0], CCVOUT, tokensDualEvalUnspendableCCaddr, 0LL, A::EvalCode()))   // tokens remainder on global addr
                     return eval->Invalid("invalid vout0 should pay to tokens/assets global address for fillask");
                 if (tx.vout[0].nValue > 0)  {
-                    int32_t markerVout = royaltyFract > 0 ? 4 : 3;
+                    int32_t markerVout = royaltyValue > 0 ? 4 : 3;
                     // marker should exist if remainder not empty
                     if( tx.vout.size() <= markerVout || A::ConstrainVout(tx.vout[markerVout], CCVOUT, origAssetsCCaddr, ASSETS_MARKER_AMOUNT, A::EvalCode()) == false )  // marker to originator asset cc addr
                         return eval->Invalid("invalid marker vout for original pubkey");

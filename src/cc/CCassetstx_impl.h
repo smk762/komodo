@@ -622,6 +622,9 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                     return ("");
                 }
                 CAmount royaltyValue = royaltyFract > 0 ? paid_amount / TKLROYALTY_DIVISOR * royaltyFract : 0;
+                // check for dust:
+                if (royaltyValue <= ASSETS_NORMAL_DUST)
+                    royaltyValue = 0;
                 CAmount tokensChange = inputs - fill_units;
 
                 uint8_t unspendableAssetsPrivkey[32];
@@ -636,8 +639,10 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                 else
                     mtx.vout.push_back(CTxOut(bid_amount - paid_amount, CScript() << ParseHex(HexStr(origpubkey)) << OP_CHECKSIG));     // vout0 if no more tokens to buy, send the remainder to originator
                 mtx.vout.push_back(CTxOut(paid_amount - royaltyValue, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));	// vout1 coins to mypk normal 
-                if (royaltyFract > 0)   // note it makes vout even if roaltyValue is 0
+                if (royaltyValue > 0)   { // note it makes vout even if roaltyValue is 0
                     mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ParseHex(HexStr(ownerpubkey)) << OP_CHECKSIG));  // vout2 trade royalty to token owner
+                    std::cerr << __func__ << " royaltyFract=" << royaltyFract << " royaltyValue=" << royaltyValue << " paid_amount - royaltyValue=" << paid_amount - royaltyValue << std::endl;
+                }
                 mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : T::EvalCode(), fill_units, pubkey2pk(origpubkey)));	  // vout2(3) single-eval tokens sent to the originator
                 if (orig_units - fill_units > 0)  // order is not finished yet
                     mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));                    // vout3(4 if royalty) marker to origpubkey
@@ -739,7 +744,9 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
         paid_nValue = paid_unit_price * fillunits;
 
         CAmount royaltyValue = royaltyFract > 0 ? paid_nValue / TKLROYALTY_DIVISOR * royaltyFract : 0;
-
+        // check for dust:
+        if (royaltyValue <= ASSETS_NORMAL_DUST)
+            royaltyValue = 0;
         if (assetid2 != zeroid) {
             // inputs = AddAssetInputs(cpAssets, mtx, mypk, assetid2, paid_nValue, 60);  // not implemented yet
             CCerror = "swaps not implemented";
@@ -774,8 +781,10 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
             //vout.1 purchased tokens to self token single-eval or dual-eval token+nonfungible cc addr:
             mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : T::EvalCode(), fillunits, mypk));					
             mtx.vout.push_back(CTxOut(paid_nValue - royaltyValue, CScript() << origpubkey << OP_CHECKSIG));		//vout.2 coins to ask originator's normal addr
-            if (royaltyFract > 0)       // note it makes the vout even if roaltyValue is 0
+            if (royaltyValue > 0)    {   // note it makes the vout even if roaltyValue is 0
                 mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ownerpubkey << OP_CHECKSIG));	// vout.3 royalty to token owner
+                std::cerr << __func__ << " royaltyFract=" << royaltyFract << " royaltyValue=" << royaltyValue << " paid_nValue - royaltyValue=" << paid_nValue - royaltyValue << std::endl;
+            }
         
             if (orig_assetoshis - fillunits > 0) // we dont need the marker if order is filled
                 mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));    //vout.3(4 if royalty) marker to origpubkey (for my tokenorders?)

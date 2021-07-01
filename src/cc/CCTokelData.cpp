@@ -102,13 +102,7 @@ static tklPropDesc_t GetTokelDataDesc(tklPropId id)
 
 vuint8_t ParseTokelJson(const UniValue &jsonParams)
 {
-    uint8_t evalcode = 0;
-    /*size_t ikey;
-    if (jsonParams["evalcode"].isStr())   {
-        evalcode = strtol(jsonParams["evalcode"].getValStr().c_str(), NULL, 16);
-        if (evalcode < 0 || evalcode > 0xFF)
-            throw std::runtime_error("invalid evalcode in token data");   
-    }*/
+    uint8_t evalcode = EVAL_TOKELDATA;
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << evalcode << (uint8_t)TKLDATA_VERSION;
     for(int i = 0; i < jsonParams.getKeys().size(); i ++)
@@ -149,7 +143,6 @@ static bool ParseTokelData(const vuint8_t &vdata, std::map<tklPropId, UniValue> 
             CDataStream ss(vdata, SER_NETWORK, PROTOCOL_VERSION);
             ::Unserialize(ss, evalCode);
             ::Unserialize(ss, version);
-            bool ssErrof = false;
             while(!ss.eof())  {
                 uint8_t id;
                 ::Unserialize(ss, id);
@@ -162,12 +155,11 @@ static bool ParseTokelData(const vuint8_t &vdata, std::map<tklPropId, UniValue> 
                     sError = "duplicate tokel data property type";
                     return false;            
                 }
-                    //if (itDesc->second.second)  // if mandatory
-                    //    mandatoryCount ++;
                 UniValue val = (*std::get<2>(entry))(ss);  // read ss
                 propMap.insert(std::make_pair((tklPropId)id, val));
-
             }
+            propMapOut = propMap;
+            return true;
         } catch(...) {
             sError = "could not parse tokel token data";
             return false;

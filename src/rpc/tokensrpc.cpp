@@ -356,7 +356,7 @@ UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& rem
             jsonParams = params[3].get_array();
         else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
             jsonParams.read(params[3].get_str().c_str());
-        if (jsonParams.getType() != UniValue::VOBJ /*|| jsonParams.empty()*/)
+        if (jsonParams.getType() != UniValue::VOBJ)
             throw runtime_error("parameter 4 must be a json object\n");   
 
         tokenData = ParseTokelJson(jsonParams);
@@ -386,8 +386,7 @@ UniValue tokenv2createtokel(const UniValue& params, bool fHelp, const CPubKey& r
             jsonParams = params[3].get_array();
         else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
             jsonParams.read(params[3].get_str().c_str());
-        std::cerr << __func__ << " type="  << (int)jsonParams.getType() << " keys size=" << jsonParams.getKeys().size() << std::endl;
-        if (jsonParams.getType() != UniValue::VOBJ /*|| jsonParams.empty()*/)
+        if (jsonParams.getType() != UniValue::VOBJ)
             throw runtime_error("parameter 4 must be a json object\n");   
 
         tokenData = ParseTokelJson(jsonParams);
