@@ -491,10 +491,10 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
     }*/
 
 	cp = CCinit(&C, V::EvalCode());
-    if (name.size() > 32 || description.size() > 4096)  // this is also checked on rpc level
+    if (name.size() > TOKENS_MAX_NAME_LENGTH || description.size() > TOKENS_MAX_DESC_LENGTH)  // this is also checked on rpc level
 	{
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "name len=" << name.size() << " or description len=" << description.size() << " is too big" << std::endl);
-        CCerror = "name should be <= 32, description should be <= " + std::to_string(4096);
+        CCerror = "name or description too long";
 		return NullUniValue;
 	}
 	if (txfee == 0)

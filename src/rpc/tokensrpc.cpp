@@ -258,7 +258,6 @@ static UniValue tokencreate(const std::string& fname, const UniValue& params, co
 {
     UniValue result(UniValue::VOBJ);
     std::string name, description, hextx; 
-    std::vector<uint8_t> tokenData;
     CAmount supply; // changed from uin64_t to int64_t for this 'if ( supply <= 0 )' to work as expected
 
     CCerror.clear();
@@ -273,8 +272,8 @@ static UniValue tokencreate(const std::string& fname, const UniValue& params, co
     LOCK2(cs_main, pwalletMain->cs_wallet);  // remote call not supported yet
 
     name = params[0].get_str();
-    if (name.size() == 0 || name.size() > 32)   
-        return MakeResultError("Token name must not be empty and up to 32 characters");
+    if (name.size() == 0 || name.size() > TOKENS_MAX_NAME_LENGTH)   
+        return MakeResultError("Token name must not be empty and up to " + std::to_string(TOKENS_MAX_DESC_LENGTH));
 
     supply = AmountFromValue(params[1]);   
     if (supply <= 0)    
@@ -283,11 +282,11 @@ static UniValue tokencreate(const std::string& fname, const UniValue& params, co
     
     if (params.size() >= 3)     {
         description = params[2].get_str();
-        if (description.size() > 4096)   
-            return MakeResultError("Token description must be <= " + std::to_string(4096));  // allowed > MAX_SCRIPT_ELEMENT_SIZE
+        if (description.size() > TOKENS_MAX_DESC_LENGTH)   
+            return MakeResultError("Token description must be <= " + std::to_string(TOKENS_MAX_DESC_LENGTH));  // allowed > MAX_SCRIPT_ELEMENT_SIZE
     }
 
-    hextx = CreateTokenLocal<V>(0, supply, name, description, tokenData);
+    hextx = CreateTokenLocal<V>(0, supply, name, description, vtokenData);
     RETURN_IF_ERROR(CCerror);
 
     if( hextx.size() > 0 )     

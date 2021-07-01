@@ -25,6 +25,8 @@
 
 const CAmount TOKENS_MARKER_VALUE = 10000;
 const uint8_t TOKENS_OPRETURN_VERSION = 1;
+const int TOKENS_MAX_NAME_LENGTH = 32;
+const int TOKENS_MAX_DESC_LENGTH = 4096;
 
 // implementation of basic token functions
 

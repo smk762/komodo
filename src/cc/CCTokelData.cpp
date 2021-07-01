@@ -28,9 +28,10 @@ static UniValue tklReadString(CDataStream &ss)
 
 static UniValue tklReadInt64(CDataStream &ss)
 {
-    int64_t i64val;
-    ::Unserialize(ss, i64val);
-    UniValue ret(i64val);
+    uint64_t ui64val;
+    //::Unserialize(ss, i64val);
+    ss >> COMPACTSIZE(ui64val);
+    UniValue ret((int64_t)ui64val);
     return ret;
 }
 
@@ -52,7 +53,8 @@ static void tklWriteInt64(CDataStream &ss, const UniValue &val)
 {
     int64_t i64val = 0;
     ParseInt64(val.getValStr(), &i64val);
-    ::Serialize(ss, i64val);
+    //::Serialize(ss, i64val);
+    ss << COMPACTSIZE((uint64_t)i64val);
 }
 
 static void tklWriteVuint8(CDataStream &ss, const UniValue &val)
