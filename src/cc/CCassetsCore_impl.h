@@ -133,7 +133,7 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
     cpTokens = CCinit(&tokensC, A::TokensEvalCode());
 
 	if (vintxFuncId == 's' || vintxFuncId == 'S' || vintxFuncId == 'b' || vintxFuncId == 'B') {
-        cpTokens->evalcodeNFT = cp->evalcodeNFT;  // add non-fungible evalcode if present
+        cpTokens->evalcodeAdd = cp->evalcodeAdd;  // add non-fungible evalcode if present
         if (!GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey), A::IsMixed()))  // tokens to single-eval token or token+nonfungible
             return false;
 	}

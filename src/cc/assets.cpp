@@ -17,7 +17,7 @@
 #include "CCassets.h"
 #include "CCtokens_impl.h"
 #include "CCassetsCore_impl.h"
-#include "CCNFTData.h"
+#include "CCTokelData.h"
 
 const int32_t CCVOUT = 1;
 const int32_t NORMALVOUT = 0;
@@ -167,7 +167,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
     uint256 hashBlock, assetid, assetid2; 
     int32_t ccvins = -1, ccvouts = -1;
 	int64_t unit_price, vin_unit_price; 
-    vuint8_t vorigpubkey, vin_origpubkey, vopretNonfungible;
+    vuint8_t vorigpubkey, vin_origpubkey, vextraData;
     TokenDataTuple tokenData;
 	uint8_t funcid, evalCodeInOpret; 
 	char destaddr[KOMODO_ADDRESS_BUFSIZE], origNormalAddr[KOMODO_ADDRESS_BUFSIZE], ownerNormalAddr[KOMODO_ADDRESS_BUFSIZE]; 
@@ -184,10 +184,11 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
 		return eval->Invalid("AssetValidate: no vins"); 
 	if (tx.vout.size() == 0)
 		return eval->Invalid("AssetValidate: no vouts");
+
     if((funcid = A::DecodeAssetTokenOpRet(tx.vout[numvouts-1].scriptPubKey, evalCodeInOpret, assetid, assetid2, unit_price, vorigpubkey)) == 0 )
         return eval->Invalid("AssetValidate: invalid opreturn payload");
 
-	// reinit cpAssets as we could set evalcodeNFT in it
+	// reinit cpAssets as we could set evalcodeAdd in it
 	struct CCcontract_info *cpAssets, assetsC;
 	cpAssets = CCinit(&assetsC, A::EvalCode());
 
@@ -196,13 +197,13 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
 	cpTokens = CCinit(&tokensC, T::EvalCode());
 
     // non-fungible tokens support:
-    GetTokenData<T>(eval, assetid, tokenData, vopretNonfungible);
-    uint64_t royaltyFract = 0;  // royalty is N in N/1000 fraction
-    if (vopretNonfungible.size() > 0)   {
-        cpAssets->evalcodeNFT = vopretNonfungible.begin()[0];
-        GetNftDataAsUint64(vopretNonfungible, NFTPROP_ROYALTY, royaltyFract);
-        if (royaltyFract > NFTROYALTY_DIVISOR-1)
-            royaltyFract = NFTROYALTY_DIVISOR-1; // royalty upper limit
+    GetTokenData<T>(eval, assetid, tokenData, vextraData);
+    int64_t royaltyFract = 0;  // royalty is N in N/1000 fraction
+    if (vextraData.size() > 0)   {
+        cpAssets->evalcodeAdd = vextraData.begin()[0];
+        GetTokelDataAsInt64(vextraData, TKLPROP_ROYALTY, royaltyFract);
+        if (royaltyFract > TKLROYALTY_DIVISOR-1)
+            royaltyFract = TKLROYALTY_DIVISOR-1; // royalty upper limit
     }
 
     vuint8_t ownerpubkey = std::get<0>(tokenData);
@@ -258,8 +259,8 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                     return eval->Invalid("invalid vout1 marker for original pubkey");
                 else if( TotalPubkeyNormalInputs(eval, tx, pubkey2pk(vorigpubkey)) == 0 ) // check tx is signed by originator pubkey
                     return eval->Invalid("not the originator pubkey signed for bid");
-                else if (unit_price <= 0)
-                    return eval->Invalid("invalid unit price");
+                else if (unit_price <= ASSETS_NORMAL_DUST)
+                    return eval->Invalid("invalid or too low unit price");
                 else if (tx.vout[0].nValue < unit_price)
                     return eval->Invalid("invalid bid amount too low");
 
@@ -382,7 +383,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 if (!ValidateBidRemainder(unit_price, tx.vout[0].nValue, vin_assetoshis, received_value, paid_units)) // check real price and coins spending from global addr
                     return eval->Invalid("vout" + std::to_string(2+r) + " mismatched remainder for fillbid");
                 if (royaltyFract > 0) {
-                    if ((tx.vout[1].nValue + tx.vout[2].nValue) / NFTROYALTY_DIVISOR * royaltyFract != tx.vout[2].nValue)  // validate royalty value
+                    if ((tx.vout[1].nValue + tx.vout[2].nValue) / TKLROYALTY_DIVISOR * royaltyFract != tx.vout[2].nValue)  // validate royalty value
                         return eval->Invalid("vout2 invalid royalty amount for fillask");
                     if (!A::ConstrainVout(tx.vout[2], NORMALVOUT, ownerNormalAddr, 0LL, 0))        // validate owner royalty dest
                         return eval->Invalid("vout2 invalid royalty detination for fillask");
@@ -419,8 +420,8 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                     return eval->Invalid("invalid vout1 marker for originator pubkey");
                 else if (TotalPubkeyNormalInputs(eval, tx, origpk) == 0)  // check tx is signed by originator pubkey
                     return eval->Invalid("not the originator pubkey signed for ask");
-                else if (unit_price <= 0)
-                    return eval->Invalid("invalid unit price");
+                else if (unit_price <= ASSETS_NORMAL_DUST)
+                    return eval->Invalid("invalid or too low unit price");
 
                 if (tx.vout[2].scriptPubKey.IsPayToCryptoCondition())
                     if (!tx.vout[2].scriptPubKey.IsPayToCCV2() || tx.vout[2].scriptPubKey.SpkHasEvalcodeCCV2(T::EvalCode()))  // have token change
@@ -486,7 +487,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 else if (!A::ConstrainVout(tx.vout[2], NORMALVOUT, origNormalAddr, 0LL, 0))        // coins to originator normal addr
                     return eval->Invalid("vout2 should be cc for fillask");
                 if (royaltyFract > 0)  {
-                    if ((tx.vout[2].nValue + tx.vout[3].nValue) / NFTROYALTY_DIVISOR * royaltyFract != tx.vout[3].nValue)  // validate royalty value
+                    if ((tx.vout[2].nValue + tx.vout[3].nValue) / TKLROYALTY_DIVISOR * royaltyFract != tx.vout[3].nValue)  // validate royalty value
                         return eval->Invalid("vout3 invalid royalty amount for fillask");
                     if (!A::ConstrainVout(tx.vout[3], NORMALVOUT, ownerNormalAddr, 0LL, 0))        // validate owner royalty dest
                         return eval->Invalid("vout3 invalid royalty detination for fillask");

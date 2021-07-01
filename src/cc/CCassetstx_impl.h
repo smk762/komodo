@@ -18,7 +18,7 @@
 
 #include "CCtokens.h"
 #include "CCassets.h"
-#include "CCNFTData.h"
+#include "CCTokelData.h"
 
 
 static bool IsTxidInActiveChain(uint256 txid)
@@ -40,7 +40,7 @@ static bool IsTxidInActiveChain(uint256 txid)
 }
 
 template<class T, class A>
-UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeNFT)
+UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
 {
 	UniValue result(UniValue::VARR);  
     const char *funcname = __func__;
@@ -152,11 +152,11 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeNFT)
 
         char assetsTokensUnspendableAddr[KOMODO_ADDRESS_BUFSIZE];
         TokenDataTuple tokenData;
-        vuint8_t vopretNFT;
+        vuint8_t vextraData;
         if (refassetid != zeroid) {
-            GetTokenData<T>(NULL, refassetid, tokenData, vopretNFT);
-            if (vopretNFT.size() > 0)
-                cpAssets->evalcodeNFT = vopretNFT[0];
+            GetTokenData<T>(NULL, refassetid, tokenData, vextraData);
+            if (vextraData.size() > 0)
+                cpAssets->evalcodeAdd = vextraData[0];
         }
         GetTokensCCaddress(cpAssets, assetsTokensUnspendableAddr, GetUnspendable(cpAssets, NULL), A::IsMixed());
         SetCCunspents(unspentOutputsTokens, assetsTokensUnspendableAddr, true);
@@ -173,11 +173,11 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeNFT)
             itTokens++)
             addOrders(cpAssets, itTokens);
 
-        if (evalcodeNFT != 0) {  //this would be mytokenorders
+        if (evalcodeAdd != 0) {  //this would be mytokenorders
             char assetsNFTUnspendableAddr[KOMODO_ADDRESS_BUFSIZE];
 
             // try also dual eval tokenasks (and we do not need bids (why? bids are on assets global addr anyway.)):
-            cpAssets->evalcodeNFT = evalcodeNFT;
+            cpAssets->evalcodeAdd = evalcodeAdd;
             GetTokensCCaddress(cpAssets, assetsNFTUnspendableAddr, GetUnspendable(cpAssets, NULL), A::IsMixed());
             SetCCunspents(unspentOutputsNFTs, assetsNFTUnspendableAddr,true);
 
@@ -300,19 +300,19 @@ UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint2
 				return ("");
 			}
 
-            uint8_t evalcodeNFT = cpTokens->evalcodeNFT ? cpTokens->evalcodeNFT : 0;
+            uint8_t evalcodeAdd = cpTokens->evalcodeAdd ? cpTokens->evalcodeAdd : 0;
 
 			CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, NULL);
-            mtx.vout.push_back(T::MakeTokensCC1vout(A::EvalCode(), evalcodeNFT, numtokens, unspendableAssetsPubkey));
+            mtx.vout.push_back(T::MakeTokensCC1vout(A::EvalCode(), evalcodeAdd, numtokens, unspendableAssetsPubkey));
             mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, mypk));  //marker (seems, it is not for my tokenorders, not used yet)
             CAmount CCchange = inputs - numtokens;
             if (CCchange != 0LL) {
                 // change to single-eval or non-fungible token vout (although for non-fungible token change currently is not possible)
-                mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : T::EvalCode(), CCchange, mypk));	
+                mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : T::EvalCode(), CCchange, mypk));	
             }
 
             // cond to spend NFT from mypk 
-            CCwrapper wrCond(T::MakeTokensCCcond1(evalcodeNFT, mypk));
+            CCwrapper wrCond(T::MakeTokensCCcond1(evalcodeAdd, mypk));
             CCAddVintxCond(cpTokens, wrCond, NULL); //NULL indicates to use myprivkey
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpTokens, mtx, mypk, txfee, 
@@ -518,12 +518,12 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256
             }
 
             TokenDataTuple tokenData;
-            vuint8_t vopretNonfungible;
-            GetTokenData<T>(NULL, assetid, tokenData, vopretNonfungible);
-            if (vopretNonfungible.size() > 0)
-                cpAssets->evalcodeNFT = vopretNonfungible.begin()[0];
+            vuint8_t vextraData;
+            GetTokenData<T>(NULL, assetid, tokenData, vextraData);
+            if (vextraData.size() > 0)
+                cpAssets->evalcodeAdd = vextraData.begin()[0];
 
-            mtx.vout.push_back(T::MakeTokensCC1vout(cpAssets->evalcodeNFT ? cpAssets->evalcodeNFT : T::EvalCode(), askamount, mypk));	// one-eval token vout
+            mtx.vout.push_back(T::MakeTokensCC1vout(cpAssets->evalcodeAdd ? cpAssets->evalcodeAdd : T::EvalCode(), askamount, mypk));	// one-eval token vout
             // mtx.vout.push_back(CTxOut(ASSETS_MARKER_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));  // we dont need marker for cancelled orders
 
             // init assets 'unspendable' privkey and pubkey
@@ -531,7 +531,7 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256
             CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 
             // add additional eval-tokens unspendable assets privkey:
-            CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), cpAssets->evalcodeNFT, unspendableAssetsPk));
+            CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), cpAssets->evalcodeAdd, unspendableAssetsPk));
             CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
@@ -570,15 +570,15 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
     cpTokens = CCinit(&tokensC, T::EvalCode());
     
     TokenDataTuple tokenData;
-    vuint8_t vopretNonfungible;
-    uint8_t evalcodeNFT = 0;
-    uint64_t royaltyFract = 0;  // royaltyFract is N in N/1000 fraction
-    GetTokenData<T>(NULL, assetid, tokenData, vopretNonfungible);
-    if (vopretNonfungible.size() > 0)  {
-        evalcodeNFT = vopretNonfungible.begin()[0];
-        GetNftDataAsUint64(vopretNonfungible, NFTPROP_ROYALTY, royaltyFract);
-        if (royaltyFract > NFTROYALTY_DIVISOR-1)
-            royaltyFract = NFTROYALTY_DIVISOR-1; // royalty upper limit
+    vuint8_t vextraData;
+    uint8_t evalcodeAdd = 0;
+    int64_t royaltyFract = 0;  // royaltyFract is N in N/1000 fraction
+    GetTokenData<T>(NULL, assetid, tokenData, vextraData);
+    if (vextraData.size() > 0)  {
+        evalcodeAdd = vextraData.begin()[0];
+        GetTokelDataAsInt64(vextraData, TKLPROP_ROYALTY, royaltyFract);
+        if (royaltyFract > TKLROYALTY_DIVISOR-1)
+            royaltyFract = TKLROYALTY_DIVISOR-1; // royalty upper limit
     }
     vuint8_t ownerpubkey = std::get<0>(tokenData);
 
@@ -621,7 +621,7 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                     CCerror = "incorrect units or price";
                     return ("");
                 }
-                CAmount royaltyValue = royaltyFract > 0 ? paid_amount / NFTROYALTY_DIVISOR * royaltyFract : 0;
+                CAmount royaltyValue = royaltyFract > 0 ? paid_amount / TKLROYALTY_DIVISOR * royaltyFract : 0;
                 CAmount tokensChange = inputs - fill_units;
 
                 uint8_t unspendableAssetsPrivkey[32];
@@ -638,17 +638,17 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                 mtx.vout.push_back(CTxOut(paid_amount - royaltyValue, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));	// vout1 coins to mypk normal 
                 if (royaltyFract > 0)   // note it makes vout even if roaltyValue is 0
                     mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ParseHex(HexStr(ownerpubkey)) << OP_CHECKSIG));  // vout2 trade royalty to token owner
-                mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : T::EvalCode(), fill_units, pubkey2pk(origpubkey)));	  // vout2(3) single-eval tokens sent to the originator
+                mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : T::EvalCode(), fill_units, pubkey2pk(origpubkey)));	  // vout2(3) single-eval tokens sent to the originator
                 if (orig_units - fill_units > 0)  // order is not finished yet
                     mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));                    // vout3(4 if royalty) marker to origpubkey
 
                 if (tokensChange != 0LL)
-                    mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : T::EvalCode(), tokensChange, mypk));  // change in single-eval tokens
+                    mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : T::EvalCode(), tokensChange, mypk));  // change in single-eval tokens
                 
                 CCwrapper wrCond1(MakeCCcond1(A::EvalCode(), unspendableAssetsPk));  // spend coins
                 CCAddVintxCond(cpTokens, wrCond1, unspendableAssetsPrivkey);
                 
-                CCwrapper wrCond2(T::MakeTokensCCcond1(evalcodeNFT, mypk));  // spend my tokens to fill buy
+                CCwrapper wrCond2(T::MakeTokensCCcond1(evalcodeAdd, mypk));  // spend my tokens to fill buy
                 CCAddVintxCond(cpTokens, wrCond2, NULL); //NULL indicates to use myprivkey
 
                 UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpTokens, mtx, mypk, txfee,
@@ -697,15 +697,15 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
     }
 
     TokenDataTuple tokenData;
-    vuint8_t vopretNonfungible;
-    uint8_t evalcodeNFT = 0;
-    uint64_t royaltyFract = 0;  // royaltyFract is N in N/1000 fraction
-    GetTokenData<T>(NULL, assetid, tokenData, vopretNonfungible);
-    if (vopretNonfungible.size() > 0)  {
-        evalcodeNFT = vopretNonfungible.begin()[0];
-        GetNftDataAsUint64(vopretNonfungible, NFTPROP_ROYALTY, royaltyFract);
-        if (royaltyFract > NFTROYALTY_DIVISOR-1)
-            royaltyFract = NFTROYALTY_DIVISOR-1; // royalty upper limit
+    vuint8_t vextraData;
+    uint8_t evalcodeAdd = 0;
+    int64_t royaltyFract = 0;  // royaltyFract is N in N/1000 fraction
+    GetTokenData<T>(NULL, assetid, tokenData, vextraData);
+    if (vextraData.size() > 0)  {
+        evalcodeAdd = vextraData.begin()[0];
+        GetTokelDataAsInt64(vextraData, TKLPROP_ROYALTY, royaltyFract);
+        if (royaltyFract > TKLROYALTY_DIVISOR-1)
+            royaltyFract = TKLROYALTY_DIVISOR-1; // royalty upper limit
     }
     vuint8_t ownerpubkey = std::get<0>(tokenData);
 
@@ -738,7 +738,7 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
         }
         paid_nValue = paid_unit_price * fillunits;
 
-        CAmount royaltyValue = royaltyFract > 0 ? paid_nValue / NFTROYALTY_DIVISOR * royaltyFract : 0;
+        CAmount royaltyValue = royaltyFract > 0 ? paid_nValue / TKLROYALTY_DIVISOR * royaltyFract : 0;
 
         if (assetid2 != zeroid) {
             // inputs = AddAssetInputs(cpAssets, mtx, mypk, assetid2, paid_nValue, 60);  // not implemented yet
@@ -769,10 +769,10 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
             }
 
             // vout.0 tokens remainder to unspendable cc addr:
-            mtx.vout.push_back(T::MakeTokensCC1vout(A::EvalCode(), evalcodeNFT, orig_assetoshis - fillunits, GetUnspendable(cpAssets, NULL)));  // token remainder on cc global addr
+            mtx.vout.push_back(T::MakeTokensCC1vout(A::EvalCode(), evalcodeAdd, orig_assetoshis - fillunits, GetUnspendable(cpAssets, NULL)));  // token remainder on cc global addr
 
             //vout.1 purchased tokens to self token single-eval or dual-eval token+nonfungible cc addr:
-            mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeNFT ? evalcodeNFT : T::EvalCode(), fillunits, mypk));					
+            mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : T::EvalCode(), fillunits, mypk));					
             mtx.vout.push_back(CTxOut(paid_nValue - royaltyValue, CScript() << origpubkey << OP_CHECKSIG));		//vout.2 coins to ask originator's normal addr
             if (royaltyFract > 0)       // note it makes the vout even if roaltyValue is 0
                 mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ownerpubkey << OP_CHECKSIG));	// vout.3 royalty to token owner
@@ -784,10 +784,10 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
 			uint8_t unspendableAssetsPrivkey[32];
 			CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 
-            CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), evalcodeNFT, unspendableAssetsPk));
+            CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), evalcodeAdd, unspendableAssetsPk));
             CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
 
-            //cpAssets->evalcodeNFT = evalcodeNFT;  // set nft eval for signing
+            //cpAssets->evalcodeAdd = evalcodeAdd;  // set token eval for signing
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
 				T::EncodeTokenOpRet(assetid, { mypk }, 

@@ -389,11 +389,11 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
 
 	if (vintxFuncId == 's' || vintxFuncId == 'S') {
 		// bGetCCaddr = GetCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey));  
-        cpTokens->evalcodeNFT = cp->evalcodeNFT;  // add non-fungible if present
+        cpTokens->evalcodeAdd = cp->evalcodeAdd;  // add non-fungible if present
         bGetCCaddr = GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey));  // tokens to single-eval token or token+nonfungible
 	}
 	else if (vintxFuncId == 'b' || vintxFuncId == 'B') {
-        cpTokens->evalcodeNFT = cp->evalcodeNFT;  // add non-fungible if present
+        cpTokens->evalcodeAdd = cp->evalcodeAdd;  // add non-fungible if present
         bGetCCaddr = GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey));  // tokens to single-eval token or token+nonfungible
 	}
 	else  {

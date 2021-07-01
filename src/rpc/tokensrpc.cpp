@@ -138,7 +138,7 @@ template <class T, class A>
 UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     uint256 tokenid;
-    uint8_t evalcodeNFT = 0;
+    uint8_t evalcodeAdd = 0;
     const CPubKey emptypk;
 
     if ( fHelp || params.size() > 2 )
@@ -157,12 +157,12 @@ UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp
         }
     }
     if (params.size() == 2)
-        evalcodeNFT = strtol(params[1].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
+        evalcodeAdd = strtol(params[1].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
 
     if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
-        return AssetOrders<T, A>(tokenid, emptypk, evalcodeNFT);
+        return AssetOrders<T, A>(tokenid, emptypk, evalcodeAdd);
     else
-        return tokensv0::AssetOrders(tokenid, emptypk, evalcodeNFT);
+        return tokensv0::AssetOrders(tokenid, emptypk, evalcodeAdd);
 }
 
 UniValue tokenorders(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -184,16 +184,16 @@ UniValue mytokenorders(const std::string& name, const UniValue& params, bool fHe
                             "if evalcode is set then returns mypubkey's token orders for non-fungible tokens with this evalcode\n" "\n");
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    uint8_t evalcodeNFT = 0;
+    uint8_t evalcodeAdd = 0;
     if (params.size() == 1)
-        evalcodeNFT = strtol(params[0].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
+        evalcodeAdd = strtol(params[0].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
     
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
-        return AssetOrders<T, A>(zeroid, mypk, evalcodeNFT);
+        return AssetOrders<T, A>(zeroid, mypk, evalcodeAdd);
     else
-        return tokensv0::AssetOrders(zeroid, Mypubkey(), evalcodeNFT);
+        return tokensv0::AssetOrders(zeroid, Mypubkey(), evalcodeAdd);
 }
 
 UniValue mytokenorders(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -254,20 +254,20 @@ UniValue tokenv2balance(const UniValue& params, bool fHelp, const CPubKey& remot
 }
 
 template <class V>
-static UniValue tokencreate(const std::string& fname, const UniValue& params, bool fHelp, const CPubKey& remotepk)
+static UniValue tokencreate(const std::string& fname, const UniValue& params, const vuint8_t &vtokenData, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     std::string name, description, hextx; 
-    std::vector<uint8_t> nonfungibleData;
-    int64_t supply; // changed from uin64_t to int64_t for this 'if ( supply <= 0 )' to work as expected
+    std::vector<uint8_t> tokenData;
+    CAmount supply; // changed from uin64_t to int64_t for this 'if ( supply <= 0 )' to work as expected
 
     CCerror.clear();
 
-    if ( fHelp || params.size() > 4 || params.size() < 2 )
-        throw runtime_error(fname + " name supply [description][nft data]\n");
-    if ( ensure_CCrequirements(V::EvalCode()) < 0 )
+    //if (fHelp || params.size() > 4 || params.size() < 2)
+    //    throw runtime_error(fname + " name supply [description] [tokens data]\n");
+    if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    
+
     if (!EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     LOCK2(cs_main, pwalletMain->cs_wallet);  // remote call not supported yet
@@ -286,18 +286,8 @@ static UniValue tokencreate(const std::string& fname, const UniValue& params, bo
         if (description.size() > 4096)   
             return MakeResultError("Token description must be <= " + std::to_string(4096));  // allowed > MAX_SCRIPT_ELEMENT_SIZE
     }
-    
-    if (params.size() >= 4)    {
-        nonfungibleData = ParseHex(params[3].get_str());
-        // looks like bigger than 520 data is available in opreturn 
-        // if (nonfungibleData.size() > MAX_SCRIPT_ELEMENT_SIZE) // script element limit
-        //    return MakeResultError("Non-fungible data size must be <= " + std::to_string(MAX_SCRIPT_ELEMENT_SIZE));
-        
-        if( nonfungibleData.empty() ) 
-            return MakeResultError("Non-fungible data incorrect");
-    }
 
-    hextx = CreateTokenLocal<V>(0, supply, name, description, nonfungibleData);
+    hextx = CreateTokenLocal<V>(0, supply, name, description, tokenData);
     RETURN_IF_ERROR(CCerror);
 
     if( hextx.size() > 0 )     
@@ -308,12 +298,106 @@ static UniValue tokencreate(const std::string& fname, const UniValue& params, bo
 
 UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    return tokencreate<TokensV1>("tokencreate", params, fHelp, remotepk);
+    if (fHelp || params.size() > 4 || params.size() < 2)
+        throw runtime_error("tokencreate name supply [description] [tokens data]\n"
+                            "create tokens\n"
+                            "  name - token name string\n"
+                            "  supply - token supply in coins\n"
+                            "  description - opt description"
+                            "  tokens data - an opt hex string with token data. If first byte is non-null it means a evalcode of a cc which tokens will be routed:\n"
+                            "     { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
+        );
+
+    vuint8_t tokenData;
+    if (params.size() >= 4)    {
+        tokenData = ParseHex(params[3].get_str());
+        if (tokenData.empty())
+            return MakeResultError("Token data incorrect");
+    }
+    return tokencreate<TokensV1>("tokencreate", params, tokenData, fHelp, remotepk);
 }
 UniValue tokenv2create(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    return tokencreate<TokensV2>("tokenv2create", params, fHelp, remotepk);
+if (fHelp || params.size() > 4 || params.size() < 2)
+        throw runtime_error("tokenv2create name supply [description] [tokens data]\n"
+                            "create tokens version 2\n"
+                            "  name - token name string\n"
+                            "  supply - token supply in coins\n"
+                            "  description - opt description"
+                            "  tokens data - an opt hex string with token data. If first byte is non-null it means a evalcode of a cc which tokens will be routed:\n"
+                            "     { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
+        );
+
+    vuint8_t tokenData;
+    if (params.size() >= 4)    {
+        tokenData = ParseHex(params[3].get_str());
+        if (tokenData.empty())
+            return MakeResultError("Tokel token data incorrect");
+    }
+    return tokencreate<TokensV2>("tokenv2create", params, tokenData, fHelp, remotepk);
 }
+
+UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() > 4 || params.size() < 2)
+        throw runtime_error("tokencreatetokel name supply [description] [tokens data]\n"
+                            "create tokens with tokel project data\n"
+                            "  name - token name string\n"
+                            "  supply - token supply in coins\n"
+                            "  description - opt description"
+                            "  tokens data - an opt json object with tokel token properties:\n"
+                            "     { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
+        );
+
+    vuint8_t tokenData;
+    if (params.size() >= 4)    {
+        UniValue jsonParams;
+
+        if (params[3].getType() == UniValue::VOBJ)
+            jsonParams = params[3].get_array();
+        else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+            jsonParams.read(params[3].get_str().c_str());
+        if (jsonParams.getType() != UniValue::VOBJ /*|| jsonParams.empty()*/)
+            throw runtime_error("parameter 4 must be a json object\n");   
+
+        tokenData = ParseTokelJson(jsonParams);
+        if (tokenData.empty())
+            return MakeResultError("Tokel token data incorrect");
+    }
+
+    return tokencreate<TokensV1>("tokencreate", params, tokenData, fHelp, remotepk);
+}
+UniValue tokenv2createtokel(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() > 4 || params.size() < 2)
+        throw runtime_error("tokencreatetokel name supply [description] [tokens data]\n"
+                            "create tokens with tokel project data\n"
+                            "  name - token name string\n"
+                            "  supply - token supply in coins\n"
+                            "  description - opt description"
+                            "  tokens data - an opt json object with with tokel token properties:\n"
+                            "     { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
+        );
+
+    vuint8_t tokenData;
+    if (params.size() >= 4)    {
+        UniValue jsonParams;
+
+        if (params[3].getType() == UniValue::VOBJ)
+            jsonParams = params[3].get_array();
+        else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+            jsonParams.read(params[3].get_str().c_str());
+        std::cerr << __func__ << " type="  << (int)jsonParams.getType() << " keys size=" << jsonParams.getKeys().size() << std::endl;
+        if (jsonParams.getType() != UniValue::VOBJ /*|| jsonParams.empty()*/)
+            throw runtime_error("parameter 4 must be a json object\n");   
+
+        tokenData = ParseTokelJson(jsonParams);
+        if (tokenData.empty())
+            return MakeResultError("Token data incorrect");
+    }
+    return tokencreate<TokensV2>("tokenv2create", params, tokenData, fHelp, remotepk);
+}
+
 
 template <class V>
 static UniValue tokentransfer(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -488,11 +572,11 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     for (const auto &tokenid : tokenids)
     {
         TokenDataTuple tokenData;
-        vuint8_t vnftData;
-        GetTokenData<V>(NULL, tokenid, tokenData, vnftData);
+        vuint8_t vtokenData;
+        GetTokenData<V>(NULL, tokenid, tokenData, vtokenData);
         CCwrapper probeCond;
-        if (vnftData.size() > 0)
-            probeCond.reset( V::MakeTokensCCcond1(vnftData[0], mypk) );
+        if (vtokenData.size() > 0)
+            probeCond.reset( V::MakeTokensCCcond1(vtokenData[0], mypk) );
         else
             probeCond.reset( MakeCCcond1(V::EvalCode(), mypk) );
 
@@ -500,7 +584,7 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
         Myprivkey(mypriv);
         
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-        cpTokens->evalcodeNFT = vnftData.size() > 0 ? vnftData[0] : 0;
+        cpTokens->evalcodeAdd = vtokenData.size() > 0 ? vtokenData[0] : 0;
         GetTokensCCaddress(cpTokens, tokenaddr, mypk, V::IsMixed());
 
         UniValue addtxResult = TokenAddTransferVout<V>(mtx, cpTokens, remotepk, tokenid, tokenaddr, { destpk }, {probeCond, mypriv}, amount, false);
@@ -1014,6 +1098,8 @@ static const CRPCCommand commands[] =
     //{ "tokens",       "tokenfillswap",    &tokenfillswap,     true },
     { "tokens",       "tokenconvert", &tokenconvert, true },
     { "ccutils",       "addccv2signature", &addccv2signature, true },
+    { "tokens",       "tokencreatetokel",      &tokencreatetokel,       true },
+    { "tokens v2",       "tokenv2createtokel",    &tokenv2createtokel,       true },
 };
 
 void RegisterTokensRPCCommands(CRPCTable &tableRPC)

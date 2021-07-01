@@ -22,6 +22,8 @@
 */
 
 #include "CCtokens_impl.h"
+#include "CCTokelData.h"
+
 
 thread_local uint32_t tokenValIndentSize = 0; // for debug logging
 
@@ -128,11 +130,11 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
         }
 
         uint256 tokenIdOpret;
-        std::vector<vscript_t>  oprets;
+        std::vector<vscript_t>  vdatas;
         std::vector<CPubKey> voutPubkeysInOpret;
 
         // token opret most important checks (tokenid == reftokenid, tokenid is non-zero, tx is 'tokenbase'):
-        funcId = DecodeTokenOpRetV1(opret, tokenIdOpret, voutPubkeysInOpret, oprets);
+        funcId = DecodeTokenOpRetV1(opret, tokenIdOpret, voutPubkeysInOpret, vdatas);
         if (funcId == 0)    {
             // bad opreturn
             // errorStr = "can't decode opreturn data";
@@ -166,10 +168,10 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
         {            
             // get up to two eval codes from cc data:
             uint8_t evalCode1 = 0, evalCode2 = 0;
-            if (oprets.size() >= 1) {
-                evalCode1 = oprets[0].size() > 0 ? oprets[0][0] : 0;
-                if (oprets.size() >= 2)
-                    evalCode2 = oprets[1].size() > 0 ? oprets[1][0] : 0;
+            if (vdatas.size() >= 1) {
+                evalCode1 = vdatas[0].size() > 0 ? vdatas[0][0] : 0;
+                if (vdatas.size() >= 2)
+                    evalCode2 = vdatas[1].size() > 0 ? vdatas[1][0] : 0;
             }
 
             // get optional nft eval code:
@@ -253,16 +255,16 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
 
                 vscript_t vorigPubkey;
                 std::string  dummyName, dummyDescription;
-                std::vector<vscript_t>  oprets;
+                std::vector<vscript_t>  vdatas;
 
-                if (DecodeTokenCreateOpRetV1(tx.vout.back().scriptPubKey, vorigPubkey, dummyName, dummyDescription, oprets) == 0) {
+                if (DecodeTokenCreateOpRetV1(tx.vout.back().scriptPubKey, vorigPubkey, dummyName, dummyDescription, vdatas) == 0) {
                     LOGSTREAM(cctokens_log, CCLOG_INFO, stream << indentStr << funcname << "()" << " could not decode create opret" << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl);
                     return 0;
                 }
 
                 CPubKey origPubkey = pubkey2pk(vorigPubkey);
                 vuint8_t vopretNFT;
-                GetOpReturnCCBlob(oprets, vopretNFT);
+                GetOpReturnCCBlob(vdatas, vopretNFT);
 
                 // calc cc outputs for origPubkey 
                 CAmount ccOutputs = 0;
@@ -320,14 +322,15 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
             std::vector<std::pair<CTxOut, std::string>> testVouts;
 
             uint8_t version;
-            DecodeTokenOpRetV1(tx.vout.back().scriptPubKey, tokenIdOpret, voutPubkeysInOpret, oprets);
-            LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << funcname << "()" << " oprets.size()=" << oprets.size() << std::endl);
+            std::vector<vscript_t>  vdatas;
+            DecodeTokenOpRetV1(tx.vout.back().scriptPubKey, tokenIdOpret, voutPubkeysInOpret, vdatas);
+            LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << funcname << "()" << " vdatas.size()=" << vdatas.size() << std::endl);
             
             // get assets/channels/gateways token data in vopretExtra:
             //FilterOutNonCCOprets(oprets, vopretExtra);  
             // NOTE: only 1 additional evalcode in token opret is currently supported:
-            if (oprets.size() > 0)
-                vopretExtra = oprets[0];
+            if (vdatas.size() > 0)
+                vopretExtra = vdatas[0];
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << funcname << "()" << " vopretExtra=" << HexStr(vopretExtra) << std::endl);
 
             // get non-fungible data
@@ -443,22 +446,37 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                 {
                     vscript_t vorigPubkey;
                     std::string  dummyName, dummyDescription;
-                    std::vector<vscript_t>  oprets;
+                    std::vector<vscript_t>  vdatas;
                     uint8_t version;
 
-                    if (DecodeTokenCreateOpRetV1(tx.vout.back().scriptPubKey, vorigPubkey, dummyName, dummyDescription, oprets) == 0) {
+                    if (DecodeTokenCreateOpRetV1(tx.vout.back().scriptPubKey, vorigPubkey, dummyName, dummyDescription, vdatas) == 0) {
                         LOGSTREAM(cctokens_log, CCLOG_INFO, stream << indentStr << funcname << "()" << " could not decode create opret" << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl);
                         return 0;
                     }
 
                     CPubKey origPubkey = pubkey2pk(vorigPubkey);
                     vuint8_t vopretNFT;
-                    GetOpReturnCCBlob(oprets, vopretNFT);
+                    GetOpReturnCCBlob(vdatas, vopretNFT);
                     
                     if (origPubkey == GetUnspendable(cp, NULL))  {
                         errorStr = "cannot create tokens with token shared pubkey"; 
                         return -1;
                     }
+
+                    /*
+                    if (vdatas.size() > 1)  {
+                        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " invalid vdata size for txid=" << tx.GetHash().GetHex() << " v=" << v << " isLastVoutOpret=" << isLastVoutOpret << std::endl);
+                        return -1;  // could not be more than 1 vdata in opreturn
+                    }
+                    std::string tdataError;
+                    std::cerr << __func__ << " vdatas.size()=" << vdatas.size() << std::endl;
+                    if (vdatas.size() > 0)
+                        std::cerr << __func__ << " vdatas[0]=" << HexStr(vdatas[0]) << std::endl;
+                    if (vdatas.size() > 0 && !CheckTokelData(vdatas[0], tdataError))  {
+                        errorStr = tdataError;
+                        return -1;  // invalid tokendata
+                    }
+                    */
 
                     // TODO: add voutPubkeys for 'c' tx
 
@@ -549,20 +567,32 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
         }
 
         uint256 tokenIdOpret;
-        std::vector<vscript_t>  oprets;
+        std::vector<vscript_t>  vdatas;
         std::vector<CPubKey> vpksdummy;
 
         // token opret most important checks (tokenid == reftokenid, tokenid is non-zero, tx is 'tokenbase'):
-        funcId = TokensV2::DecodeTokenOpRet(opret, tokenIdOpret, vpksdummy, oprets);
+        funcId = TokensV2::DecodeTokenOpRet(opret, tokenIdOpret, vpksdummy, vdatas);
         if (funcId == 0)    {
             // bad opreturn
             errorStr = "can't decode opreturn data";
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " skipping vout with non token opret for txid=" << tx.GetHash().GetHex() << " v=" << v << " isLastVoutOpret=" << isLastVoutOpret << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found token vout with non-token opret for txid=" << tx.GetHash().GetHex() << " v=" << v << " isLastVoutOpret=" << isLastVoutOpret << std::endl);
             return -1;  // not token vout, skip
         } 
 
         // basic checks:
         if (IsTokenCreateFuncid(funcId))    {
+            /*
+            if (vdatas.size() > 1)  {
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " invalid vdata size for txid=" << tx.GetHash().GetHex() << " v=" << v << " isLastVoutOpret=" << isLastVoutOpret << std::endl);
+                return -1;  // could not be more than 1 vdata in opreturn
+            }
+            std::string tdataError;
+            if (vdatas.size() > 0 && !CheckTokelData(vdatas[0], tdataError))  {
+                errorStr = tdataError;
+                return -1;  // invalid tokendata
+            }
+            */
+
             // set returned tokend to tokenbase txid:
             reftokenid = tx.GetHash();
         }
@@ -659,6 +689,9 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
     // check boundaries:
     if (tx.vout.size() < 1)
         return eval->Invalid("no vouts");
+
+    if (std::count_if(tx.vout.begin(), tx.vout.end(), [](const CTxOut &v){ vuint8_t vd; return GetOpReturnData(v.scriptPubKey, vd); }) > 1)
+    	return eval->Invalid("only one opreturn supported");
 
     std::string errorStr;
     if (!TokensExactAmounts<TokensV1>(true, cp, eval, tx, errorStr)) 
@@ -765,6 +798,9 @@ bool Tokensv2Validate(struct CCcontract_info *cp, Eval* eval, const CTransaction
     // check boundaries:
     if (tx.vout.size() < 1) 
         return report_validation_error(__func__, eval, tx, "no vouts");
+
+    if (std::count_if(tx.vout.begin(), tx.vout.end(), [](const CTxOut &v){ vuint8_t vd; return GetOpReturnData(v.scriptPubKey, vd); }) > 1)
+    	return eval->Invalid("only one opreturn supported");
 
     std::string errorStr;
 

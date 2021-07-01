@@ -626,14 +626,14 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 
     GetNonfungibleData(tokenid, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
-        cp->evalcodeNFT = vopretNonfungible.begin()[0];
+        cp->evalcodeAdd = vopretNonfungible.begin()[0];
 
 	GetTokensCCaddress(cp, tokenaddr, pk);
 	SetCCunspents(unspentOutputs, tokenaddr,true);
 
 
     if (unspentOutputs.empty()) {
-        LOGSTREAM((char *)"cctokens", CCLOG_INFO, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->evalcodeNFT << std::endl);
+        LOGSTREAM((char *)"cctokens", CCLOG_INFO, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->evalcodeAdd << std::endl);
     }
 
 	threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);

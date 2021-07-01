@@ -232,8 +232,8 @@ struct CCVintxProbe {
 struct CCcontract_info
 {
     uint8_t evalcode;  //!< cc contract eval code, set by CCinit function
-    uint8_t evalcodeNFT;  //!< additional eval code for spending from three-eval-code vouts with EVAL_TOKENS, cc evalcode, cc evalcode NFT 
-                                        //!< or vouts with two evalcodes: EVAL_TOKENS, evalcodeNFT. 
+    uint8_t evalcodeAdd;  //!< additional eval code for spending from three-eval-code vouts with EVAL_TOKENS, cc evalcode, cc evalcode NFT 
+                                        //!< or vouts with two evalcodes: EVAL_TOKENS, evalcodeAdd. 
                                         //!< Set by AddTokenCCInputs function
 
     char unspendableCCaddr[64]; //!< global contract cryptocondition address, set by CCinit function
@@ -293,7 +293,7 @@ struct CCcontract_info
     void init_to_zeros() {
         // init to zeros:
         evalcode = 0;
-        evalcodeNFT = 0;
+        evalcodeAdd = 0;
 
         memset(CCpriv, '\0', sizeof(CCpriv) / sizeof(CCpriv[0]));
 
@@ -1221,6 +1221,10 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
 /// LOGSTREAMFN parameters are the same as in LOGSTREAM
 /// @see LOGSTREAM
 #define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [&](std::ostringstream &stream) {logoperator;} )
+
+extern struct CCcontract_info CCinfos[];
+extern std::string MYCCLIBNAME;
+bool CClib_validate(struct CCcontract_info *cp,int32_t height,Eval *eval,const CTransaction tx,unsigned int nIn);
 
 /// class CCERROR to replace old single threaded CCerror global var
 /// CCERROR is instanciated as thread_local and allows safely set error in cc rpc calls
