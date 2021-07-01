@@ -54,7 +54,7 @@ def run_tokens_create(rpc):
 
 
     for v in ["", "v2"] :
-    # for v in ["v2"] :
+    #for v in ["v2"] :
         print("creating fungible token 1...")
         result = call_rpc(rpc1, "token"+v+"create", "T1", str(0.000001))  # 100
         assert(check_tx(result))
@@ -89,12 +89,18 @@ def run_tokens_create(rpc):
         nftf7id1 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nftf7id1)
 
-        print("creating NFT with F7 and royalty 0xAA...")
+        print("creating NFT with F7 and royalty...")
         # result = call_rpc(rpc1, "token"+v+"create", "NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
         result = call_rpc(rpc1, "token"+v+"createtokel", "NFT-F7-2", str(0.00000001), "nft eval=f7 roaylty=99", '{"royalty":99}')
         assert(check_tx(result))
         nftf7id2 = rpc1.sendrawtransaction(result['hex'])
         print("created token:", nftf7id2)
+
+        print("creating NFT with F7 and dust royalty...")
+        result = call_rpc(rpc1, "token"+v+"createtokel", "NFT-F7-3", str(0.00000001), "nft eval=f7 roaylty=1", '{"royalty":1}')
+        assert(check_tx(result))
+        nftf7id3 = rpc1.sendrawtransaction(result['hex'])
+        print("created token:", nftf7id3)
 
         # first try transfer tokens to a pk and back, then run assets tests
         print("starting transfer tests for tokenid version=" + v + "...")
@@ -112,6 +118,10 @@ def run_tokens_create(rpc):
         run_assets_orders(rpc1, rpc2, v, nft00id1, 1, 1, True)
         print("starting assets tests for nftf7id1 version=" + v + "...")
         run_assets_orders(rpc1, rpc2, v, nftf7id1, 1, 1, True)
+        print("starting assets tests for nftf7id2 version=" + v + "...")
+        run_assets_orders(rpc1, rpc2, v, nftf7id2, 1, 1, True)
+        print("starting assets tests for nftf7id3 version=" + v + "...")
+        run_assets_orders(rpc1, rpc2, v, nftf7id3, 1, 1, True)
 
         if v == "v2" :
             print("running MofN tests for tokens v2:")
@@ -121,7 +131,7 @@ def run_tokens_create(rpc):
             run_MofN_transfers(rpc1, rpc2, rpc3, nft00id1, 1)
             print("starting MofN tests for nftf7id1...")
             run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id1, 1)
-
+        
 
     print("token/assets tests finished okay")
     time.sleep(3)
@@ -163,8 +173,8 @@ def call_token_rpc_send_tx(rpc, rpcname, stop_error, *args) :
                 print(rpcname + " tx sent")
                 return txid
             except RpcException as e :
-                if e.message.find('replacement in mempool') or e.message.find('missing inputs') :
-                    print('double spending in mempool - retrying...')
+                if e.message.find('replacement in mempool') >= 0 or e.message.find('missing inputs') >= 0 :
+                    print('double spending in mempool', e.message, 'retrying...')
                     pass
                 else :
                     assert False, e
