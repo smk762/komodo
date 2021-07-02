@@ -509,6 +509,7 @@ bool komodo_txnotarizedconfirmed(uint256 txid,int32_t minconfirms=1);
 int32_t komodo_blockload(CBlock& block, CBlockIndex *pindex);
 uint32_t komodo_chainactive_timestamp();
 uint32_t GetLatestTimestamp(int32_t height);
+int32_t komodo_get_current_height();
 
 #ifndef KOMODO_NSPV_FULLNODE
 #define KOMODO_NSPV_FULLNODE (KOMODO_NSPV <= 0)
