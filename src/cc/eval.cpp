@@ -261,3 +261,8 @@ uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves)
     std::vector<uint256> vMerkleTree;
     return BuildMerkleTree(&fMutated, vLeaves, vMerkleTree);
 }
+
+bool GetTxUnconfirmedOpt(Eval *eval, const uint256 &hash, CTransaction &txOut, uint256 &hashBlock)
+{
+   return eval ? eval->GetTxUnconfirmed(hash, txOut, hashBlock) : myGetTransaction(hash, txOut, hashBlock);
+}

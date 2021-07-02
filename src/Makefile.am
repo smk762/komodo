@@ -318,7 +318,7 @@ libbitcoin_server_a_SOURCES = \
   cc/betprotocol.cpp \
   cc/pricesfeed.cpp \
   cc/priceslibs/cjsonpointer.cpp \
-  cc/CCNFTData.cpp \
+  cc/CCTokelData.cpp \
   chain.cpp \
   checkpoints.cpp \
   fs.cpp \
@@ -799,6 +799,7 @@ endif
 
 if ENABLE_TESTS
 include Makefile.ktest.include
+include Makefile.kcctest.include
 #include Makefile.test.include
 #include Makefile.gtest.include
 endif

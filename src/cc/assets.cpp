@@ -17,7 +17,7 @@
 #include "CCassets.h"
 #include "CCtokens_impl.h"
 #include "CCassetsCore_impl.h"
-#include "CCNFTData.h"
+#include "CCTokelData.h"
 
 const int32_t CCVOUT = 1;
 const int32_t NORMALVOUT = 0;
@@ -165,10 +165,9 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
     CTxDestination address; 
     CTransaction vinTx, createTx; 
     uint256 hashBlock, assetid, assetid2; 
-	//int32_t preventCCvins, preventCCvouts; 
     int32_t ccvins = -1, ccvouts = -1;
 	int64_t unit_price, vin_unit_price; 
-    vuint8_t vorigpubkey, vin_origpubkey, vopretNonfungible;
+    vuint8_t vorigpubkey, vin_origpubkey, vextraData;
     TokenDataTuple tokenData;
 	uint8_t funcid, evalCodeInOpret; 
 	char destaddr[KOMODO_ADDRESS_BUFSIZE], origNormalAddr[KOMODO_ADDRESS_BUFSIZE], ownerNormalAddr[KOMODO_ADDRESS_BUFSIZE]; 
@@ -180,14 +179,16 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
 
     int32_t numvins = tx.vin.size();
     int32_t numvouts = tx.vout.size();
-    //preventCCvins = preventCCvouts = -1;
-        
+
+	if (tx.vin.size() == 0)
+		return eval->Invalid("AssetValidate: no vins"); 
 	if (tx.vout.size() == 0)
 		return eval->Invalid("AssetValidate: no vouts");
+
     if((funcid = A::DecodeAssetTokenOpRet(tx.vout[numvouts-1].scriptPubKey, evalCodeInOpret, assetid, assetid2, unit_price, vorigpubkey)) == 0 )
         return eval->Invalid("AssetValidate: invalid opreturn payload");
 
-	// reinit cpAssets as we could set evalcodeNFT in it
+	// reinit cpAssets as we could set evalcodeAdd in it
 	struct CCcontract_info *cpAssets, assetsC;
 	cpAssets = CCinit(&assetsC, A::EvalCode());
 
@@ -196,13 +197,13 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
 	cpTokens = CCinit(&tokensC, T::EvalCode());
 
     // non-fungible tokens support:
-    GetTokenData<T>(assetid, tokenData, vopretNonfungible);
-    uint64_t royaltyFract = 0;  // royalty is N in N/1000 fraction
-    if (vopretNonfungible.size() > 0)   {
-        cpAssets->evalcodeNFT = vopretNonfungible.begin()[0];
-        GetNftDataAsUint64(vopretNonfungible, NFTPROP_ROYALTY, royaltyFract);
-        if (royaltyFract > NFTROYALTY_DIVISOR-1)
-            royaltyFract = NFTROYALTY_DIVISOR-1; // royalty upper limit
+    GetTokenData<T>(eval, assetid, tokenData, vextraData);
+    int64_t royaltyFract = 0;  // royalty is N in N/1000 fraction
+    if (vextraData.size() > 0)   {
+        cpAssets->evalcodeAdd = vextraData.begin()[0];
+        GetTokelDataAsInt64(vextraData, TKLPROP_ROYALTY, royaltyFract);
+        if (royaltyFract > TKLROYALTY_DIVISOR-1)
+            royaltyFract = TKLROYALTY_DIVISOR-1; // royalty upper limit
     }
 
     vuint8_t ownerpubkey = std::get<0>(tokenData);
@@ -252,16 +253,18 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 //preventCCvouts = 2;
                 if (numvouts < 3)
                     return eval->Invalid("too few vouts");
-                else if( A::ConstrainVout(tx.vout[0], CCVOUT, cpAssets->unspendableCCaddr, 0LL, A::EvalCode()) == false )
+                else if( A::ConstrainVout(tx.vout[0], CCVOUT, globalAssetsCCaddr, 0LL, A::EvalCode()) == false )
                     return eval->Invalid("invalid funding for bid");
                 else if( A::ConstrainVout(tx.vout[1], CCVOUT, origAssetsCCaddr, ASSETS_MARKER_AMOUNT, A::EvalCode()) == false )       // marker to originator asset cc addr
                     return eval->Invalid("invalid vout1 marker for original pubkey");
-                else if( TotalPubkeyNormalInputs(tx, pubkey2pk(vorigpubkey)) == 0 ) // check tx is signed by originator pubkey
+                else if( TotalPubkeyNormalInputs(eval, tx, pubkey2pk(vorigpubkey)) == 0 ) // check tx is signed by originator pubkey
                     return eval->Invalid("not the originator pubkey signed for bid");
-                else if (unit_price <= 0)
-                    return eval->Invalid("invalid unit price");
+                else if (unit_price <= ASSETS_NORMAL_DUST)
+                    return eval->Invalid("invalid or too low unit price");
+                else if (tx.vout[0].nValue < unit_price)
+                    return eval->Invalid("invalid bid amount too low");
 
-                // check should not be assets cc vins:
+                // check it should not be assets cc vins for tokenv2bid at all:
                 for (auto const &vin : tx.vin)   {
                     if (cpAssets->ismyvin(vin.scriptSig))
                         return eval->Invalid("could not have cc assets vin for creation tx");
@@ -288,19 +291,13 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 if (!A::ConstrainVout(tx.vout[0], NORMALVOUT, origNormalAddr, vin_assetoshis, 0))
                     return eval->Invalid("invalid refund for cancelbid");
             } else {
-                bool isCCVout = A::ConstrainVout(tx.vout[0], CCVOUT, cpAssets->unspendableCCaddr, vin_assetoshis, 0);
-                if (!A::ConstrainVout(tx.vout[0], NORMALVOUT, origNormalAddr, vin_assetoshis, 0) &&
-                    !isCCVout )  // dust allowed to go back
+                // dust must go to global cc address
+                if (!A::ConstrainVout(tx.vout[0], CCVOUT, globalAssetsCCaddr, vin_assetoshis, 0))
                     return eval->Invalid("invalid dust refund for cancelbid");
-                if( isCCVout )
-                    ccvouts ++;
+                ccvouts ++;
             }
-            if (TotalPubkeyNormalInputs(tx, pubkey2pk(vin_origpubkey)) == 0) // check tx is signed by originator pubkey
+            if (TotalPubkeyNormalInputs(eval, tx, pubkey2pk(vin_origpubkey)) == 0) // check tx is signed by originator pubkey
                 return eval->Invalid("not the originator pubkey signed for cancelbid");
-
-            //preventCCvins = 2;
-            //preventCCvouts = 0;
-            //fprintf(stderr,"cancelbuy validated to origaddr.(%s)\n",origNormalAddr);
             break;
             
         case 'B': // fillbid:
@@ -329,30 +326,32 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 return eval->Invalid("invalid unit price");
             else
             {
-                int32_t r = royaltyFract > 0 ? 1 : 0;
+                if (royaltyFract < 0LL || royaltyFract >= TKLROYALTY_DIVISOR)
+                    return eval->Invalid("invalid royalty value");
 
-                CAmount assetoshis = tx.vout[0].nValue + tx.vout[1].nValue + (royaltyFract > 0 ? tx.vout[2].nValue : 0);
+                CAmount royaltyValue = royaltyFract > 0 ? tx.vout[1].nValue / (TKLROYALTY_DIVISOR - royaltyFract) * royaltyFract : 0LL;
+                if (royaltyValue <= ASSETS_NORMAL_DUST)
+                    royaltyValue = 0LL; // reset if dust
+                int32_t r = royaltyValue > 0LL ? 1 : 0;
+
+                CAmount assetoshis = tx.vout[0].nValue + tx.vout[1].nValue + (r ? tx.vout[2].nValue : 0LL);
                 if( vin_assetoshis != assetoshis )             // coins -> global cc address (remainder) + normal self address
-                    return eval->Invalid("input cc value does not equal to vout0+1" + std::string(royaltyFract > 0 ? "+2" : "") + " for fillbid");
+                    return eval->Invalid("input cc value does not equal to vout0+1" + std::string(r ? "+2" : "") + " for fillbid");
 
                 // coins remainder
-                if (tx.vout[0].nValue / unit_price > 0 || tx.vout[0].nValue <= ASSETS_NORMAL_DUST)  {
-                    if (!A::ConstrainVout(tx.vout[0], CCVOUT, globalAssetsCCaddr, 0LL, A::EvalCode()))  
-                        return eval->Invalid("invalid vout0 should to global address for fillbid");
-                    ccvouts ++;
-                }
-                if (tx.vout[0].nValue / unit_price > 0 || tx.vout[0].nValue <= ASSETS_NORMAL_DUST) // there are remaining tokens to buy
+                if (tx.vout[0].nValue / unit_price > 0 || tx.vout[0].nValue <= ASSETS_NORMAL_DUST) // there are remaining tokens to buy or dust must return to global cc address
                 {
                     if (!A::ConstrainVout(tx.vout[0], CCVOUT, globalAssetsCCaddr, 0LL, A::EvalCode()))  // if remainder sufficient to buy tokens -> coins to asset global cc addr
                         return eval->Invalid("mismatched vout0 global assets CC addr for fillbid");
+                    ccvouts ++;
                 }
                 else 
-                {   // if remaining_units == 0 (empty bid) then the remainder should go to the originator normal address (if not dust)
+                {   // if remaining_units == 0 (empty bid) then the remainder should go to the originator normal address, if it is not dust
                     if (!A::ConstrainVout(tx.vout[0], NORMALVOUT, origNormalAddr, 0LL, 0))  // remainder less than token price should return to originator normal addr
                         return eval->Invalid("vout0 should be originator normal address with remainder for fillbid");
                 }
 
-                vin_tokens = AssetsGetCCInputs(cpTokens, NULL, tx);
+                vin_tokens = AssetsGetCCInputs(eval, cpTokens, NULL, tx);
                 int32_t myNormalVout = 1;
                 int32_t myTokenVout = 2+r;
                 int32_t tokenRemainderVout; 
@@ -385,21 +384,22 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                     ccvouts ++;
                 }
                 
-                CAmount received_value = royaltyFract > 0 ? tx.vout[1].nValue + tx.vout[2].nValue : tx.vout[1].nValue; // vout1 paid value to seller, vout2 royalty to owner
+                CAmount received_value = r ? tx.vout[1].nValue + tx.vout[2].nValue : tx.vout[1].nValue; // vout1 paid value to seller, vout2 royalty to owner
                 CAmount paid_units = tx.vout[2+r].nValue;
                 if (!ValidateBidRemainder(unit_price, tx.vout[0].nValue, vin_assetoshis, received_value, paid_units)) // check real price and coins spending from global addr
                     return eval->Invalid("vout" + std::to_string(2+r) + " mismatched remainder for fillbid");
-                if (royaltyFract > 0) {
-                    if ((tx.vout[1].nValue + tx.vout[2].nValue) / NFTROYALTY_DIVISOR * royaltyFract != tx.vout[2].nValue)  // validate royalty value
+                if (r) {
+                    if ((tx.vout[1].nValue + tx.vout[2].nValue) / TKLROYALTY_DIVISOR * royaltyFract != tx.vout[2].nValue)  // validate royalty value
                         return eval->Invalid("vout2 invalid royalty amount for fillask");
                     if (!A::ConstrainVout(tx.vout[2], NORMALVOUT, ownerNormalAddr, 0LL, 0))        // validate owner royalty dest
                         return eval->Invalid("vout2 invalid royalty detination for fillask");
                 }
             }
-            //fprintf(stderr,"fillbuy validated\n");
             break;
+
         //case 'e': // sell swap offer
         //    break; // disable swaps
+
         case 's': // ask offer
             //vin.0: normal input
             //vin.1+: valid CC output for sale
@@ -417,7 +417,6 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 // for EVAL_ASSETSV2 check the creation tx 
                 char origTokenAddr[KOMODO_ADDRESS_BUFSIZE];
                 CPubKey origpk = pubkey2pk(vorigpubkey);
-
                 ccvouts = 2;
                 if (numvouts < 3)
                     return eval->Invalid("too few vouts");
@@ -425,16 +424,16 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                     return eval->Invalid("invalid vout0 global two eval address for sell");
                 else if( A::ConstrainVout(tx.vout[1], CCVOUT, origAssetsCCaddr, ASSETS_MARKER_AMOUNT, A::EvalCode()) == false )  // marker to originator asset cc addr
                     return eval->Invalid("invalid vout1 marker for originator pubkey");
-                else if (TotalPubkeyNormalInputs(tx, origpk) == 0)  // check tx is signed by originator pubkey
+                else if (TotalPubkeyNormalInputs(eval, tx, origpk) == 0)  // check tx is signed by originator pubkey
                     return eval->Invalid("not the originator pubkey signed for ask");
-                else if (unit_price <= 0)
-                    return eval->Invalid("invalid unit price");
+                else if (unit_price <= ASSETS_NORMAL_DUST)
+                    return eval->Invalid("invalid or too low unit price");
 
                 if (tx.vout[2].scriptPubKey.IsPayToCryptoCondition())
                     if (!tx.vout[2].scriptPubKey.IsPayToCCV2() || tx.vout[2].scriptPubKey.SpkHasEvalcodeCCV2(T::EvalCode()))  // have token change
                         ccvouts ++;
 
-                // check should not be assets cc vins:
+                // check should not be assets cc vins for tokenv2ask at all:
                 for (auto const &vin : tx.vin)   {
                     if (cpAssets->ismyvin(vin.scriptSig))
                         return eval->Invalid("could not have cc assets vin for creation tx");
@@ -455,10 +454,10 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 return false;  // eval already set
             else if (A::ConstrainVout(tx.vout[0], CCVOUT, origTokensCCaddr, vin_tokens, T::EvalCode()) == false)      // tokens returning to originator cc addr
                 return eval->Invalid("invalid vout0 for cancelask");
-            else if (TotalPubkeyNormalInputs(tx, pubkey2pk(vin_origpubkey)) == 0)  // check tx is signed by originator pubkey
+            else if (TotalPubkeyNormalInputs(eval, tx, pubkey2pk(vin_origpubkey)) == 0)  // check tx is signed by originator pubkey
                 return eval->Invalid("not the originator pubkey signed for cancelask");
-            ccvins = 2;  // order and marker
-            ccvouts = 1;
+            ccvins = 2;  // order and marker vins
+            ccvouts = 1;  // token back to the originator
             break;
             
         case 'S': // fill ask
@@ -485,16 +484,21 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
             {
                 if (vin_tokens != tx.vout[0].nValue + tx.vout[1].nValue)
                     return eval->Invalid("locked value doesnt match vout0+1 fillask");
+                if (royaltyFract < 0LL || royaltyFract >= TKLROYALTY_DIVISOR)
+                    return eval->Invalid("invalid royalty value");
 
-                CAmount paid_value = royaltyFract > 0 ? tx.vout[2].nValue+tx.vout[3].nValue : tx.vout[2].nValue; // vout2 paid value to seller, vout3 royalty to owner
+                CAmount royaltyValue = royaltyFract > 0 ? tx.vout[2].nValue / (TKLROYALTY_DIVISOR - royaltyFract) * royaltyFract : 0LL;
+                if (royaltyValue <= ASSETS_NORMAL_DUST)
+                    royaltyValue = 0LL; // reset if dust
+                CAmount paid_value = royaltyValue > 0 ? tx.vout[2].nValue + tx.vout[3].nValue : tx.vout[2].nValue; // vout2 paid value to seller, vout3 royalty to owner
                 if (!ValidateAskRemainder(unit_price, tx.vout[0].nValue, vin_tokens, tx.vout[1].nValue, paid_value)) 
                     return eval->Invalid("mismatched vout0 remainder for fillask");
                 else if (!A::ConstrainVout(tx.vout[1], CCVOUT, NULL, 0LL, T::EvalCode()))      // do not check tokens buyer's 'self' cc addr
                     return eval->Invalid("vout1 should be cc for fillask");
                 else if (!A::ConstrainVout(tx.vout[2], NORMALVOUT, origNormalAddr, 0LL, 0))        // coins to originator normal addr
                     return eval->Invalid("vout2 should be cc for fillask");
-                if (royaltyFract > 0)  {
-                    if ((tx.vout[2].nValue + tx.vout[3].nValue) / NFTROYALTY_DIVISOR * royaltyFract != tx.vout[3].nValue)  // validate royalty value
+                if (royaltyValue > 0)  {
+                    if ((tx.vout[2].nValue + tx.vout[3].nValue) / TKLROYALTY_DIVISOR * royaltyFract != tx.vout[3].nValue)  // validate royalty value
                         return eval->Invalid("vout3 invalid royalty amount for fillask");
                     if (!A::ConstrainVout(tx.vout[3], NORMALVOUT, ownerNormalAddr, 0LL, 0))        // validate owner royalty dest
                         return eval->Invalid("vout3 invalid royalty detination for fillask");
@@ -502,16 +506,15 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 if (!A::ConstrainVout(tx.vout[0], CCVOUT, tokensDualEvalUnspendableCCaddr, 0LL, A::EvalCode()))   // tokens remainder on global addr
                     return eval->Invalid("invalid vout0 should pay to tokens/assets global address for fillask");
                 if (tx.vout[0].nValue > 0)  {
-                    int32_t markerVout = royaltyFract > 0 ? 4 : 3;
+                    int32_t markerVout = royaltyValue > 0 ? 4 : 3;
                     // marker should exist if remainder not empty
                     if( tx.vout.size() <= markerVout || A::ConstrainVout(tx.vout[markerVout], CCVOUT, origAssetsCCaddr, ASSETS_MARKER_AMOUNT, A::EvalCode()) == false )  // marker to originator asset cc addr
                         return eval->Invalid("invalid marker vout for original pubkey");
                     ccvouts ++;
                 }
             }
-            
-            //fprintf(stderr,"fill validated\n");
             break;
+
         case 'E': // fillexchange	
 			////////// not implemented yet ////////////
             return eval->Invalid("unexpected assets fillexchange funcid");
@@ -573,18 +576,13 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 */
             }
 			////////// not implemented yet ////////////
-            //fprintf(stderr,"fill validated\n");
             break;
 
         default:
             fprintf(stderr,"illegal assets funcid.(%c)\n",funcid);
             return eval->Invalid("unexpected assets funcid");
-            //break;
     }
 
-	//bool bPrevent = PreventCC(eval, tx, preventCCvins, numvins, preventCCvouts, numvouts);  // prevent presence of unknown cc vin or cc vouts in the tx
-	//std::cerr << "AssetsValidate() PreventCC returned=" << bPrevent << std::endl;
-	//return (bPrevent);
     // replaced PreventCC with min/max cc vin/vout calc to allow vin position flexibility:
     if (!CountCCVinVouts(cpAssets, tx, ccvins, ccvouts))
         return eval->Invalid("invalid cc vin or vout count");
