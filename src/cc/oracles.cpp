@@ -749,7 +749,7 @@ UniValue OracleRegister(const CPubKey& pk, int64_t txfee, uint256 oracletxid, in
     cp = CCinit(&C, EVAL_ORACLES);
     if (txfee == 0)
         txfee = ASSETCHAINS_CCZEROTXFEE[EVAL_ORACLES] ? 0 : CC_TXFEE;
-    if (!myGetTransaction(oracletxid, tx, hashBlock)|| tx.vout.size() <= 0)
+    if (!myGetTransaction(oracletxid, tx, hashBlock) || tx.vout.size() <= 0)
         CCERR_RESULT("oraclescc", CCLOG_INFO, stream << "cant find oracletxid " << oracletxid.GetHex());
     if (DecodeOraclesCreateOpRet(tx.vout.back().scriptPubKey, name, desc, format) != 'C')
         CCERR_RESULT("oraclescc", CCLOG_INFO, stream << "invalid oracletxid " << oracletxid.GetHex());
@@ -836,7 +836,7 @@ UniValue OracleData(const CPubKey& pk, int64_t txfee, uint256 oracletxid, std::v
             mtx.vin.push_back(CTxIn(batontxid, 1, CScript()));
         else
             fprintf(stderr, "warning: couldnt find baton utxo %s\n", batonaddr);
-        if ((inputs = AddOracleInputs(cp, mtx, oracletxid, mypk, datafee, 60)) >= datafee) {
+        if ((inputs = AddOracleInputs(cp, mtx, oracletxid, mypk, datafee, 0x1000)) >= datafee) {
             if (inputs > datafee)
                 CCchange = (inputs - datafee);
             mtx.vout.push_back(MakeCC1vout(cp->evalcode, CCchange, mypk));
@@ -1024,14 +1024,14 @@ UniValue OraclesList()
     uint256 txid, hashBlock;
     CTransaction createtx;
     std::string name, description, format;
-    char str[65];
+
     cp = CCinit(&C, EVAL_ORACLES);
     SetCCtxids(txids, cp->normaladdr, false, cp->evalcode, CC_MARKER_VALUE, zeroid, 'C');
     for (std::vector<uint256>::const_iterator it = txids.begin(); it != txids.end(); it++) {
         txid = *it;
         if (myGetTransaction(txid, createtx, hashBlock) != 0) {
             if (createtx.vout.size() > 0 && DecodeOraclesCreateOpRet(createtx.vout.back().scriptPubKey, name, description, format) == 'C') {
-                result.push_back(uint256_str(str, txid));
+                result.push_back(txid.GetHex());
             }
         }
     }
