@@ -779,7 +779,8 @@ int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_
         }
         return (NSPV_mempoolresult.numtxids);
     }
-    BOOST_FOREACH(const CTxMemPoolEntry &e,mempool.mapTx)
+    LOCK(mempool.cs);
+    BOOST_FOREACH(const CTxMemPoolEntry &e, mempool.mapTx)
     {
         txs.push_back(e.GetTx());
         i++;
