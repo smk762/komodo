@@ -2816,7 +2816,6 @@ namespace Consensus {
         // for an attacker to attempt to split the network.
         if (!inputs.HaveInputs(tx))
             return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
-
         // are the JoinSplit's requirements met?
         if (!inputs.HaveJoinSplitRequirements(tx))
             return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));

@@ -254,7 +254,7 @@ UniValue tokenv2balance(const UniValue& params, bool fHelp, const CPubKey& remot
 }
 
 template <class V>
-static UniValue tokencreate(const std::string& fname, const UniValue& params, const vuint8_t &vtokenData, bool fHelp, const CPubKey& remotepk)
+static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     std::string name, description, hextx; 
@@ -303,8 +303,7 @@ UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& remotepk
                             "  name - token name string\n"
                             "  supply - token supply in coins\n"
                             "  description - opt description"
-                            "  tokens data - an opt hex string with token data. If first byte is non-null it means a evalcode of a cc which tokens will be routed:\n"
-                            "     { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
+                            "  tokens data - an opt hex string with token data. If the first byte is non-null it means a evalcode of a cc which tokens will be routed\n"
         );
 
     vuint8_t tokenData;
@@ -313,7 +312,7 @@ UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& remotepk
         if (tokenData.empty())
             return MakeResultError("Token data incorrect");
     }
-    return tokencreate<TokensV1>("tokencreate", params, tokenData, fHelp, remotepk);
+    return tokencreate<TokensV1>(params, tokenData, fHelp, remotepk);
 }
 UniValue tokenv2create(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
@@ -323,8 +322,7 @@ if (fHelp || params.size() > 4 || params.size() < 2)
                             "  name - token name string\n"
                             "  supply - token supply in coins\n"
                             "  description - opt description"
-                            "  tokens data - an opt hex string with token data. If first byte is non-null it means a evalcode of a cc which tokens will be routed:\n"
-                            "     { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
+                            "  tokens data - an opt hex string with token data. If the first byte is non-null it means a evalcode of a cc which tokens will be routed\n"
         );
 
     vuint8_t tokenData;
@@ -333,7 +331,7 @@ if (fHelp || params.size() > 4 || params.size() < 2)
         if (tokenData.empty())
             return MakeResultError("Tokel token data incorrect");
     }
-    return tokencreate<TokensV2>("tokenv2create", params, tokenData, fHelp, remotepk);
+    return tokencreate<TokensV2>(params, tokenData, fHelp, remotepk);
 }
 
 UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -364,12 +362,12 @@ UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& rem
             return MakeResultError("Tokel token data incorrect");
     }
 
-    return tokencreate<TokensV1>("tokencreate", params, tokenData, fHelp, remotepk);
+    return tokencreate<TokensV1>(params, tokenData, fHelp, remotepk);
 }
 UniValue tokenv2createtokel(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     if (fHelp || params.size() > 4 || params.size() < 2)
-        throw runtime_error("tokencreatetokel name supply [description] [tokens data]\n"
+        throw runtime_error("tokenv2createtokel name supply [description] [tokens data]\n"
                             "create tokens with tokel project data\n"
                             "  name - token name string\n"
                             "  supply - token supply in coins\n"
@@ -393,7 +391,7 @@ UniValue tokenv2createtokel(const UniValue& params, bool fHelp, const CPubKey& r
         if (tokenData.empty())
             return MakeResultError("Token data incorrect");
     }
-    return tokencreate<TokensV2>("tokenv2create", params, tokenData, fHelp, remotepk);
+    return tokencreate<TokensV2>(params, tokenData, fHelp, remotepk);
 }
 
 
