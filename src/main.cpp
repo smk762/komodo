@@ -2812,11 +2812,12 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 namespace Consensus {
     bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
     {
+        LogPrintf("%s have COINBASE_MATURITY=%d\n", __func__, COINBASE_MATURITY);
+
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
         if (!inputs.HaveInputs(tx))
             return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
-
         // are the JoinSplit's requirements met?
         if (!inputs.HaveJoinSplitRequirements(tx))
             return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));
@@ -2840,6 +2841,7 @@ namespace Consensus {
                 {
                     uint64_t unlockTime = komodo_block_unlocktime(coins->nHeight);
                     if (nSpendHeight < unlockTime) {
+                        LogPrintf("%s bad coinbase spend nSpendHeight (%d) < unlockTime %d\n", __func__, nSpendHeight, unlockTime);
                         return state.DoS(10,
                                         error("CheckInputs(): tried to spend coinbase that is timelocked until block %d", unlockTime),
                                         REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
@@ -2848,6 +2850,7 @@ namespace Consensus {
 
                 // Ensure that coinbases are matured, no DoS as retry may work later
                 if (nSpendHeight - coins->nHeight < COINBASE_MATURITY) {
+                    LogPrintf("%s bad coinbase spend nSpendHeight (%d) - coins->nHeight %d < COINBASE_MATURITY %d\n", __func__, nSpendHeight, coins->nHeight, COINBASE_MATURITY);
                     return state.Invalid(
                                          error("CheckInputs(): tried to spend coinbase at depth %d/%d", nSpendHeight - coins->nHeight, (int32_t)COINBASE_MATURITY),
                                          REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
