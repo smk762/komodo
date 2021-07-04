@@ -33,6 +33,8 @@ typedef std::tuple<tklPropType, std::string, tklReadSS*, tklWriteSS*> tklPropDes
 bool GetTokelDataAsInt64(const vuint8_t &vdata, tklPropId propId, int64_t &val);
 bool GetTokelDataAsVuint8(const vuint8_t &vdata, tklPropId propId, vuint8_t &val);
 vuint8_t ParseTokelJson(const UniValue &jsonParams);
+UniValue ParseTokelVData(const vuint8_t &vdata);
+
 
 bool TokelDataValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 

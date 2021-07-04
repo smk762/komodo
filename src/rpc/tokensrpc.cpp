@@ -122,7 +122,7 @@ static UniValue tokeninfo(const std::string& name, const UniValue& params, bool 
     if ( ensure_CCrequirements(V::EvalCode()) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    return TokenInfo<V>(tokenid);
+    return TokenInfo<V>(tokenid, [](const vuint8_t &data){ return NullUniValue; });
 }
 
 UniValue tokeninfo(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -132,6 +132,27 @@ UniValue tokeninfo(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 UniValue tokenv2info(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     return tokeninfo<TokensV2>("tokenv2info", params, fHelp, remotepk);
+}
+
+template <class V>
+static UniValue tokeninfotokel(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    uint256 tokenid;
+    if ( fHelp || params.size() != 1 )
+        throw runtime_error(name + " tokenid\n");
+    if ( ensure_CCrequirements(V::EvalCode()) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    tokenid = Parseuint256((char *)params[0].get_str().c_str());
+    return TokenInfo<V>(tokenid, ParseTokelVData);
+}
+
+UniValue tokeninfotokel(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    return tokeninfotokel<TokensV1>("tokeninfotokel", params, fHelp, remotepk);
+}
+UniValue tokenv2infotokel(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    return tokeninfotokel<TokensV2>("tokenv2infotokel", params, fHelp, remotepk);
 }
 
 template <class T, class A>
@@ -1096,6 +1117,8 @@ static const CRPCCommand commands[] =
     { "ccutils",       "addccv2signature", &addccv2signature, true },
     { "tokens",       "tokencreatetokel",      &tokencreatetokel,       true },
     { "tokens v2",       "tokenv2createtokel",    &tokenv2createtokel,       true },
+    { "tokens",       "tokeninfotokel",        &tokeninfotokel,         true },
+    { "tokens v2",       "tokenv2infotokel",      &tokenv2infotokel,         true },
 };
 
 void RegisterTokensRPCCommands(CRPCTable &tableRPC)
