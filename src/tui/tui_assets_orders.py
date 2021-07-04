@@ -112,6 +112,7 @@ def run_tokens_create(rpc):
         print("token transfers tests finished okay")
         time.sleep(3)
 
+        # assets cc tests:
         print("starting assets tests for tokenid1 version=" + v + "...")
         run_assets_orders(rpc1, rpc2, v, tokenid1, 10, 8, False)
         print("starting assets tests for nft00id1 version=" + v + "...")
@@ -123,7 +124,7 @@ def run_tokens_create(rpc):
         print("starting assets tests for nftf7id3 version=" + v + "...")
         run_assets_orders(rpc1, rpc2, v, nftf7id3, 1, 1, True)
 
-        if v == "v2" :
+        if v == "v2" :  # MofN supported for tokens cc v2 only
             print("running MofN tests for tokens v2:")
             print("starting MofN tests for tokenid1...")
             run_MofN_transfers(rpc1, rpc2, rpc3, tokenid1, 10)
