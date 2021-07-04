@@ -323,8 +323,8 @@ UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& remotepk
                             "create tokens\n"
                             "  name - token name string\n"
                             "  supply - token supply in coins\n"
-                            "  description - opt description"
-                            "  tokens data - an opt hex string with token data. If the first byte is non-null it means a evalcode of a cc which tokens will be routed\n"
+                            "  description - optional description"
+                            "  tokens data - an optional hex string with token data. If the first byte is non-null it means a evalcode which these tokens will be routed into\n"
         );
 
     vuint8_t tokenData;
@@ -342,8 +342,8 @@ if (fHelp || params.size() > 4 || params.size() < 2)
                             "create tokens version 2\n"
                             "  name - token name string\n"
                             "  supply - token supply in coins\n"
-                            "  description - opt description"
-                            "  tokens data - an opt hex string with token data. If the first byte is non-null it means a evalcode of a cc which tokens will be routed\n"
+                            "  description - optional description"
+                            "  tokens data - an optional hex string with token data. If the first byte is non-null it means a evalcode which these tokens will be routed into\n"
         );
 
     vuint8_t tokenData;
@@ -363,7 +363,7 @@ UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& rem
                             "  name - token name string\n"
                             "  supply - token supply in coins\n"
                             "  description - opt description"
-                            "  tokens data - an opt json object with tokel token properties:\n"
+                            "  tokens data - an optional json object with tokel token properties:\n"
                             "     { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
         );
 
