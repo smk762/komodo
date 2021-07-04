@@ -595,8 +595,8 @@ CAmount GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
 	return(AddTokenCCInputs<V>(cp, mtx, pk, tokenid, 0, 0, usemempool));
 }
 
-template <class V> 
-UniValue TokenInfo(uint256 tokenid)
+template <class V, class E> 
+UniValue TokenInfo(uint256 tokenid, E parseExtraData)
 {
 	UniValue result(UniValue::VOBJ); 
     uint256 hashBlock; 
@@ -636,7 +636,6 @@ UniValue TokenInfo(uint256 tokenid)
 	result.push_back(Pair("owner", HexStr(origpubkey)));
 	result.push_back(Pair("name", name));
 
-
     CAmount supply = 0, output;
     for (int v = 0; v < tokenbaseTx.vout.size(); v++)
         if ((output = IsTokensvout<V>(cpTokens, NULL, tokenbaseTx, v, tokenid)) > 0)
@@ -646,8 +645,14 @@ UniValue TokenInfo(uint256 tokenid)
 
     if (oprets.size() > 0)
         vextraData = oprets[0];
-    if( !vextraData.empty() )    
+    if( !vextraData.empty() )    {
         result.push_back(Pair("data", HexStr(vextraData)));
+        UniValue extraDataAsJson = parseExtraData(vextraData);
+        if (!extraDataAsJson.isNull())
+            result.push_back(Pair("dataAsJson", extraDataAsJson));
+
+    }
+
     result.push_back(Pair("version", DecodeTokenOpretVersion(tokenbaseTx.vout.back().scriptPubKey)));
     result.push_back(Pair("IsMixed", V::EvalCode() == TokensV2::EvalCode() ? "yes" : "no"));
 

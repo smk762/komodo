@@ -121,7 +121,7 @@ vuint8_t ParseTokelJson(const UniValue &jsonParams)
     return vuint8_t(ss.begin(), ss.end());
 }
 
-static bool ParseTokelData(const vuint8_t &vdata, std::map<tklPropId, UniValue> &propMapOut, std::string &sError)
+static bool UnmarshalTokelVData(const vuint8_t &vdata, std::map<tklPropId, UniValue> &propMapOut, std::string &sError)
 {
     if (vdata.size() >= 2 && vdata[0] == EVAL_TOKELDATA) 
     {
@@ -169,11 +169,29 @@ static bool ParseTokelData(const vuint8_t &vdata, std::map<tklPropId, UniValue> 
     return false;
 }
 
+UniValue ParseTokelVData(const vuint8_t &vdata)
+{
+    std::map<tklPropId, UniValue> propMap;
+    std::string sError;
+    UniValue result(UniValue::VOBJ);
+
+    UnmarshalTokelVData(vdata, propMap, sError);
+    int i = 0;
+    for (auto const &p : propMap) {
+        tklPropDesc_t entry = GetTokelDataDesc(p.first);
+        if (std::get<0>(entry) != TKLTYP_INVALID)  
+            result.pushKV(std::get<1>(entry), p.second);
+        else 
+            result.pushKV(std::string("unknown")+std::to_string(++i), p.second);
+    }
+    return result;
+}
+
 bool GetTokelDataAsInt64(const vuint8_t &vdata, tklPropId propId, int64_t &val)
 {
     std::map<tklPropId, UniValue> propMap;
     std::string sError;
-    ParseTokelData(vdata, propMap, sError);
+    UnmarshalTokelVData(vdata, propMap, sError);
     if (propMap.count(propId) > 0 && propMap[propId].isNum()) {
         ParseInt64(propMap[propId].getValStr(), &val);
         return true;
@@ -186,7 +204,7 @@ bool GetTokelDataAsVuint8(const vuint8_t &vdata, tklPropId propId, vuint8_t &val
     std::map<tklPropId, UniValue> propMap;
     std::string sError;
 
-    ParseTokelData(vdata, propMap, sError);
+    UnmarshalTokelVData(vdata, propMap, sError);
     if (propMap.count(propId) > 0) {
         val = ParseHex(propMap[propId].getValStr());
         return true;
@@ -197,7 +215,7 @@ bool GetTokelDataAsVuint8(const vuint8_t &vdata, tklPropId propId, vuint8_t &val
 static bool CheckTokelData(const vuint8_t &vdata, std::string &sError)
 {
     std::map<tklPropId, UniValue> propMap;
-    if( ParseTokelData(vdata, propMap, sError) )  {
+    if( UnmarshalTokelVData(vdata, propMap, sError) )  {
         // check props if present
         if (propMap.count(TKLPROP_ROYALTY) > 0)  {
             int64_t val;
