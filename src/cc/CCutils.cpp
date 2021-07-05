@@ -20,6 +20,7 @@
 #include "CCinclude.h"
 #include "CCtokens.h"
 #include "komodo_structs.h"
+#include "komodo_defs.h"
 #include "key_io.h"
 
 
@@ -619,7 +620,6 @@ bool Myprivkey(uint8_t myprivkey[])
         static int32_t onetimeflag; static uint8_t sessionpriv[32];
         if ( onetimeflag == 0 )
         {
-            void OS_randombytes(unsigned char *x,long xlen);
             OS_randombytes(sessionpriv,32);
             fprintf(stderr,"privkey for pubkey not found -> generate session specific privkey\n");
             onetimeflag = 1;
@@ -794,7 +794,7 @@ int32_t CCCointxidExists(char const* logcategory, uint256 txid, uint256 cointxid
     std::string coin;
     int32_t numvouts;
     uint256 hashBlock;
-    
+
     std::vector<std::pair<CAddressIndexKey, CAmount>> addressIndex;
     CCtxidaddr_tweak(txidaddr, cointxid);
     SetAddressIndexOutputs(addressIndex, txidaddr, false);
