@@ -776,7 +776,8 @@ clean-local:
 	-$(MAKE) -C cryptoconditions clean
 	rm -f leveldb/*/*.gcno leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
-	rm -f cc/customcc.so
+	-rm -f cc/customcc.so cc/customcc.dll cc/customcc.dylib # clean now unused file
+	-rm -f libcc.so libcc.dll libcc.dylib  # clean now unused file 
 	-$(MAKE) -C cc clean
 
 .rc.o:
