@@ -908,9 +908,10 @@ UniValue TokenList()
     return CreateTokenLocal<TokensV2>(txfee, tokensupply, name, description, nonfungibleData);
 }*/
 
-UniValue TokenV2List()
+UniValue TokenV2List(int32_t beginHeight, int32_t endHeight)
 {
 	UniValue result(UniValue::VARR);
+    const bool CC_OUTPUTS_TRUE = true;
 
 	struct CCcontract_info *cp, C; 
 	cp = CCinit(&C, EVAL_TOKENSV2);
@@ -928,28 +929,44 @@ UniValue TokenV2List()
         }
     };
 
-    if (fUnspentCCIndex)
-    {
-        std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
-
-        SetCCunspentsCCIndex(unspentOutputs, cp->unspendableCCaddr, zeroid);    // find by burnable validated cc addr marker
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
-        for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
-            addTokenId(it->first.creationid, it->second.opreturn);
-        }
+    if (beginHeight > 0)    {
+        if (endHeight <= 0)
+            endHeight = chainActive.Height();
+        std::vector<std::pair<CAddressIndexKey, CAmount>> addressIndexOutputs;
+        SetAddressIndexOutputs(addressIndexOutputs, cp->unspendableCCaddr, CC_OUTPUTS_TRUE, beginHeight, endHeight);
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetAddressIndexOutputs addressIndexOutputs.size()=" << addressIndexOutputs.size() << std::endl);
+            for (const auto it : addressIndexOutputs) {
+                CTransaction creationtx;
+                uint256 hashBlock;
+                if (!it.first.spending &&
+                    myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
+                    addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);    
+            }
     }
     else
     {
-        bool CC_INPUTS_TRUE = true;
-        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+        if (fUnspentCCIndex)
+        {
+            std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
-        SetCCunspents(unspentOutputs, cp->unspendableCCaddr, CC_INPUTS_TRUE);
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "unspentOutputs.size()=" << unspentOutputs.size() << std::endl);    
-        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
-            CTransaction creationtx;
-            uint256 hashBlock;
-            if (myGetTransaction(it->first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
-                addTokenId(it->first.txhash, creationtx.vout.back().scriptPubKey);    
+            SetCCunspentsCCIndex(unspentOutputs, cp->unspendableCCaddr, zeroid);    // find by burnable validated cc addr marker
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetCCunspentsCCIndex unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
+            for (const auto &it : unspentOutputs) {
+                addTokenId(it.first.creationid, it.second.opreturn);
+            }
+        }
+        else
+        {
+            std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+
+            SetCCunspents(unspentOutputs, cp->unspendableCCaddr, CC_OUTPUTS_TRUE);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetCCunspents unspentOutputs.size()=" << unspentOutputs.size() << std::endl);    
+            for (const auto it : unspentOutputs) {
+                CTransaction creationtx;
+                uint256 hashBlock;
+                if (myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
+                    addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);    
+            }
         }
     }
 

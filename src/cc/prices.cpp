@@ -2193,7 +2193,7 @@ UniValue PricesList(uint32_t filter, CPubKey mypk)
     };
 
 
-    SetCCtxids(addressIndex, cp->normaladdr, false);        // old normal marker
+    SetAddressIndexOutputs(addressIndex, cp->normaladdr, false);        // old normal marker
     for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressIndex.begin(); it != addressIndex.end(); it++)
     {
         if( it->first.index == NVOUT_NORMALMARKER )
@@ -2201,7 +2201,7 @@ UniValue PricesList(uint32_t filter, CPubKey mypk)
     }
 
     /* for future when switch to cc marker only
-    SetCCtxids(addressIndexCC, cp->unspendableCCaddr, true);  // cc marker
+    SetAddressIndexOutputs(addressIndexCC, cp->unspendableCCaddr, true);  // cc marker
     for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressIndexCC.begin(); it != addressIndexCC.end(); it++)
     {
         priceslist(it, 1);
@@ -2333,7 +2333,7 @@ void prices_getorderbook(std::map<std::string, std::vector<BetInfo> > & bookmatc
     cp = CCinit(&C, EVAL_PRICES);
 
     // add all bets:
-    SetCCtxids(addressIndex, cp->normaladdr, false);        // old normal marker
+    SetAddressIndexOutputs(addressIndex, cp->normaladdr, false);        // old normal marker
     for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressIndex.begin(); it != addressIndex.end(); it++)
     {
         if (it->first.index == NVOUT_NORMALMARKER)

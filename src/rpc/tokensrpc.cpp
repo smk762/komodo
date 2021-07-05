@@ -105,13 +105,20 @@ UniValue tokenlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 UniValue tokenv2list(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     uint256 tokenid;
-    if (fHelp || params.size() > 0)
-        throw runtime_error("tokenv2list\n");
+    if (fHelp || params.size() > 2)
+        throw runtime_error("tokenv2list [begin-height] [end-height]\n");
 
     if (ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    return TokenV2List();}
+    int32_t beginHeight = 0;
+    int32_t endHeight = 0;
+    if (params.size() > 0)
+        beginHeight = atoi(params[0].get_str().c_str());
+    if (params.size() > 1)
+        endHeight = atoi(params[1].get_str().c_str());
+    return TokenV2List(beginHeight, endHeight);
+}
 
 template <class V>
 static UniValue tokeninfo(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)

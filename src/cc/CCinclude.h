@@ -946,13 +946,15 @@ void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIn
 /// @param creationId txid of cc instance creation tx, might be empty to return all txns on coinaddr 
 void AddCCunspentsCCIndexMempool(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
 
-/// SetCCtxids returns a vector of all outputs on an address
+/// SetAddressIndexOutputs searches address index for a vector of outputs on an address
 /// @param[out] addressIndex vector of pairs of address index key and amount
 /// @param coinaddr address where the unspent outputs are searched
 /// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
-void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr,bool CCflag = true);
+/// @param beginHeight if beginHeight and endHeight positive the function searches for cc outputs starting from this height
+/// @param endHeight if beginHeight and endHeight  positive the function searches for cc outputs till this height
+void SetAddressIndexOutputs(std::vector<std::pair<CAddressIndexKey, CAmount>>& addressIndex, char* coinaddr, bool ccflag, int32_t beginHeight = 0, int32_t endHeight = 0);
 
-/// overloaded SetCCtxids returns a vector of filtered txids which have outputs on an address
+/// SetCCtxids searches address index for a vector of filtered txids which have outputs on an address
 /// @param[out] txids returned vector of txids
 /// @param coinaddr address where the unspent outputs are searched
 /// @param ccflag if true the function searches for cc outputs, otherwise for normal outputs

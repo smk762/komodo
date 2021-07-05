@@ -547,7 +547,7 @@ template <class Helper> int64_t LifetimeHeirContractFunds(struct CCcontract_info
     Helper::GetCoinsOrTokensCCaddress1of2(coinaddr, ownerPubkey, heirPubkey); // get the address of cryptocondition '1 of 2 pubkeys'
     
     std::vector<std::pair<CAddressIndexKey, CAmount>> addressIndexes;
-    SetCCtxids(addressIndexes, coinaddr,true);
+    SetAddressIndexOutputs(addressIndexes, coinaddr, true);
     
     int64_t total = 0;
     for (std::vector<std::pair<CAddressIndexKey, CAmount>>::const_iterator it = addressIndexes.begin(); it != addressIndexes.end(); it++) {
