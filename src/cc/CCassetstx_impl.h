@@ -745,8 +745,12 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
 
         CAmount royaltyValue = royaltyFract > 0 ? paid_nValue / TKLROYALTY_DIVISOR * royaltyFract : 0;
         // check for dust:
-        if (royaltyValue <= ASSETS_NORMAL_DUST)
-            royaltyValue = 0;
+        //if (royaltyValue <= ASSETS_NORMAL_DUST)
+        //    royaltyValue = 0;
+        // more accurate check matching to AssetValidate's check
+        if (royaltyFract > 0 && paid_nValue - royaltyValue <= ASSETS_NORMAL_DUST / royaltyFract * TKLROYALTY_DIVISOR - ASSETS_NORMAL_DUST)  // if value paid to seller less than when the royalty is minimum
+            royaltyValue = 0LL;
+
         if (assetid2 != zeroid) {
             // inputs = AddAssetInputs(cpAssets, mtx, mypk, assetid2, paid_nValue, 60);  // not implemented yet
             CCerror = "swaps not implemented";
