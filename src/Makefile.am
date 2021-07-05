@@ -66,15 +66,7 @@ if ENABLE_WALLET
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
 endif
 
-if TARGET_DARWIN
-LIBDYNCUSTOMCONSENSUS = cc/libcc.dylib 
-endif
-if TARGET_WINDOWS
-LIBDYNCUSTOMCONSENSUS = cc/libcc.dll
-endif
-if TARGET_LINUX
-LIBDYNCUSTOMCONSENSUS = cc/libcc.so
-endif
+LIBDYNCUSTOMCONSENSUS = cc/libcc.a 
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
@@ -101,7 +93,7 @@ $(LIBCRYPTOCONDITIONS): $(wildcard cryptoconditions/src/*) $(wildcard cryptocond
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
 
 $(LIBDYNCUSTOMCONSENSUS): $(wildcard *.h) $(wildcard cc/*.h) $(wildcard cryptoconditions/include/*)
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) -f Makefile_custom
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) -f Makefile_custom HOST=$(host)
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
