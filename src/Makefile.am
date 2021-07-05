@@ -66,6 +66,16 @@ if ENABLE_WALLET
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
 endif
 
+if TARGET_DARWIN
+LIBDYNCUSTOMCONSENSUS = cc/libcc.dylib 
+endif
+if TARGET_WINDOWS
+LIBDYNCUSTOMCONSENSUS = cc/libcc.dll
+endif
+if TARGET_LINUX
+LIBDYNCUSTOMCONSENSUS = cc/libcc.so
+endif
+
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
 
@@ -89,6 +99,9 @@ $(LIBUNIVALUE): $(wildcard univalue/lib/*)
 
 $(LIBCRYPTOCONDITIONS): $(wildcard cryptoconditions/src/*) $(wildcard cryptoconditions/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
+
+$(LIBDYNCUSTOMCONSENSUS): $(wildcard *.h) $(wildcard cc/*.h) $(wildcard cryptoconditions/include/*)
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) -f Makefile_custom
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -598,15 +611,7 @@ komodod_LDADD += \
   $(LIBVERUS_PORTABLE_CRYPTO) \
   $(LIBZCASH_LIBS)
 
-if TARGET_DARWIN
-komodod_LDADD += libcc.dylib $(LIBSECP256K1)
-endif
-if TARGET_WINDOWS
-komodod_LDADD += libcc.dll $(LIBSECP256K1)
-endif
-if TARGET_LINUX
-komodod_LDADD += libcc.so $(LIBSECP256K1)
-endif
+komodod_LDADD += $(LIBDYNCUSTOMCONSENSUS) $(LIBSECP256K1)
 
 if ENABLE_PROTON
 komodod_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
@@ -772,6 +777,7 @@ clean-local:
 	rm -f leveldb/*/*.gcno leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 	rm -f cc/customcc.so
+	-$(MAKE) -C cc clean
 
 .rc.o:
 	@test -f $(WINDRES)

@@ -10,9 +10,9 @@ RELEASEFLAGS	= -O2 -D NDEBUG -combine -fwhole-program
 $(info $(OS))
 OS := $(shell uname -s)
 $(info $(OS))
-TARGET  = ../libcc.so
-TARGET_DARWIN = ../libcc.dylib
-TARGET_WIN = ../libcc.dll
+TARGET  = libcc.so
+TARGET_DARWIN = libcc.dylib
+TARGET_WIN = libcc.dll
 SOURCES = cclib.cpp 
 #HEADERS = $(shell echo ../cryptoconditions/include/*.h)
 
