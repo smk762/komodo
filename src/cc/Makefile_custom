@@ -11,8 +11,6 @@ $(info $(OS))
 OS := $(shell uname -s)
 $(info $(OS))
 $(info $(HOST))
-$(info $(host))
-$(info $(OS))
 TARGET  = libcc.a
 SOURCES = cclib.cpp
 #HEADERS = $(shell echo ../cryptoconditions/include/*.h) -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/
