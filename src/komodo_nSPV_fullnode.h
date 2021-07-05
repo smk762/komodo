@@ -450,7 +450,7 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp *ptr,char *coinaddr,bool isCC
 {
     int32_t maxlen,txheight,ind=0,n = 0,len = 0; CTransaction tx; uint256 hashBlock;
     std::vector<std::pair<CAddressIndexKey, CAmount> > txids;
-    SetCCtxids(txids,coinaddr,isCC);
+    SetAddressIndexOutputs(txids,coinaddr,isCC);
     ptr->nodeheight = chainActive.LastTip()->GetHeight();
     maxlen = MAX_BLOCK_SIZE(ptr->nodeheight) - 512;
     maxlen /= sizeof(*ptr->txids);
@@ -501,7 +501,7 @@ int32_t NSPV_mempoolfuncs(bits256 *satoshisp,int32_t *vindexp,std::vector<uint25
         int32_t n=0,skipcount=vout>>16; uint8_t eval=(vout>>8)&0xFF, func=vout&0xFF;
 
         CTransaction tx;
-        SetCCtxids(tmp_txids,coinaddr,isCC);
+        SetAddressIndexOutputs(tmp_txids,coinaddr,isCC);
         if ( skipcount < 0 ) skipcount = 0;
         if ( skipcount >= tmp_txids.size() )
             skipcount = tmp_txids.size()-1;

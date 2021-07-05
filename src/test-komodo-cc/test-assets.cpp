@@ -131,7 +131,7 @@ CAmount TestAddTokenInputs(CMutableTransaction &mtx, CPubKey mypk, uint256 token
             CTransaction tx;
             //std::cerr << __func__ << " utxoaddr=" << utxoaddr << " mypkaddr=" << mypkaddr << " tx=" << t.second.GetHash().GetHex() << " v=" << v << std::endl;
             if (strcmp(utxoaddr, mypkaddr) == 0 &&
-                IsTokensvout<TokensV2>(cp, &eval, t.second, v, tokenid ))    {
+                IsTokensvout<TokensV2>(cp, &eval, t.second, v, tokenid))    {
                 mtx.vin.push_back(CTxIn(t.second.GetHash(), v));
                 totalInputs += t.second.vout[v].nValue;
                 if (totalInputs >= amount)
@@ -418,13 +418,13 @@ protected:
         eval.AddTx(txtokencreateUnused);
         tokenidUnused = txtokencreateUnused.GetHash();
 
-        txask1 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, 500);
+        txask1 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, ASSETS_NORMAL_DUST+1);
         eval.AddTx(txask1);
 
-        txask2 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, 500);
+        txask2 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, ASSETS_NORMAL_DUST+1);
         eval.AddTx(txask2);
 
-        txbid1 = MakeTokenV2BidTx(cpAssets, pk2, tokenid2, 2, 500);
+        txbid1 = MakeTokenV2BidTx(cpAssets, pk2, tokenid2, 2, ASSETS_NORMAL_DUST+1);
         eval.AddTx(txbid1);
 
 
@@ -441,7 +441,7 @@ protected:
         return CTransaction(mtx);
     }
 
-    static CMutableTransaction MakeTokenV2CreateTx(CPubKey pk, CAmount amount)
+    static CMutableTransaction MakeTokenV2CreateTx(CPubKey pk, CAmount amount, const UniValue &utokeldata = NullUniValue)
     {
         struct CCcontract_info *cp, C;
 	    cp = CCinit(&C, TokensV2::EvalCode());
@@ -457,8 +457,15 @@ protected:
         mtx.vout.push_back(TokensV2::MakeCC1vout(TokensV2::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));           
 		mtx.vout.push_back(TokensV2::MakeTokensCC1vout(0, amount, pk));
 
+        std::vector<vuint8_t> vextras;
+        vuint8_t vtokeldata;
+        if (!utokeldata.isNull())
+            vtokeldata = ParseTokelJson(utokeldata);
+        if (!vtokeldata.empty())
+            vextras.push_back(vtokeldata);
+
         if (!TestFinalizeTx(mtx, cp, testKeys[pk], txfee,
-            TokensV2::EncodeTokenCreateOpRet(vscript_t(pk.begin(), pk.end()), name, description, {  })))  {
+            TokensV2::EncodeTokenCreateOpRet(vscript_t(pk.begin(), pk.end()), name, description, vextras)))  {
             std::cerr << __func__ << " could finalize tx" << std::endl;
             return CTransaction(); 
         }
@@ -470,23 +477,28 @@ protected:
     static CMutableTransaction MakeTokenV2AskTx(struct CCcontract_info *cpTokens, CPubKey pk, uint256 tokenid, CAmount numtokens, CAmount unit_price)
     {
         CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
         struct CCcontract_info *cpAssets, C; 
-        //struct CCcontract_info *cpTokens, tokensC;
-
-        uint8_t evalcodeAdd = 0;
-        //CAmount askamount = 1000;
-        //CAmount numtokens = 2;
-        CAmount txfee = 10000;
-
         cpAssets = CCinit(&C, AssetsV2::EvalCode());   
-        //cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
 
-        //CAmount unit_price = askamount / numtokens;
+        CAmount txfee = 10000;
         CAmount askamount = numtokens * unit_price;
 
         if (TestAddNormalInputs(mtx, pk, txfee) == 0LL) {
             std::cerr << __func__ << " cant add normal inputs" << std::endl;
             return CTransaction();
+        }
+
+        TokenDataTuple tokenData;
+        vuint8_t vextraData;
+        uint8_t evalcodeAdd = 0;
+        int64_t royaltyFract = 0;  // royaltyFract is N in N/1000 fraction
+        if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData, vextraData)) {
+            std::cerr << __func__ << " cant get tokendata" << std::endl;
+            return CTransaction(); 
+        }
+        if (vextraData.size() > 0)  {
+            evalcodeAdd = vextraData[0];
         }
 
         CAmount inputs = TestAddTokenInputs(mtx, pk, tokenid, numtokens);
@@ -548,7 +560,7 @@ protected:
         return mtx;
     }
 
-    static CMutableTransaction MakeTokenV2FillAskTx(struct CCcontract_info *cpAssets, CPubKey pk, uint256 tokenid, uint256 asktxid, CAmount fill_units, CAmount paid_unit_price, UniValue &data)
+    static CMutableTransaction MakeTokenV2FillAskTx(struct CCcontract_info *cpAssets, CPubKey mypk, uint256 tokenid, uint256 asktxid, CAmount fill_units, CAmount paid_unit_price, UniValue &data)
     {
         CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
         struct CCcontract_info *cpTokens, tokensC;
@@ -579,7 +591,7 @@ protected:
             return CTransaction(); 
         }
         if (vextraData.size() > 0)  {
-            evalcodeAdd = vextraData.begin()[0];
+            evalcodeAdd = vextraData[0];
             GetTokelDataAsInt64(vextraData, TKLPROP_ROYALTY, royaltyFract);
             if (royaltyFract > TKLROYALTY_DIVISOR-1)
                 royaltyFract = TKLROYALTY_DIVISOR-1; // royalty upper limit
@@ -594,8 +606,10 @@ protected:
 
         CAmount paid_nValue = paid_unit_price * fill_units;
         CAmount royaltyValue = royaltyFract > 0 ? paid_nValue / TKLROYALTY_DIVISOR * royaltyFract : 0;
+        if (royaltyFract > 0 && paid_nValue - royaltyValue <= ASSETS_NORMAL_DUST / royaltyFract * TKLROYALTY_DIVISOR - ASSETS_NORMAL_DUST)  // if value paid to seller less than when the royalty is minimum
+            royaltyValue = 0LL;
 
-        if (TestAddNormalInputs(mtx, pk, txfee) == 0LL)  {
+        if (TestAddNormalInputs(mtx, mypk, txfee) == 0LL)  {
             std::cerr << __func__ << " cant add normal inputs" << std::endl;
             return CTransaction();             
         }
@@ -605,9 +619,9 @@ protected:
         mtx.vout.push_back(TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), evalcodeAdd, orig_assetoshis - fill_units, GetUnspendable(cpAssets, NULL)));  // token remainder on cc global addr
 
         //vout.1 purchased tokens to self token single-eval or dual-eval token+nonfungible cc addr:
-        mtx.vout.push_back(TokensV2::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : TokensV2::EvalCode(), fill_units, pk));					
+        mtx.vout.push_back(TokensV2::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : TokensV2::EvalCode(), fill_units, mypk));					
         mtx.vout.push_back(CTxOut(paid_nValue - royaltyValue, CScript() << origpubkey << OP_CHECKSIG));		//vout.2 coins to ask originator's normal addr
-        if (royaltyFract > 0)       // note it makes the vout even if roaltyValue is 0
+        if (royaltyValue > 0)       // note it makes the vout even if roaltyValue is 0
             mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ownerpubkey << OP_CHECKSIG));	// vout.3 royalty to token owner
 
         if (orig_assetoshis - fill_units > 0) // we dont need the marker if order is filled
@@ -619,8 +633,8 @@ protected:
         CCwrapper wrCond(TokensV2::MakeTokensCCcond1(AssetsV2::EvalCode(), evalcodeAdd, unspendableAssetsPk));
         CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
 
-        if (!TestFinalizeTx(mtx, cpAssets, testKeys[pk], txfee,
-            TokensV2::EncodeTokenOpRet(tokenid, { pk }, 
+        if (!TestFinalizeTx(mtx, cpAssets, testKeys[mypk], txfee,
+            TokensV2::EncodeTokenOpRet(tokenid, { mypk }, 
                 { AssetsV2::EncodeAssetOpRet('S', zeroid, unit_price, origpubkey) } ))) {
             std::cerr << __func__ << " cant finalise tx" << std::endl;
             return CTransaction(); 
@@ -633,7 +647,7 @@ protected:
     }
 
 
-    static CMutableTransaction MakeTokenV2FillBidTx(struct CCcontract_info *cpTokens, CPubKey pk, uint256 tokenid, uint256 bidtxid, CAmount bid_amount, CAmount unit_price, UniValue &data)
+    static CMutableTransaction MakeTokenV2FillBidTx(struct CCcontract_info *cpTokens, CPubKey mypk, uint256 tokenid, uint256 bidtxid, CAmount fill_units, CAmount unit_price, UniValue &data)
     {
         CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
         struct CCcontract_info *cpAssets, C; 
@@ -644,7 +658,7 @@ protected:
         //CAmount bid_amount;
         CAmount orig_units;
         //CAmount unit_price = 0;
-        CAmount fill_units = 2;
+        //CAmount fill_units = 2;
         CAmount txfee = 10000;
         uint256 assetidOpret;
         CAmount paid_unit_price = 0;  // not set
@@ -679,7 +693,7 @@ protected:
         vuint8_t origpubkey;
         std::cerr << __func__ << " bidtx=" << bidtx.GetHash().GetHex() << " " << HexStr(E_MARSHAL(ss << bidtx)) << " vouts=" << bidtx.vout.size() << std::endl;
 
-        bid_amount = bidtx.vout[bidvout].nValue;
+        CAmount bid_amount = bidtx.vout[bidvout].nValue;
         if (GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, bidtx) == 0) { // get orig pk, orig value
             std::cerr << __func__ << " cant get order data" << std::endl;
             return CTransaction();
@@ -694,14 +708,17 @@ protected:
         if (paid_unit_price <= 0LL)
             paid_unit_price = unit_price;
 
-        if (TestAddNormalInputs(mtx, pk, txfee) == 0LL) {
+        if (TestAddNormalInputs(mtx, mypk, txfee) == 0LL) {
             std::cerr << __func__ << " cant add normal inputs" << std::endl;
             return CTransaction();                  
         }
-        mtx.vin.push_back(CTxIn(txtokencreate2.GetHash(), 1, CScript()));  // spend token tx
+        CAmount tokenInputs = TestAddTokenInputs(mtx, mypk, tokenid, fill_units);
+        if (tokenInputs == 0LL) {
+            std::cerr << __func__ << " cant add token inputs" << std::endl;
+            return CTransaction();                  
+        }  
+        //mtx.vin.push_back(CTxIn(tokenid, 1, CScript()));  // spend token tx
         mtx.vin.push_back(CTxIn(bidtx.GetHash(), bidvout, CScript()));  // spend order tx
-
-        CAmount tokenInputs = txtokencreate2.vout[1].nValue;
 
         if (!SetBidFillamounts(unit_price, paid_amount, bid_amount, fill_units, orig_units, paid_unit_price)) {
             std::cerr << __func__ << " SetBidFillamounts return false" << std::endl;
@@ -709,6 +726,9 @@ protected:
         }
 
         CAmount royaltyValue = royaltyFract > 0 ? paid_amount / TKLROYALTY_DIVISOR * royaltyFract : 0;
+        if (royaltyValue <= ASSETS_NORMAL_DUST)
+            royaltyValue = 0LL;
+        std::cerr << __func__ << " royaltyFract=" << royaltyFract << " royaltyValue=" << royaltyValue << std::endl;
         CAmount tokensChange = tokenInputs - fill_units;
 
         uint8_t unspendableAssetsPrivkey[32];
@@ -716,30 +736,30 @@ protected:
 
         if (orig_units - fill_units > 0 || bid_amount - paid_amount <= ASSETS_NORMAL_DUST) { // bidder has coins for more tokens or only dust is sent back to global address
             mtx.vout.push_back(TokensV2::MakeCC1vout(AssetsV2::EvalCode(), bid_amount - paid_amount, unspendableAssetsPk));     // vout0 coins remainder or the dust is sent back to cc global addr
-            if (bid_amount - paid_amount <= ASSETS_NORMAL_DUST)
+            if (orig_units - fill_units == 0)
                 std::cerr << __func__ << " dust detected (bid_amount - paid_amount)=" << (bid_amount - paid_amount) << std::endl;
         }
         else
             mtx.vout.push_back(CTxOut(bid_amount - paid_amount, CScript() << ParseHex(HexStr(origpubkey)) << OP_CHECKSIG));     // vout0 if no more tokens to buy, send the remainder to originator
-        mtx.vout.push_back(CTxOut(paid_amount - royaltyValue, CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG));	// vout1 coins to mypk normal 
-        if (royaltyFract > 0)   // note it makes vout even if roaltyValue is 0
+        mtx.vout.push_back(CTxOut(paid_amount - royaltyValue, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));	// vout1 coins to mypk normal 
+        if (royaltyValue > 0)   // note it makes vout even if roaltyValue is 0
             mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ParseHex(HexStr(ownerpubkey)) << OP_CHECKSIG));  // vout2 trade royalty to token owner
         mtx.vout.push_back(TokensV2::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : TokensV2::EvalCode(), fill_units, pubkey2pk(origpubkey)));	  // vout2(3) single-eval tokens sent to the originator
         if (orig_units - fill_units > 0)  // order is not finished yet
             mtx.vout.push_back(TokensV2::MakeCC1vout(AssetsV2::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));                    // vout3(4 if royalty) marker to origpubkey
 
         if (tokensChange != 0LL)
-            mtx.vout.push_back(TokensV2::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : TokensV2::EvalCode(), tokensChange, pk));  // change in single-eval tokens
+            mtx.vout.push_back(TokensV2::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : TokensV2::EvalCode(), tokensChange, mypk));  // change in single-eval tokens
 
         CMutableTransaction mtx2(mtx);  // copy
 
         CCwrapper wrCond1(MakeCCcond1(AssetsV2::EvalCode(), unspendableAssetsPk));  // spend coins
         CCAddVintxCond(cpTokens, wrCond1, unspendableAssetsPrivkey);
         
-        CCwrapper wrCond2(TokensV2::MakeTokensCCcond1(evalcodeAdd, pk));  // spend my tokens to fill buy
+        CCwrapper wrCond2(TokensV2::MakeTokensCCcond1(evalcodeAdd, mypk));  // spend my tokens to fill buy
         CCAddVintxCond(cpTokens, wrCond2, NULL); //NULL indicates to use myprivkey
 
-        if (!TestFinalizeTx(mtx, cpTokens, testKeys[pk], txfee,
+        if (!TestFinalizeTx(mtx, cpTokens, testKeys[mypk], txfee,
             TokensV2::EncodeTokenOpRet(tokenid, { pubkey2pk(origpubkey) },
                 { AssetsV2::EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) }))) {
             std::cerr << __func__ << " could not finalize tx" << std::endl;
@@ -1183,6 +1203,61 @@ TEST_F(TestAssetsCC, tokenv2fillbid)
         EXPECT_FALSE(TestRunCCEval(mtx1));
     }
 }
+
+TEST_F(TestAssetsCC, tokenv2fillbid_royalty)
+{
+    for(int r = 0; r < 1000; r += 100)
+    {
+        UniValue data(UniValue::VOBJ); // some data returned from MakeTokenV2FillBidTx
+        UniValue tokeldata(UniValue::VOBJ);
+        struct CCcontract_info *cpTokens, tokensC; 
+        cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+        struct CCcontract_info *cpAssets, assetsC; 
+        cpAssets = CCinit(&assetsC, AssetsV2::EvalCode());  
+
+        tokeldata.pushKV("royalty", r);
+        CTransaction mytxtokencreate = MakeTokenV2CreateTx(pk1, 1, tokeldata);
+        uint256 mytokenid = mytxtokencreate.GetHash();
+        eval.AddTx(mytxtokencreate);
+
+        CTransaction mytxbid = MakeTokenV2BidTx(cpAssets, pk2, mytokenid, 1, ASSETS_NORMAL_DUST*2+1);
+        eval.AddTx(mytxbid);
+
+        CMutableTransaction mytxfill = MakeTokenV2FillBidTx(cpTokens, pk1, mytokenid, mytxbid.GetHash(), 1, 0, data);  
+        ASSERT_FALSE(CTransaction(mytxfill).IsNull());
+
+        // test: valid tokenv2fillbid
+        EXPECT_TRUE(TestRunCCEval(mytxfill));
+    }
+}
+
+TEST_F(TestAssetsCC, tokenv2fillask_royalty)
+{
+    for(int r = 0; r < 1000; r += 100)
+    {
+        UniValue data(UniValue::VOBJ); // some data returned from MakeTokenV2FillBidTx
+        UniValue tokeldata(UniValue::VOBJ);
+        struct CCcontract_info *cpTokens, tokensC; 
+        cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+        struct CCcontract_info *cpAssets, assetsC; 
+        cpAssets = CCinit(&assetsC, AssetsV2::EvalCode());  
+
+        tokeldata.pushKV("royalty", r);
+        CTransaction mytxtokencreate = MakeTokenV2CreateTx(pk1, 1, tokeldata);
+        uint256 mytokenid = mytxtokencreate.GetHash();
+        eval.AddTx(mytxtokencreate);
+
+        CTransaction mytxask = MakeTokenV2AskTx(cpTokens, pk1, mytokenid, 1, ASSETS_NORMAL_DUST*2+1);
+        eval.AddTx(mytxask);
+
+        CMutableTransaction mytxfill = MakeTokenV2FillAskTx(cpAssets, pk2, mytokenid, mytxask.GetHash(), 1, 0, data);  
+        ASSERT_FALSE(CTransaction(mytxfill).IsNull());
+
+        // test: valid tokenv2fillbid
+        EXPECT_TRUE(TestRunCCEval(mytxfill));
+    }
+}
+
 
 TEST_F(TestAssetsCC, tokenv2cancelask)
 {

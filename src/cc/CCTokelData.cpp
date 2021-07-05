@@ -65,10 +65,10 @@ static void tklWriteVuint8(CDataStream &ss, const UniValue &val)
 
 typedef std::map<tklPropId, tklPropDesc_t> tklPropDesc_map;
 static const tklPropDesc_map tklPropDesc = {
-    { TKLPROP_ID, { TKLTYP_INT64, "id", &tklReadInt64, &tklWriteInt64 }},
-    { TKLPROP_URL, { TKLTYP_VUINT8, "url", &tklReadString, &tklWriteString }},
-    { TKLPROP_ROYALTY, { TKLTYP_INT64, "royalty", &tklReadInt64, &tklWriteInt64 }},
-    { TKLPROP_ARBITRARY, { TKLTYP_VUINT8, "arbitrary", &tklReadVuint8, &tklWriteVuint8  }}
+    { TKLPROP_ID, std::make_tuple(TKLTYP_INT64, std::string("id"), &tklReadInt64, &tklWriteInt64) },
+    { TKLPROP_URL, std::make_tuple(TKLTYP_VUINT8, std::string("url"), &tklReadString, &tklWriteString) },
+    { TKLPROP_ROYALTY, std::make_tuple(TKLTYP_INT64, std::string("royalty"), &tklReadInt64, &tklWriteInt64) },
+    { TKLPROP_ARBITRARY, std::make_tuple(TKLTYP_VUINT8, std::string("arbitrary"), &tklReadVuint8, &tklWriteVuint8) }
 };
 
 /*typedef struct {

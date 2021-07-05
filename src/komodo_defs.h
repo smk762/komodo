@@ -532,8 +532,8 @@ struct komodo_staking *komodo_addutxo(struct komodo_staking *array, int32_t *num
 void komodo_createminerstransactions();
 uint32_t komodo_segid32(char *coinaddr);
 
-#ifndef _WIN32
-void OS_randombytes(unsigned char *x, long xlen);
-#endif
+// #ifndef _WIN32
+void OS_randombytes(unsigned char *x, long xlen);  // this func impl exists for win too
+// #endif
 
 #endif
