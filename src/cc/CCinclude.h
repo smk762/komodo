@@ -981,7 +981,7 @@ int64_t NSPV_AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total
 /// @returns amount of added normal inputs or amount of all normal inputs in the wallet
 /// @see AddNormalinputsLocal
 /// @see AddNormalinputsRemote
-int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs, bool remote=false);
+CAmount AddNormalinputs(CMutableTransaction &mtx, CPubKey mypk, CAmount total, int32_t maxinputs, bool remote=false);
 
 /// Local version for cc runnnig on the same node, adds normal (not cc) inputs to the transaction object vin array for the specified total amount using available utxos in the wallet, to fund the transaction
 /// @param mtx mutable transaction object
@@ -989,7 +989,7 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
 /// @param total amount of inputs to add. If total equals to 0 the function does not add inputs but returns amount of all available normal inputs in the wallet
 /// @param maxinputs maximum number of inputs to add
 /// @returns amount of added normal inputs or amount of all normal inputs in the wallet
-int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs);
+CAmount AddNormalinputsLocal(CMutableTransaction &mtx, CPubKey mypk, CAmount total,int32_t maxinputs);
 
 /// AddNormalinputs2 adds normal (not cc) inputs to the transaction object vin array for the specified total amount using utxos on my pubkey's TX_PUBKEY address (my pubkey is set by -pubkey command line parameter), to fund the transaction.
 /// 'My pubkey' is the -pubkey parameter of komodod.
@@ -997,7 +997,7 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
 /// @param total amount of inputs to add. If total equals to 0 the function does not add inputs but returns amount of all available normal inputs in the wallet
 /// @param maxinputs maximum number of inputs to add
 /// @returns amount of added normal inputs or amount of all normal inputs on my pubkey's address
-int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs);
+CAmount AddNormalinputs2(CMutableTransaction &mtx, CAmount total, int32_t maxinputs);
 
 /// Remote version, does not use local wallet, adds normal (not cc) inputs to the transaction object vin array for the specified total amount using available utxos on mypk, to fund the transaction
 /// @param mtx mutable transaction object
@@ -1005,7 +1005,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
 /// @param total amount of inputs to add. If total equals to 0 the function does not add inputs but returns amount of all available normal inputs in the wallet
 /// @param maxinputs maximum number of inputs to add
 /// @returns amount of added normal inputs or amount of all normal inputs in the wallet
-int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs, bool mempool = false);
+CAmount AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, CAmount total, int32_t maxinputs, bool mempool = false);
 
 /// CCutxovalue returns amount of an utxo. The function does this without loading the utxo transaction, by using address index only
 /// @param coinaddr address where the utxo is searched
@@ -1016,7 +1016,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
 
 /// @private
-int32_t CC_vinselect(int32_t *aboveip, int64_t *abovep, int32_t *belowip, int64_t *belowp, struct CC_utxo utxos[], int32_t numunspents, int64_t value);
+int32_t CC_vinselect(int32_t *aboveip, CAmount *abovep, int32_t *belowip, CAmount *belowp, struct CC_utxo utxos[], int32_t numunspents, CAmount value);
 
 /// @private
 void CCAddVintxCond(struct CCcontract_info *cp, const CCwrapper &condWrapped, const uint8_t *priv = NULL);
