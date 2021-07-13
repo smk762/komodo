@@ -690,6 +690,18 @@ UniValue TokenInfo(uint256 tokenid, E parseExtraData)
         result.push_back(Pair("sourceTokenId", sourceTokenId));
     }
 
+    LOCK(cs_main);
+    int32_t nHeight = -1;
+    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+    if (mi != mapBlockIndex.end() && (*mi).second) {
+        CBlockIndex* pindex = (*mi).second;
+        if (chainActive.Contains(pindex)) {
+            nHeight = pindex->GetHeight();
+        } else {
+            nHeight = -1;
+        }
+    }
+    result.push_back(Pair("height", nHeight));
 	return result;
 }
 

@@ -1102,6 +1102,15 @@ void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::
 /// @returns 0 if okay or -1
 int32_t ensure_CCrequirements(uint8_t evalcode);
 
+/// returns true if tx is in active chain
+/// @param txid txid of tx to check
+bool IsTxidInActiveChain(uint256 txid);
+
+/// returns true if block hash is in active chain
+/// @param hashBlock hash of block to check
+bool IsBlockHashInActiveChain(uint256 hashBlock);
+
+
 extern bool fUnspentCCIndex;  // if unspent cc index enabled
 
 /// @private forward decl
