@@ -20,25 +20,6 @@
 #include "CCassets.h"
 #include "CCTokelData.h"
 
-
-static bool IsTxidInActiveChain(uint256 txid)
-{
-    CTransaction tx;
-    uint256 hashBlock;
-    AssertLockHeld(cs_main);
-
-    if (myGetTransaction(txid, tx, hashBlock))
-    {
-        BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
-        if (mi != mapBlockIndex.end() && (*mi).second) {
-            CBlockIndex* pindex = (*mi).second;
-            if (chainActive.Contains(pindex)) 
-                return true;
-        }
-    }
-    return false;
-}
-
 template<class T, class A>
 UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
 {

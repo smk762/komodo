@@ -871,13 +871,18 @@ UniValue TokenList()
         std::vector<uint8_t> origpubkey;
 	    std::string name, description;
 
-        if (myGetTransaction(txid, vintx, hashBlock) != 0) {
-            std::vector<vscript_t>  oprets;
-            if (vintx.vout.size() > 0 && DecodeTokenCreateOpRetV1(vintx.vout.back().scriptPubKey, origpubkey, name, description, oprets) != 0) {
-                result.push_back(txid.GetHex());
-            }
-            else {
-                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "DecodeTokenCreateOpRetV1 failed for txid=" << txid.GetHex() <<std::endl);
+        if (myGetTransaction(txid, vintx, hashBlock) != false) 
+        {
+            LOCK(cs_main);
+            if (IsBlockHashInActiveChain(hashBlock))
+            {
+                std::vector<vscript_t>  oprets;
+                if (vintx.vout.size() > 0 && DecodeTokenCreateOpRetV1(vintx.vout.back().scriptPubKey, origpubkey, name, description, oprets) != 0) {
+                    result.push_back(txid.GetHex());
+                }
+                else {
+                    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "DecodeTokenCreateOpRetV1 failed for txid=" << txid.GetHex() <<std::endl);
+                }
             }
         }
     };
@@ -921,11 +926,14 @@ UniValue TokenV2List(int32_t beginHeight, int32_t endHeight)
 	    std::string name, description;
         std::vector<vscript_t>  oprets;
 
-        if (DecodeTokenCreateOpRetV2(opreturn, origpubkey, name, description, oprets) != 0) {
-            result.push_back(tokenid.GetHex());
-        }
-        else {
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "DecodeTokenCreateOpRetV2 failed for tokenid=" << tokenid.GetHex() << " opreturn.size=" << opreturn.size() << std::endl);
+        if (IsTxidInActiveChain(tokenid))
+        {
+            if (DecodeTokenCreateOpRetV2(opreturn, origpubkey, name, description, oprets) != 0) {
+                result.push_back(tokenid.GetHex());
+            }
+            else {
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "DecodeTokenCreateOpRetV2 failed for tokenid=" << tokenid.GetHex() << " opreturn.size=" << opreturn.size() << std::endl);
+            }
         }
     };
 
@@ -940,7 +948,11 @@ UniValue TokenV2List(int32_t beginHeight, int32_t endHeight)
                 uint256 hashBlock;
                 if (!it.first.spending &&
                     myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
-                    addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);    
+                {
+                    LOCK(cs_main);
+                    if (IsBlockHashInActiveChain(hashBlock))
+                        addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);    
+                }
             }
     }
     else
@@ -952,7 +964,9 @@ UniValue TokenV2List(int32_t beginHeight, int32_t endHeight)
             SetCCunspentsCCIndex(unspentOutputs, cp->unspendableCCaddr, zeroid);    // find by burnable validated cc addr marker
             LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetCCunspentsCCIndex unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
             for (const auto &it : unspentOutputs) {
-                addTokenId(it.first.creationid, it.second.opreturn);
+                LOCK(cs_main);
+                if (IsTxidInActiveChain(it.first.creationid))
+                    addTokenId(it.first.creationid, it.second.opreturn);
             }
         }
         else
@@ -965,7 +979,11 @@ UniValue TokenV2List(int32_t beginHeight, int32_t endHeight)
                 CTransaction creationtx;
                 uint256 hashBlock;
                 if (myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
-                    addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);    
+                {
+                    LOCK(cs_main);
+                    if (IsBlockHashInActiveChain(hashBlock))
+                        addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);    
+                }
             }
         }
     }

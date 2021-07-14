@@ -1688,3 +1688,31 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
     }
     return false;
 }
+
+bool IsBlockHashInActiveChain(uint256 hashBlock)
+{
+    AssertLockHeld(cs_main);
+    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+    if (mi != mapBlockIndex.end() && (*mi).second) {
+        CBlockIndex* pindex = (*mi).second;
+        if (chainActive.Contains(pindex)) 
+            return true;
+    }
+    return false;
+}
+
+/**
+ * IsTxidInActiveChain load a tx and checks if it is in active chain (not in orphaned blocks)
+ * cs_main section should be locked
+ */
+bool IsTxidInActiveChain(uint256 txid)
+{
+    CTransaction tx;
+    uint256 hashBlock;
+
+    if (myGetTransaction(txid, tx, hashBlock))
+    {
+        return IsBlockHashInActiveChain(hashBlock);
+    }
+    return false;
+}
