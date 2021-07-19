@@ -170,12 +170,13 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
     // 
     if (changeFlag != FINALIZECCTX_NO_CHANGE)  {   // no need change at all (already added by the caller itself)
         CAmount change = totalinputs - (totaloutputs + txfee);
+        CTxOut changeVout(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
         if (change >= 0)
         {
             if ((change != 0LL || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_ZERO) &&                // prevent adding zero change
-                (change > ASSETS_NORMAL_DUST || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
+                (!changeVout.IsDust(::minRelayTxFee) || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
             {    
-                mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+                mtx.vout.push_back(changeVout);
             }
         }
     }
@@ -477,12 +478,13 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
     }
     if (changeFlag != FINALIZECCTX_NO_CHANGE) {  // no need change at all (already added by the caller itself)
         CAmount change = totalinputs - (totaloutputs + txfee);
+        CTxOut changeVout(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
         if (change >= 0)
         {
             if ((change != 0LL || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_ZERO) &&                // prevent adding zero change
-                (change > ASSETS_NORMAL_DUST || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
+                (!changeVout.IsDust(::minRelayTxFee) || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
             {    
-                mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+                mtx.vout.push_back(changeVout);
             }
         }
     }
