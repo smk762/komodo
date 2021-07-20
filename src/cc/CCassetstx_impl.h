@@ -126,14 +126,8 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
         }
 	};
 
-    if (!pk.IsValid())
+    if (!pk.IsValid()) // get tokenorders (all orders)
     {
-        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputsTokens, unspentOutputsNFTs, unspentOutputsCoins;
-        char assetsUnspendableAddr[KOMODO_ADDRESS_BUFSIZE];
-        GetCCaddress(cpAssets, assetsUnspendableAddr, GetUnspendable(cpAssets, NULL), A::IsMixed());
-        SetCCunspents(unspentOutputsCoins, assetsUnspendableAddr, true);
-
-        char assetsTokensUnspendableAddr[KOMODO_ADDRESS_BUFSIZE];
         TokenDataTuple tokenData;
         vuint8_t vextraData;
         if (refassetid != zeroid) {
@@ -141,38 +135,31 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
             if (vextraData.size() > 0)
                 cpAssets->evalcodeAdd = vextraData[0];
         }
-        GetTokensCCaddress(cpAssets, assetsTokensUnspendableAddr, GetUnspendable(cpAssets, NULL), A::IsMixed());
-        SetCCunspents(unspentOutputsTokens, assetsTokensUnspendableAddr, true);
 
         // tokenbids:
+        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputsCoins;
+        char assetsGlobalAddr[KOMODO_ADDRESS_BUFSIZE];
+        GetCCaddress(cpAssets, assetsGlobalAddr, GetUnspendable(cpAssets, NULL), A::IsMixed());
+        SetCCunspents(unspentOutputsCoins, assetsGlobalAddr, true);
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itCoins = unspentOutputsCoins.begin();
             itCoins != unspentOutputsCoins.end();
             itCoins++)
             addOrders(cpAssets, itCoins);
         
         // tokenasks:
+        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputsTokens;
+        char tokensAssetsGlobalAddr[KOMODO_ADDRESS_BUFSIZE];
+        cpAssets->evalcodeAdd = evalcodeAdd;
+        GetTokensCCaddress(cpAssets, tokensAssetsGlobalAddr, GetUnspendable(cpAssets, NULL), A::IsMixed());
+        SetCCunspents(unspentOutputsTokens, tokensAssetsGlobalAddr, true);
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itTokens = unspentOutputsTokens.begin();
             itTokens != unspentOutputsTokens.end();
             itTokens++)
             addOrders(cpAssets, itTokens);
-
-        if (evalcodeAdd != 0) {  //this would be mytokenorders
-            char assetsNFTUnspendableAddr[KOMODO_ADDRESS_BUFSIZE];
-
-            // try also dual eval tokenasks (and we do not need bids (why? bids are on assets global addr anyway.)):
-            cpAssets->evalcodeAdd = evalcodeAdd;
-            GetTokensCCaddress(cpAssets, assetsNFTUnspendableAddr, GetUnspendable(cpAssets, NULL), A::IsMixed());
-            SetCCunspents(unspentOutputsNFTs, assetsNFTUnspendableAddr,true);
-
-            for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itNFTs = unspentOutputsNFTs.begin();
-                itNFTs != unspentOutputsNFTs.end();
-                itNFTs++)
-                addOrders(cpAssets, itNFTs);
-        }
     }
     else 
     {
-        // use marker on my pk:
+        // mytokenorders, use marker on my pk :
         std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentsMyAddr;
         char assetsMyAddr[KOMODO_ADDRESS_BUFSIZE];
         GetCCaddress1of2(cpAssets, assetsMyAddr, pk, GetUnspendable(cpAssets, NULL), A::IsMixed());

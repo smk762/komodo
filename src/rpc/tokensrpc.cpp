@@ -206,22 +206,23 @@ template <class T, class A>
 UniValue mytokenorders(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     uint256 tokenid;
-    if (fHelp || params.size() > 1)
-        throw runtime_error(name + " [evalcode]\n"
-                            "returns all the token orders for mypubkey\n"
-                            "if evalcode is set then returns mypubkey's token orders for non-fungible tokens with this evalcode\n" "\n");
+    if (fHelp || params.size() > 0)
+        throw runtime_error(name + "\n"
+                            "returns all tokens orders for mypubkey\n"
+                            // no additional evalcode for mytokenorders - it will return all orders for on mypk:
+                            /*"if evalcode is set then returns mypubkey's token orders for non-fungible tokens with this evalcode\n"*/ "\n");
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    uint8_t evalcodeAdd = 0;
-    if (params.size() == 1)
-        evalcodeAdd = strtol(params[0].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
+    //uint8_t evalcodeAdd = 0;
+    //if (params.size() == 1)
+    //    evalcodeAdd = strtol(params[0].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
     
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
-        return AssetOrders<T, A>(zeroid, mypk, evalcodeAdd);
+        return AssetOrders<T, A>(zeroid, mypk, 0);
     else
-        return tokensv0::AssetOrders(zeroid, Mypubkey(), evalcodeAdd);
+        return tokensv0::AssetOrders(zeroid, Mypubkey(), 0);
 }
 
 UniValue mytokenorders(const UniValue& params, bool fHelp, const CPubKey& remotepk)
