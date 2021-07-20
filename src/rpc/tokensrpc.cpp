@@ -295,7 +295,7 @@ static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, 
     if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    if (!EnsureWalletIsAvailable(false))
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     LOCK2(cs_main, pwalletMain->cs_wallet);  // remote call not supported yet
 
@@ -306,7 +306,6 @@ static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, 
     supply = AmountFromValue(params[1]);   
     if (supply <= 0)    
         return MakeResultError("Token supply must be positive");
-    
     
     if (params.size() >= 3)     {
         description = params[2].get_str();
@@ -413,7 +412,7 @@ UniValue tokenv2createtokel(const UniValue& params, bool fHelp, const CPubKey& r
         else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
             jsonParams.read(params[3].get_str().c_str());
         if (jsonParams.getType() != UniValue::VOBJ)
-            throw runtime_error("parameter 4 must be a json object\n");   
+            return MakeResultError("parameter 4 must be a json object\n");   
 
         tokenData = ParseTokelJson(jsonParams);
         if (tokenData.empty())
@@ -444,7 +443,7 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
     if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     
-    if (!EnsureWalletIsAvailable(false))
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");    
     LOCK2(cs_main, pwalletMain->cs_wallet);   // remote call not supported yet
     
@@ -473,7 +472,7 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
     else
     {
         if (V::EvalCode() != EVAL_TOKENSV2)
-            throw runtime_error("MofN transfer is supported only for tokens v2\n");
+            return MakeResultError("MofN transfer is supported only for tokens v2\n");
 
         UniValue jsonParams(UniValue::VOBJ);
         if (params[0].getType() == UniValue::VOBJ)
@@ -481,7 +480,7 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
         else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
             jsonParams.read(params[0].get_str().c_str());
         if (jsonParams.getType() != UniValue::VOBJ)
-            throw runtime_error("parameter 1 must be object\n");
+            return MakeResultError("parameter 1 must be object\n");
 
         uint256 tokenid = Parseuint256(jsonParams["tokenid"].get_str().c_str());
         if( tokenid == zeroid )    
@@ -491,16 +490,16 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
         if (!jsonParams["ccaddressMofN"].isNull()) {
             ccaddressMofN = jsonParams["ccaddressMofN"].get_str();
             if (!CBitcoinAddress(ccaddressMofN).IsValid())        
-                throw runtime_error("invalid ccaddressMofN\n");
+                return MakeResultError("invalid ccaddressMofN\n");
         }
 
         std::vector<CPubKey> pks;
         UniValue udestpks = jsonParams["destpubkeys"];
         if (!udestpks.isArray())
-            throw runtime_error("destpubkeys must be an array\n");
+            return MakeResultError("destpubkeys must be an array\n");
         
         if (udestpks.size() > 128)
-            throw runtime_error("destpubkeys num is limited by 128\n");
+            return MakeResultError("destpubkeys num is limited by 128\n");
 
         for (int i = 0; i < udestpks.size(); i ++) {
             vuint8_t vpubkey(ParseHex(udestpks[i].get_str().c_str()));
@@ -510,9 +509,9 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
         }
         int M = jsonParams["M"].get_int();
         if (M > 128)
-            throw runtime_error("M is limited by 128\n");
+            return MakeResultError("M is limited by 128\n");
         if (M > pks.size())
-            throw runtime_error("M could not be more than dest pubkeys\n");
+            return MakeResultError("M could not be more than dest pubkeys\n");
 
         CAmount amount = jsonParams["amount"].get_int64(); 
         if( amount <= 0 )    
@@ -557,9 +556,9 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     
     CCerror.clear();
 
-    if ( fHelp || params.size() < 3)
+    if (fHelp || params.size() < 3)
         throw runtime_error(name + " tokenid1 tokenid2 ... destpubkey amount \n");
-    if ( ensure_CCrequirements(V::EvalCode()) < 0 )
+    if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     std::vector<uint256> tokenids;
@@ -579,7 +578,7 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     if( amount <= 0 )    
         return MakeResultError("amount must be positive");
     
-    if (!EnsureWalletIsAvailable(false))
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     LOCK2(cs_main, pwalletMain->cs_wallet);  // remote call not supported yet
 
@@ -638,9 +637,9 @@ UniValue tokenconvert(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); std::string hex; int32_t evalcode; int64_t amount; uint256 tokenid;
     CCerror.clear();
-    if ( fHelp || params.size() != 4 )
+    if (fHelp || params.size() != 4)
         throw runtime_error("tokenconvert evalcode tokenid pubkey amount\n");
-    if ( ensure_CCrequirements(EVAL_ASSETS) < 0 )
+    if (ensure_CCrequirements(EVAL_ASSETS) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     const CKeyStore& keystore = *pwalletMain;
     if (!EnsureWalletIsAvailable(false))
@@ -681,12 +680,12 @@ UniValue tokenbid(const std::string& name, const UniValue& params, bool fHelp, c
     uint256 tokenid;
 
     CCerror.clear();
-    if ( fHelp || params.size() != 3 )
-        throw runtime_error(name + " numtokens tokenid price\n");
+    if (fHelp || params.size() < 3 || params.size() > 4)
+        throw runtime_error(name + " numtokens tokenid price [expiry-height]\n");
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    if (!EnsureWalletIsAvailable(false))
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
@@ -696,17 +695,23 @@ UniValue tokenbid(const std::string& name, const UniValue& params, bool fHelp, c
     bidamount = (price * numtokens);
     if (price <= 0)
         return MakeResultError("price must be positive");
-      
     if (tokenid == zeroid)
         return MakeResultError("invalid tokenid");
-        
     if (bidamount <= 0)
         return MakeResultError("bid amount must be positive");
+
+    int32_t expiryHeight = std::numeric_limits<int32_t>::max();
+    if (params.size() == 4)  {
+        expiryHeight = atol(params[3].get_str().c_str());	
+        if (!remotepk.IsValid() && expiryHeight < chainActive.LastTip()->GetHeight())
+            return MakeResultError("expiry height invalid");
+
+    }
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
-        result = CreateBuyOffer<T, A>(mypk, 0, bidamount, tokenid, numtokens);
+        result = CreateBuyOffer<T, A>(mypk, 0, bidamount, tokenid, numtokens, expiryHeight);
     else  {
         hex = tokensv0::CreateBuyOffer(0, bidamount, tokenid, numtokens);
         if (!hex.empty())
@@ -738,7 +743,7 @@ UniValue tokencancelbid(const std::string& name, const UniValue& params, bool fH
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    if (!EnsureWalletIsAvailable(false))
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
@@ -786,7 +791,7 @@ UniValue tokenfillbid(const std::string& name, const UniValue& params, bool fHel
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    if (!EnsureWalletIsAvailable(false))
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
     
@@ -836,12 +841,12 @@ UniValue tokenask(const std::string& name, const UniValue& params, bool fHelp, c
     uint256 tokenid;
 
     CCerror.clear();
-    if (fHelp || params.size() != 3)
-        throw runtime_error(name + " numtokens tokenid price\n");
+    if (fHelp || params.size() < 3 || params.size() > 4)
+        throw runtime_error(name + " numtokens tokenid price [expiry-height]\n");
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     
-    if (!EnsureWalletIsAvailable(false))
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
@@ -849,14 +854,27 @@ UniValue tokenask(const std::string& name, const UniValue& params, bool fHelp, c
     tokenid = Parseuint256((char *)params[1].get_str().c_str());
     CAmount price = AmountFromValue(params[2]);
     askamount = (price * numtokens);
-    if (tokenid == zeroid || numtokens <= 0 || price <= 0 || askamount <= 0)
-        return MakeResultError("invalid parameter");
+    if (tokenid == zeroid) 
+        return MakeResultError("tokenid invalid");
+    if (numtokens <= 0)
+        return MakeResultError("numtokens invalid");
+    if (price <= 0)
+        return MakeResultError("price invalid");
+    if (askamount <= 0)
+        return MakeResultError("askamount invalid");
+
+    int32_t expiryHeight = std::numeric_limits<int32_t>::max();
+    if (params.size() == 4) {
+        expiryHeight = atol(params[3].get_str().c_str());		
+        if (!remotepk.IsValid() && expiryHeight < chainActive.LastTip()->GetHeight())
+            return MakeResultError("expiry height invalid");
+    }
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
 
     if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
-        result = CreateSell<T, A>(mypk, 0, numtokens, tokenid, askamount);
+        result = CreateSell<T, A>(mypk, 0, numtokens, tokenid, askamount, expiryHeight);
     else      {
         hex = tokensv0::CreateSell(0, numtokens, tokenid, askamount);
         if (!hex.empty())
@@ -895,6 +913,7 @@ UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& remotep
 
     throw runtime_error("tokenswapask not supported\n");
 
+    /*
 	numtokens = atoll(params[0].get_str().c_str());			
     tokenid = Parseuint256((char *)params[1].get_str().c_str());
     otherid = Parseuint256((char *)params[2].get_str().c_str());
@@ -903,14 +922,15 @@ UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& remotep
     hex = CreateSwap<TokensV2, AssetsV2>(0,numtokens,tokenid,otherid,askamount);
     RETURN_IF_ERROR(CCerror);
     if (price > 0 && numtokens > 0) {
-        if ( hex.size() > 0 )
-        {
+        if (hex.size() > 0) {
             result.push_back(Pair("result", "success"));
             result.push_back(Pair("hex", hex));
-        } else ERR_RESULT("couldnt create swap");
+        } else
+            ERR_RESULT("couldnt create swap");
     } else {
         ERR_RESULT("price and numtokens must be positive");
     }
+    */
     return result;
 }
 
@@ -972,7 +992,7 @@ UniValue tokenfillask(const std::string& name, const UniValue& params, bool fHel
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    if (!EnsureWalletIsAvailable(false))
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
@@ -990,7 +1010,7 @@ UniValue tokenfillask(const std::string& name, const UniValue& params, bool fHel
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
     if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
-        result = FillSell<T, A>(mypk, 0, tokenid, zeroid, asktxid, fillunits, unit_price);
+        result = FillSell<T, A>(mypk, 0, tokenid, asktxid, fillunits, unit_price);
     else    {
         hex = tokensv0::FillSell(0, tokenid, zeroid, asktxid, fillunits);
         if (!hex.empty())
@@ -1021,7 +1041,7 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remote
     CCerror.clear();
     if (fHelp || params.size() != 4 && params.size() != 5)
         throw runtime_error("tokenfillswap tokenid otherid asktxid fillunits [unitprice]\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0)
+    if (!remotepk.IsValid() && ensure_CCrequirements(EVAL_ASSETS) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
         
     if (!EnsureWalletIsAvailable(false))
@@ -1040,7 +1060,7 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remote
 	    unit_price = AmountFromValue(params[4].get_str().c_str());
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    result = FillSell<TokensV1, AssetsV1>(mypk,0,tokenid,otherid,asktxid,fillunits, unit_price);
+    result = FillSell<TokensV1, AssetsV1>(mypk, 0, tokenid, asktxid, fillunits, unit_price);
     RETURN_IF_ERROR(CCerror);
     if (fillunits > 0) {
         if ( hex.size() > 0 ) {

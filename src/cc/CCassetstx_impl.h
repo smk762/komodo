@@ -34,12 +34,13 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
 
 	auto addOrders = [&](struct CCcontract_info *cp, std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it)
 	{
-		uint256 txid, hashBlock, assetid, assetid2;
-		int64_t unit_price;
-		std::vector<uint8_t> origpubkey;
+		uint256 txid, hashBlock, assetid;
+		CAmount unit_price;
+		vscript_t origpubkey;
 		CTransaction ordertx;
 		uint8_t funcid, evalCode;
 		char origaddr[KOMODO_ADDRESS_BUFSIZE], origtokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        int32_t expiryHeight;
 
         txid = it->first.txhash;
         LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " checking txid=" << txid.GetHex() << std::endl);
@@ -48,7 +49,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
             return;
         }
 
-        if (ordertx.vout.size() > 1 && (funcid = A::DecodeAssetTokenOpRet(ordertx.vout.back().scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey)) != 0)
+        if (ordertx.vout.size() > 1 && (funcid = A::DecodeAssetTokenOpRet(ordertx.vout.back().scriptPubKey, evalCode, assetid, unit_price, origpubkey, expiryHeight)) != 0)
         {
             LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " checking ordertx.vout.size()=" << ordertx.vout.size() << " funcid=" << (char)(funcid ? funcid : ' ') << " assetid=" << assetid.GetHex() << std::endl);
 
@@ -59,16 +60,18 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
                 uint256 init_txid = txid;
                 int32_t spentvin;
                 int32_t height;
+                // try to get unspent partially filled order (if it is a search by global assets address)
                 while(CCgetspenttxid(spenttxid, spentvin, height, init_txid, ASSETS_GLOBALADDR_VOUT) == 0 && IsTxidInActiveChain(spenttxid)) {
                     init_txid = spenttxid;
                 }
                 if (init_txid != txid) {
+                    // if it is a filled order load it
                     txid = init_txid;
                     if (!myGetTransaction(txid, ordertx, hashBlock)) {
                         LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " could not load order txid=" << txid.GetHex() << std::endl);
                         return;
                     }
-                    if ((funcid = A::DecodeAssetTokenOpRet(ordertx.vout.back().scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey)) == 0) {
+                    if ((funcid = A::DecodeAssetTokenOpRet(ordertx.vout.back().scriptPubKey, evalCode, assetid, unit_price, origpubkey, expiryHeight)) == 0) {
                         LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " could not decode order txid=" << txid.GetHex() << std::endl);
                         return;
                     }
@@ -101,8 +104,6 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
                 }
                 if (assetid != zeroid)
                     item.push_back(Pair("tokenid", assetid.GetHex()));
-                if (assetid2 != zeroid)
-                    item.push_back(Pair("otherid", assetid2.GetHex()));
                 if (unit_price > 0)
                 {
                     if (funcid == 's' || funcid == 'S' /*|| funcid == 'e' || funcid == 'E' not supported */)
@@ -116,13 +117,14 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
                         item.push_back(Pair("price", ValueFromAmount(unit_price)));
                     }
                 }
+                if (expiryHeight > 0)
+                    item.push_back(Pair("ExpiryHeight", expiryHeight));
+
                 result.push_back(item);
                 LOGSTREAM(ccassets_log, CCLOG_DEBUG1, stream << funcname << " added order funcId=" << (char)(funcid ? funcid : ' ') << " it->first.index=" << it->first.index << " ordertx.vout[it->first.index].nValue=" << ordertx.vout[it->first.index].nValue << " tokenid=" << assetid.GetHex() << std::endl);
             }
         }
 	};
-
-    
 
     if (!pk.IsValid())
     {
@@ -173,7 +175,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
         // use marker on my pk:
         std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentsMyAddr;
         char assetsMyAddr[KOMODO_ADDRESS_BUFSIZE];
-        GetCCaddress(cpAssets, assetsMyAddr, pk, A::IsMixed());
+        GetCCaddress1of2(cpAssets, assetsMyAddr, pk, GetUnspendable(cpAssets, NULL), A::IsMixed());
         SetCCunspents(unspentsMyAddr, assetsMyAddr, true);
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itOrders = unspentsMyAddr.begin();
             itOrders != unspentsMyAddr.end();
@@ -185,7 +187,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t evalcodeAdd)
 
 // rpc tokenbid implementation, locks 'bidamount' coins for the 'pricetotal' of tokens
 template<class T, class A>
-UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, uint256 assetid, int64_t numtokens)
+UniValue CreateBuyOffer(const CPubKey &mypk, CAmount txfee, CAmount bidamount, uint256 assetid, CAmount numtokens, int32_t expiryHeight)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	struct CCcontract_info *cpAssets, C; 
@@ -193,7 +195,7 @@ UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, u
 	CTransaction vintx; 
 	std::vector<uint8_t> origpubkey; 
 	std::string name,description;
-	int64_t inputs;
+	CAmount inputs;
     std::vector <vscript_t> oprets;
 
     if (bidamount <= 0 || numtokens <= 0)    {
@@ -230,11 +232,11 @@ UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, u
         }
 		CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, 0);
         mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), bidamount, unspendableAssetsPubkey));
-        mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, mypk));  // marker for my orders
+        mtx.vout.push_back(T::MakeCC1of2vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, mypk, unspendableAssetsPubkey));  // 1of2 marker for my orders
 
         UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee, 
 			T::EncodeTokenOpRet(assetid, {},     // TODO: actually this tx is not 'tokens', maybe it is better not to have token opret here but only asset opret.
-				{ A::EncodeAssetOpRet('b', zeroid, unit_price, vuint8_t(mypk.begin(), mypk.end())) } ));   // But still such token opret should not make problems because no token eval in these vouts
+				{ A::EncodeAssetOpRet('b', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) } ));   // But still such token opret should not make problems because no token eval in these vouts
         if (!ResultHasTx(sigData))
             return MakeResultError("Could not finalize tx");
         return sigData;
@@ -246,10 +248,9 @@ UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, u
 
 // rpc tokenask implementation, locks 'numtokens' tokens for the 'askamount' 
 template<class T, class A>
-UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint256 assetid, int64_t askamount)
+UniValue CreateSell(const CPubKey &mypk, CAmount txfee, CAmount numtokens, uint256 assetid, CAmount askamount, int32_t expiryHeight)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-	uint64_t mask = 0LL; 
 	struct CCcontract_info *cpAssets, assetsC;
 	struct CCcontract_info *cpTokens, tokensC;
 
@@ -285,7 +286,7 @@ UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint2
 
 			CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, NULL);
             mtx.vout.push_back(T::MakeTokensCC1vout(A::EvalCode(), evalcodeAdd, numtokens, unspendableAssetsPubkey));
-            mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, mypk));  //marker (seems, it is not for my tokenorders, not used yet)
+            mtx.vout.push_back(T::MakeCC1of2vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, mypk, unspendableAssetsPubkey));  // 1of2 marker (it is for my tokenorders)
             CAmount CCchange = inputs - numtokens;
             if (CCchange != 0LL) {
                 // change to single-eval or non-fungible token vout (although for non-fungible token change currently is not possible)
@@ -298,7 +299,7 @@ UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint2
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpTokens, mtx, mypk, txfee, 
                 T::EncodeTokenOpRet(assetid, { unspendableAssetsPubkey }, 
-                    { A::EncodeAssetOpRet('s', zeroid, unit_price, vuint8_t(mypk.begin(), mypk.end()) ) } ));
+                    { A::EncodeAssetOpRet('s', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) } ));
             if (!ResultHasTx(sigData))
                 return MakeResultError("Could not finalize tx");
             return sigData;
@@ -314,6 +315,7 @@ UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint2
 }
 
 ////////////////////////// NOT IMPLEMENTED YET/////////////////////////////////
+/*
 template<class T, class A>
 std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 assetid2,int64_t pricetotal)
 {
@@ -340,7 +342,7 @@ std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 a
     if (AddNormalinputs(mtx, mypk, txfee, 0x10000) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
-        /*if ((inputs = AddAssetInputs(cp, mtx, mypk, assetid, askamount, 60)) > 0)
+        if ((inputs = AddAssetInputs(cp, mtx, mypk, assetid, askamount, 60)) > 0)
         {
 			////////////////////////// NOT IMPLEMENTED YET/////////////////////////////////
 			if (inputs < askamount) {
@@ -374,18 +376,19 @@ std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 a
         } 
 		else {
 			fprintf(stderr, "need some assets to place ask\n");
-		} */
+		} 
     }
 	else { // dimxy added 'else', because it was misleading message before
 		fprintf(stderr,"need some native coins to place ask\n");
 	}
     
     return("");
-}  ////////////////////////// NOT IMPLEMENTED YET/////////////////////////////////
+} */  
+////////////////////////// NOT IMPLEMENTED YET/////////////////////////////////
 
 // unlocks coins, ends bid order
 template<class T, class A>
-UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 bidtxid)
+UniValue CancelBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint256 bidtxid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CTransaction vintx;
@@ -398,17 +401,23 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
         txfee = 10000;
 
     // add normal inputs only from my mypk (not from any pk in the wallet) to validate the ownership of the canceller
-    if (AddNormalinputsRemote(mtx, mypk, txfee /*+ ASSETS_MARKER_AMOUNT*/, 0x10000) > 0)
+    if (txfee <= ASSETS_MARKER_AMOUNT || AddNormalinputsRemote(mtx, mypk, txfee /*+ ASSETS_MARKER_AMOUNT*/, 0x10000) > 0)
     {
         uint256 spendingtxid;
         int32_t spendingvin, h;
 
-        uint64_t mask = 0LL;
         LOCK(cs_main);
         if ((CCgetspenttxid(spendingtxid, spendingvin, h, bidtxid, ASSETS_GLOBALADDR_VOUT) != 0 || !IsTxidInActiveChain(spendingtxid)) && 
             myGetTransaction(bidtxid, vintx, hashBlock) && vintx.vout.size() > ASSETS_GLOBALADDR_VOUT)
         {
-            uint8_t dummyEvalCode; uint256 dummyAssetid, dummyAssetid2; CAmount dummyPrice; std::vector<uint8_t> dummyOrigpubkey;
+            uint8_t dummyEvalCode; uint256 dummyAssetid; 
+            CAmount dummyPrice; 
+            vscript_t origpubkey;
+            int32_t expiryHeight;
+            uint8_t unspendableAssetsPrivkey[32];
+            CPubKey unspendableAssetsPk;
+
+            unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 
             CAmount bidamount = vintx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
             if (bidamount == 0) {
@@ -417,7 +426,7 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
             }
             mtx.vin.push_back(CTxIn(bidtxid, ASSETS_GLOBALADDR_VOUT, CScript()));		// coins in Assets
 
-            uint8_t funcid = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey);
+            uint8_t funcid = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyPrice, origpubkey, expiryHeight);
             if (funcid == 'b' && vintx.vout.size() > 1)
                 mtx.vin.push_back(CTxIn(bidtxid, 1, CScript()));		// spend marker if funcid='b'
             else if (funcid == 'B' && vintx.vout.size() > 3)
@@ -431,15 +440,22 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
                 mtx.vout.push_back(CTxOut(bidamount, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
             else {
                 // send dust back to global addr
-                mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), bidamount, GetUnspendable(cpAssets, NULL)));
+                mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), bidamount, unspendableAssetsPk));
                 std::cerr << __func__ << " dust detected bidamount=" << bidamount << std::endl;
             }
 
-            // mtx.vout.push_back(CTxOut(ASSETS_MARKER_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));  // we dont need a marker for cancelled orders
+            // probe to spend marker:
+            if (mypk == pubkey2pk(origpubkey)) {
+                CCwrapper wrCond(::MakeCCcond1of2(A::EvalCode(), pubkey2pk(origpubkey), unspendableAssetsPk)); 
+                CCAddVintxCond(cpAssets, wrCond, nullptr);  // spend with mypk
+            } else {
+                CCwrapper wrCond(::MakeCCcond1of2(A::EvalCode(), pubkey2pk(origpubkey), unspendableAssetsPk)); 
+                CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);  // spend with shared pk                
+            }
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
                 T::EncodeTokenOpRet(assetid, {},
-                    { A::EncodeAssetOpRet('o', zeroid, 0, vuint8_t(mypk.begin(), mypk.end())) }));
+                    { A::EncodeAssetOpRet('o', 0, vuint8_t(), 0) }));
             if (!ResultHasTx(sigData))
                 return MakeResultError("Could not finalize tx");
             return sigData;
@@ -454,11 +470,11 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
 
 //unlocks tokens, ends ask order
 template<class T, class A>
-UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 asktxid)
+UniValue CancelSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint256 asktxid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CTransaction vintx; uint64_t mask; 
-	uint256 hashBlock; 	int64_t askamount; 
+    CTransaction vintx; 
+	uint256 hashBlock; 	CAmount askamount; 
     struct CCcontract_info *cpTokens, *cpAssets, tokensC, assetsC;
 
     cpAssets = CCinit(&assetsC, A::EvalCode());
@@ -467,19 +483,19 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256
         txfee = 10000;
 
     // add normal inputs only from my mypk (not from any pk in the wallet) to validate the ownership
-    if (AddNormalinputsRemote(mtx, mypk, txfee /* + ASSETS_MARKER_AMOUNT*/, 0x10000) > 0)
+    if (txfee <= ASSETS_MARKER_AMOUNT || AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
     {
         uint256 spendingtxid;
         int32_t spendingvin, h;
 
-        mask = ~((1LL << mtx.vin.size()) - 1);
         LOCK(cs_main);
         if ((CCgetspenttxid(spendingtxid, spendingvin, h, asktxid, ASSETS_GLOBALADDR_VOUT) != 0 || !IsTxidInActiveChain(spendingtxid)) && myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > 0)
         {
             uint8_t dummyEvalCode; 
-            uint256 dummyAssetid, dummyAssetid2; 
-            int64_t dummyPrice; 
-            std::vector<uint8_t> dummyOrigpubkey;
+            uint256 dummyAssetid; 
+            CAmount dummyPrice; 
+            vscript_t origpubkey;
+            int32_t expiryHeight;
 
             askamount = vintx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
             if (askamount == 0) {
@@ -488,7 +504,7 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256
             }
             mtx.vin.push_back(CTxIn(asktxid, ASSETS_GLOBALADDR_VOUT, CScript()));
             
-            uint8_t funcid = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey);
+            uint8_t funcid = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, dummyEvalCode, dummyAssetid, dummyPrice, origpubkey, expiryHeight);
             if (funcid == 's' && vintx.vout.size() > 1)
                 mtx.vin.push_back(CTxIn(asktxid, 1, CScript()));		// spend marker if funcid='s'
             else if (funcid == 'S' && vintx.vout.size() > 3)
@@ -512,12 +528,21 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256
             CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 
             // add additional eval-tokens unspendable assets privkey:
-            CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), cpAssets->evalcodeAdd, unspendableAssetsPk));
+            CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), cpAssets->evalcodeAdd, unspendableAssetsPk)); // probe to spend ask remainder
             CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
+
+            // probe to spend marker
+            if (mypk == pubkey2pk(origpubkey)) {
+                CCwrapper wrCond(::MakeCCcond1of2(A::EvalCode(), pubkey2pk(origpubkey), unspendableAssetsPk)); 
+                CCAddVintxCond(cpAssets, wrCond, nullptr);  // spend with mypk
+            } else {
+                CCwrapper wrCond(::MakeCCcond1of2(A::EvalCode(), pubkey2pk(origpubkey), unspendableAssetsPk)); 
+                CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);  // spend with shared pk                
+            }
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
                 T::EncodeTokenOpRet(assetid, { mypk },
-                    { A::EncodeAssetOpRet('x', zeroid, 0, vuint8_t(mypk.begin(), mypk.end())) } ));
+                    { A::EncodeAssetOpRet('x', 0, vuint8_t(), 0) } ));
             if (!ResultHasTx(sigData))
                 return MakeResultError("Could not finalize tx");
             return sigData;
@@ -532,14 +557,13 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256
 
 //send tokens, receive coins:
 template<class T, class A>
-UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 bidtxid, int64_t fill_units, CAmount paid_unit_price)
+UniValue FillBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint256 bidtxid, CAmount fill_units, CAmount paid_unit_price)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CTransaction vintx; 
 	uint256 hashBlock; 
 	std::vector<uint8_t> origpubkey; 
 	const int32_t bidvout = ASSETS_GLOBALADDR_VOUT; 
-	uint64_t mask = 0LL; 
 	CAmount orig_units, unit_price, bid_amount, paid_amount, remaining_units, inputs;
 	struct CCcontract_info *cpTokens, tokensC;
 	struct CCcontract_info *cpAssets, assetsC;
@@ -575,9 +599,10 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
         if ((CCgetspenttxid(spendingtxid, spendingvin, h, bidtxid, bidvout) != 0 || !IsTxidInActiveChain(spendingtxid)) && myGetTransaction(bidtxid, vintx, hashBlock) != 0 && vintx.vout.size() > bidvout)
         {
             uint256 assetidOpret;
+            int32_t expiryHeight;
 
             bid_amount = vintx.vout[bidvout].nValue;
-            uint8_t funcid = GetOrderParams<A>(origpubkey, unit_price, assetidOpret, vintx);  // get orig pk, orig units
+            uint8_t funcid = GetOrderParams<A>(origpubkey, unit_price, assetidOpret, expiryHeight, vintx);  // get orig pk, orig units
             if (funcid != 'b' && funcid != 'B')  {
                 CCerror = "not an bid order";
                 return "";
@@ -626,7 +651,7 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                 }
                 mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : T::EvalCode(), fill_units, pubkey2pk(origpubkey)));	  // vout2(3) single-eval tokens sent to the originator
                 if (orig_units - fill_units > 0)  // order is not finished yet
-                    mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));                    // vout3(4 if royalty) marker to origpubkey
+                    mtx.vout.push_back(T::MakeCC1of2vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey, unspendableAssetsPk));                    // vout3(4 if royalty) marker to origpubkey
 
                 if (tokensChange != 0LL)
                     mtx.vout.push_back(T::MakeTokensCC1vout(evalcodeAdd ? evalcodeAdd : T::EvalCode(), tokensChange, mypk));  // change in single-eval tokens
@@ -637,9 +662,13 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
                 CCwrapper wrCond2(T::MakeTokensCCcond1(evalcodeAdd, mypk));  // spend my tokens to fill buy
                 CCAddVintxCond(cpTokens, wrCond2, NULL); //NULL indicates to use myprivkey
 
+                // probe to spend marker
+                CCwrapper wrCond3(::MakeCCcond1of2(A::EvalCode(), pubkey2pk(origpubkey), unspendableAssetsPk)); 
+                CCAddVintxCond(cpAssets, wrCond3, nullptr);  // spend with mypk
+
                 UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpTokens, mtx, mypk, txfee,
                     T::EncodeTokenOpRet(assetid, { pubkey2pk(origpubkey) },
-                        { A::EncodeAssetOpRet('B', zeroid, unit_price, origpubkey) }));
+                        { A::EncodeAssetOpRet('B', unit_price, origpubkey, expiryHeight) }));
                 if (!ResultHasTx(sigData))
                     return MakeResultError("Could not finalize tx");
                 return sigData;
@@ -660,13 +689,12 @@ UniValue FillBuyOffer(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint2
 
 // send coins, receive tokens 
 template<class T, class A>
-UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 assetid2, uint256 asktxid, int64_t fillunits, CAmount paid_unit_price)
+UniValue FillSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint256 asktxid, CAmount fillunits, CAmount paid_unit_price)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CTransaction vintx; 
 	uint256 hashBlock; 
 	std::vector<uint8_t> origpubkey; 
-	uint64_t mask = 0; 
 	const int32_t askvout = ASSETS_GLOBALADDR_VOUT; 
 	CAmount unit_price, orig_assetoshis, paid_nValue; 
 	struct CCcontract_info *cpAssets, assetsC;
@@ -674,11 +702,6 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
     if (fillunits < 0)
     {
         CCerror = strprintf("negative fillunits %lld\n",(long long)fillunits);
-        return("");
-    }
-    if (assetid2 != zeroid)
-    {
-        CCerror = "asset swaps disabled";
         return("");
     }
 
@@ -706,8 +729,9 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
     if ((CCgetspenttxid(spendingtxid, spendingvin, h, asktxid, askvout) != 0 || !IsTxidInActiveChain(spendingtxid)) && myGetTransaction(asktxid, vintx, hashBlock) && vintx.vout.size() > askvout)
     {
         uint256 assetidOpret;
+        int32_t expiryHeight;
         orig_assetoshis = vintx.vout[askvout].nValue;
-        uint8_t funcid = GetOrderParams<A>(origpubkey, unit_price, assetidOpret, vintx); // get orig pk, orig value
+        uint8_t funcid = GetOrderParams<A>(origpubkey, unit_price, assetidOpret, expiryHeight, vintx); // get orig pk, orig value
         if (funcid != 's' && funcid != 'S')  {
             CCerror = "not an ask order";
             return "";
@@ -731,12 +755,6 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
         // more accurate check matching to AssetValidate's check
         if (royaltyFract > 0 && paid_nValue - royaltyValue <= ASSETS_NORMAL_DUST / royaltyFract * TKLROYALTY_DIVISOR - ASSETS_NORMAL_DUST)  // if value paid to seller less than when the royalty is minimum
             royaltyValue = 0LL;
-
-        if (assetid2 != zeroid) {
-            // inputs = AddAssetInputs(cpAssets, mtx, mypk, assetid2, paid_nValue, 60);  // not implemented yet
-            CCerror = "swaps not implemented";
-            return "";            
-        }
 
         // Use only one AddNormalinputs() in each rpc call to allow payment if user has only single utxo with normal funds
         CAmount inputs = AddNormalinputs(mtx, mypk, txfee + ASSETS_MARKER_AMOUNT + paid_nValue, 0x10000, IsRemoteRPCCall());  
@@ -772,20 +790,22 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
             }
         
             if (orig_assetoshis - fillunits > 0) // we dont need the marker if order is filled
-                mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey));    //vout.3(4 if royalty) marker to origpubkey (for my tokenorders?)
+                mtx.vout.push_back(T::MakeCC1of2vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, origpubkey, GetUnspendable(cpAssets, NULL)));    //vout.3(4 if royalty) marker to origpubkey (for my tokenorders?)
 
 			// init assets 'unspendable' privkey and pubkey
 			uint8_t unspendableAssetsPrivkey[32];
 			CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 
-            CCwrapper wrCond(T::MakeTokensCCcond1(A::EvalCode(), evalcodeAdd, unspendableAssetsPk));
-            CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
+            CCwrapper wrCond1(T::MakeTokensCCcond1(A::EvalCode(), evalcodeAdd, unspendableAssetsPk));
+            CCAddVintxCond(cpAssets, wrCond1, unspendableAssetsPrivkey);
 
-            //cpAssets->evalcodeAdd = evalcodeAdd;  // set token eval for signing
+            // probe to spend marker
+            CCwrapper wrCond2(::MakeCCcond1of2(A::EvalCode(), pubkey2pk(origpubkey), unspendableAssetsPk)); 
+            CCAddVintxCond(cpAssets, wrCond2, nullptr);  // spend with mypk
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
 				T::EncodeTokenOpRet(assetid, { mypk }, 
-                    { A::EncodeAssetOpRet('S', assetid2, unit_price, origpubkey) } ));
+                    { A::EncodeAssetOpRet('S', unit_price, origpubkey, expiryHeight) } ));
             if (!ResultHasTx(sigData))
                 return MakeResultError("Could not finalize tx");
             return sigData;
@@ -795,7 +815,7 @@ UniValue FillSell(const CPubKey &mypk, int64_t txfee, uint256 assetid, uint256 a
         }
     }
     CCerror = "can't get ask tx";
-    return("");
+    return "";
 }
 
 #endif // #ifndef CC_ASSETS_TX_IMPL_H

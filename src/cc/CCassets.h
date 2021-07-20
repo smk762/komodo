@@ -36,17 +36,17 @@ bool AssetsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 bool Assetsv2Validate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
 // CCassetsCore
-vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, uint256 assetid2, int64_t unit_price, std::vector<uint8_t> origpubkey);
-uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey);
-vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, uint256 assetid2, int64_t unit_price, std::vector<uint8_t> origpubkey);
-uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey);
+vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, CAmount unit_price, vscript_t origpubkey, int32_t expiryHeight);
+uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, CAmount &unit_price, vscript_t &origpubkey, int32_t &expiryHeight);
+vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, CAmount unit_price, vscript_t origpubkey, int32_t expiryHeight);
+uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, CAmount &unit_price, vscript_t &origpubkey, int32_t &expiryHeight);
 
-bool ValidateBidRemainder(CAmount unit_price, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units);
-bool ValidateAskRemainder(CAmount unit_price, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue);
-bool ValidateSwapRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paidprice, int64_t totalprice);
-bool SetBidFillamounts(CAmount unit_price, int64_t &received_nValue, int64_t orig_nValue, int64_t &paid_units, int64_t orig_units, CAmount paid_unit_price);
-bool SetAskFillamounts(CAmount unit_price, int64_t fill_assetoshis, int64_t orig_assetoshis, int64_t paid_nValue);
-bool SetSwapFillamounts(CAmount unit_price, int64_t &paid, int64_t orig_nValue, int64_t &received, int64_t totalprice); // not implemented
+bool ValidateBidRemainder(CAmount unit_price, CAmount remaining_nValue, CAmount orig_nValue, CAmount received_nValue, CAmount paid_units);
+bool ValidateAskRemainder(CAmount unit_price, CAmount remaining_assetoshis, CAmount orig_assetoshis, CAmount received_assetoshis, CAmount paid_nValue);
+bool ValidateSwapRemainder(CAmount remaining_units, CAmount remaining_nValue, CAmount orig_nValue, CAmount received_nValue, CAmount paidprice, CAmount totalprice);
+bool SetBidFillamounts(CAmount unit_price, CAmount &received_nValue, CAmount orig_nValue, CAmount &paid_units, CAmount orig_units, CAmount paid_unit_price);
+bool SetAskFillamounts(CAmount unit_price, CAmount fill_assetoshis, CAmount orig_assetoshis, CAmount paid_nValue);
+bool SetSwapFillamounts(CAmount unit_price, CAmount &paid, CAmount orig_nValue, CAmount &received, CAmount totalprice); // not implemented
 CAmount AssetsGetCCInputs(Eval *eval, struct CCcontract_info *cp, const char *addr, const CTransaction &tx);
 
 const char ccassets_log[] = "ccassets";
@@ -58,17 +58,17 @@ public:
     static uint8_t TokensEvalCode() { return EVAL_TOKENS; }
     static bool IsMixed() { return false; }
 
-    static vscript_t EncodeAssetOpRet(uint8_t assetFuncId, uint256 assetid2, int64_t unit_price, std::vector<uint8_t> origpubkey)
+    static vscript_t EncodeAssetOpRet(uint8_t assetFuncId, CAmount unit_price, vscript_t origpubkey, int32_t expiryHeight)
     {
-        return ::EncodeAssetOpRetV1(assetFuncId, assetid2, unit_price, origpubkey);
+        return ::EncodeAssetOpRetV1(assetFuncId, unit_price, origpubkey, expiryHeight);
     }
 
-    static uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey)
+    static uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, CAmount &unit_price, vscript_t &origpubkey, int32_t &expiryHeight)
     {
-        return ::DecodeAssetTokenOpRetV1(scriptPubKey, assetsEvalCode, tokenid, assetid2, unit_price, origpubkey);
+        return ::DecodeAssetTokenOpRetV1(scriptPubKey, assetsEvalCode, tokenid, unit_price, origpubkey, expiryHeight);
     }
 
-    static bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue, uint8_t evalCode)
+    static bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, CAmount nValue, uint8_t evalCode)
     {
         return ::ConstrainVout(vout, CCflag, cmpaddr, nValue);
     }
@@ -82,17 +82,17 @@ public:
 
     static bool IsMixed() { return true; }
 
-    static vscript_t EncodeAssetOpRet(uint8_t assetFuncId, uint256 assetid2, int64_t unit_price, std::vector<uint8_t> origpubkey)
+    static vscript_t EncodeAssetOpRet(uint8_t assetFuncId, CAmount unit_price, vscript_t origpubkey, int32_t expiryHeight)
     {
-        return ::EncodeAssetOpRetV2(assetFuncId, assetid2, unit_price, origpubkey);
+        return ::EncodeAssetOpRetV2(assetFuncId, unit_price, origpubkey, expiryHeight);
     }
 
-    static uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey)
+    static uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, CAmount &unit_price, vscript_t &origpubkey, int32_t &expiryHeight)
     {
-        return ::DecodeAssetTokenOpRetV2(scriptPubKey, assetsEvalCode, tokenid, assetid2, unit_price, origpubkey);
+        return ::DecodeAssetTokenOpRetV2(scriptPubKey, assetsEvalCode, tokenid, unit_price, origpubkey, expiryHeight);
     }
 
-    static bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue, uint8_t evalCode)
+    static bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, CAmount nValue, uint8_t evalCode)
     {
         return ::ConstrainVoutV2(vout, CCflag, cmpaddr, nValue, evalCode);
     }
