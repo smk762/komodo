@@ -580,7 +580,7 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
             // call extra data validators
             for (auto const &vd : vdatas)
                 if (vd.size() > 0 && vd[0] != 0)
-                    if (!SubcallCCValidate(eval, vd[0], tx, 0)) 
+                    if (!SubcallCCValidate(eval, vd[0], tx, 0))
                         return -1;
 
             // set returned tokend to tokenbase txid:
@@ -681,7 +681,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
     if (!TokensExactAmounts<TokensV1>(true, cp, eval, tx, errorStr)) 
     {
         LOGSTREAMFN(cctokens_log, CCLOG_ERROR, stream << "validation error: " << errorStr << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
-		if (eval->state.IsInvalid())
+		if (!eval->state.IsValid())
 			return false;  //TokenExactAmounts has already called eval->Invalid()
 		else
 			return eval->Invalid(errorStr); 
@@ -692,7 +692,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 static bool report_validation_error(const std::string &func, Eval* eval, const CTransaction &tx, const std::string &errorStr)
 {
     LOGSTREAM(cctokens_log, CCLOG_ERROR, stream << func << " validation error: " << errorStr << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
-    return eval->Invalid(errorStr);     
+    return !eval->state.IsValid() ? false/*error state already set*/ : eval->Invalid(errorStr) /* set error state and exit*/;     
 }
 
 // checking creation txns is available with cryptocondition v2 mixed mode
