@@ -858,23 +858,47 @@ UniValue TokenList()
     return CreateTokenLocal<TokensV2>(txfee, tokensupply, name, description, nonfungibleData);
 }*/
 
-UniValue TokenV2List(int32_t beginHeight, int32_t endHeight)
+UniValue TokenV2List(const UniValue &params)
 {
 	UniValue result(UniValue::VARR);
     const bool CC_OUTPUTS_TRUE = true;
+
+    int32_t beginHeight = 0;
+    int32_t endHeight = 0;
+    CPubKey checkPK;
+    std::string checkAddr;
+    if (params.exists("beginHeight"))
+        beginHeight = atoi(params["beginHeight"].getValStr().c_str());
+    if (params.exists("endHeight"))
+        endHeight = atoi(params["endHeight"].getValStr().c_str());
+    if (params.exists("pubkey"))
+        checkPK = pubkey2pk(ParseHex(params["pubkey"].getValStr().c_str()));
+    if (params.exists("address"))
+        checkAddr = params["address"].getValStr();
 
 	struct CCcontract_info *cp, C; 
 	cp = CCinit(&C, EVAL_TOKENSV2);
 
     auto addTokenId = [&](uint256 tokenid, const CScript &opreturn) {
-        std::vector<uint8_t> origpubkey;
+        vscript_t origpubkey;
 	    std::string name, description;
         std::vector<vscript_t>  oprets;
 
         if (IsTxidInActiveChain(tokenid))
         {
             if (DecodeTokenCreateOpRetV2(opreturn, origpubkey, name, description, oprets) != 0) {
-                result.push_back(tokenid.GetHex());
+                if (checkPK.IsValid()) { 
+                    if (checkPK == pubkey2pk(origpubkey))
+                        result.push_back(tokenid.GetHex());
+                }
+                else if (!checkAddr.empty())  {
+                    char origaddr[KOMODO_ADDRESS_BUFSIZE];
+                    Getscriptaddress(origaddr, TokensV2::MakeCC1vout(EVAL_TOKENSV2, 0LL, pubkey2pk(origpubkey)).scriptPubKey);
+                    if (checkAddr == origaddr)
+                        result.push_back(tokenid.GetHex());
+                }
+                else 
+                    result.push_back(tokenid.GetHex());
             }
             else {
                 LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "DecodeTokenCreateOpRetV2 failed for tokenid=" << tokenid.GetHex() << " opreturn.size=" << opreturn.size() << std::endl);
@@ -882,13 +906,13 @@ UniValue TokenV2List(int32_t beginHeight, int32_t endHeight)
         }
     };
 
-    if (beginHeight > 0)    {
+    if (beginHeight > 0 || endHeight > 0)    {
         if (endHeight <= 0)
             endHeight = chainActive.Height();
         std::vector<std::pair<CAddressIndexKey, CAmount>> addressIndexOutputs;
         SetAddressIndexOutputs(addressIndexOutputs, cp->unspendableCCaddr, CC_OUTPUTS_TRUE, beginHeight, endHeight);
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetAddressIndexOutputs addressIndexOutputs.size()=" << addressIndexOutputs.size() << std::endl);
-            for (const auto it : addressIndexOutputs) {
+            for (const auto &it : addressIndexOutputs) {
                 CTransaction creationtx;
                 uint256 hashBlock;
                 if (!it.first.spending &&
@@ -920,7 +944,7 @@ UniValue TokenV2List(int32_t beginHeight, int32_t endHeight)
 
             SetCCunspents(unspentOutputs, cp->unspendableCCaddr, CC_OUTPUTS_TRUE);
             LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetCCunspents unspentOutputs.size()=" << unspentOutputs.size() << std::endl);    
-            for (const auto it : unspentOutputs) {
+            for (const auto &it : unspentOutputs) {
                 CTransaction creationtx;
                 uint256 hashBlock;
                 if (myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)

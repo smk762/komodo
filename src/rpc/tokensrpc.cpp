@@ -105,19 +105,35 @@ UniValue tokenlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 UniValue tokenv2list(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     uint256 tokenid;
-    if (fHelp || params.size() > 2)
-        throw runtime_error("tokenv2list [begin-height] [end-height]\n");
+    const static std::set<std::string> acceptable = { "beginHeight", "endHeight", "pubkey", "address" };
+
+    if (fHelp || params.size() > 1)
+        throw runtime_error("tokenv2list [json-params]\n"
+                            "json-params optional params as a json object, limiting tokenv2list output:\n"
+                            "  { \"beginHeight\": number \"endHeight\": number, \"pubkey\": hexstring, \"address\": string }\n"
+                            "  \"beginHeight\", \"endHeight\" - height interval where to search tokenv2create transactions, if beginHeight omitted the first block used, if endHeight omitted the chain tip used"
+                            "  \"pubkey\" - search tokens created by a specific pubkey\n"
+                            "  \"address\" - search created on a specific cc address\n");
 
     if (ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    int32_t beginHeight = 0;
-    int32_t endHeight = 0;
-    if (params.size() > 0)
-        beginHeight = atoi(params[0].get_str().c_str());
-    if (params.size() > 1)
-        endHeight = atoi(params[1].get_str().c_str());
-    return TokenV2List(beginHeight, endHeight);
+    UniValue jsonParams;
+    if (params.size() == 1)
+    {
+        if (params[0].getType() == UniValue::VOBJ)
+            jsonParams = params[0].get_array();
+        else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+            jsonParams.read(params[0].get_str().c_str());
+        if (jsonParams.getType() != UniValue::VOBJ)
+            throw runtime_error("parameter 1 must be a json object");   
+
+        // check unused params:
+        for (int i = 0; i < jsonParams.getKeys().size(); i ++)
+            if (acceptable.count(jsonParams.getKeys()[i]) == 0)
+                throw runtime_error(std::string("invalid json param") + jsonParams.getKeys()[i]);   
+    }
+    return TokenV2List(jsonParams);
 }
 
 template <class V>
@@ -170,7 +186,7 @@ UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp
 
     if ( fHelp || params.size() > 1 )
         throw runtime_error(name + " [tokenid|'*']\n"
-                            "returns token orders for the tokenid or all available token orders if tokenid is not set\n"
+                            "returns tokens orders for the tokenid or all available token orders if tokenid is not set\n"
                             "\n");
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
