@@ -363,10 +363,6 @@ UniValue migrate_createburntransaction(const UniValue& params, bool fHelp, const
         if (vopretNonfungible.empty())
             throw runtime_error("No non-fungible token data\n"); */
 
-        uint8_t destEvalCode = EVAL_TOKENS;
-        if (!vopretNonfungible.empty())
-            destEvalCode = vopretNonfungible.begin()[0];
-
         // check non-fungible tokens amount
         if (!vopretNonfungible.empty() && burnAmount != 1)
             throw JSONRPCError(RPC_TYPE_ERROR, "For non-fungible tokens amount should be equal to 1.");
@@ -386,7 +382,7 @@ UniValue migrate_createburntransaction(const UniValue& params, bool fHelp, const
 
         // make payouts  (which will be in the import tx with token):
         mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, txfee, GetUnspendable(cpTokens, NULL)));  // new marker to token cc addr, burnable and validated, vout position now changed to 0 (from 1)
-        mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, burnAmount, destPubKey));
+        mtx.vout.push_back(MakeTokensCC1vout(EVAL_TOKENS, burnAmount, destPubKey));
 
         std::vector<vscript_t> opretsnft;
         if (!vopretNonfungible.empty())
@@ -401,7 +397,7 @@ UniValue migrate_createburntransaction(const UniValue& params, bool fHelp, const
         mtx.vout.clear();  // remove payouts
 
         // now make burn transaction:
-        mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, burnAmount, pubkey2pk(ParseHex(CC_BURNPUBKEY))));    // burn tokens
+        mtx.vout.push_back(MakeTokensCC1vout(EVAL_TOKENS, burnAmount, pubkey2pk(ParseHex(CC_BURNPUBKEY))));    // burn tokens
                                                                                                                 
         int64_t change = inputs - txfee;
         if (change != 0)
@@ -412,7 +408,7 @@ UniValue migrate_createburntransaction(const UniValue& params, bool fHelp, const
 
         int64_t ccChange = ccInputs - burnAmount;
         if (ccChange != 0)
-            mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, ccChange, myPubKey));
+            mtx.vout.push_back(MakeTokensCC1vout(EVAL_TOKENS, ccChange, myPubKey));
 
         GetOpReturnData(burnOut.scriptPubKey, vopretBurnData);
         mtx.vout.push_back(CTxOut(txfee, EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { vopretBurnData })));  //burn txfee for miners in dest chain
@@ -1413,16 +1409,10 @@ UniValue getwalletburntransactions(const UniValue& params, bool fHelp, const CPu
                             if (tokenbasetx.vout.size() > 0 &&
                                 DecodeTokenCreateOpRetV1(tokenbasetx.vout.back().scriptPubKey, vorigpubkey, name, description, oprets) == 'c')
                             {
-                                uint8_t destEvalCode = EVAL_TOKENS; // init set to fungible token:
-                                vscript_t vopretNonfungible;
-                                GetOpReturnCCBlob(oprets, vopretNonfungible);
-                                if (!vopretNonfungible.empty())
-                                    destEvalCode = vopretNonfungible.begin()[0];
-
                                 int64_t burnAmount = 0;
                                 for (auto v : pwtx->vout)
                                     if (v.scriptPubKey.IsPayToCryptoCondition() &&
-                                        CTxOut(v.nValue, v.scriptPubKey) == MakeTokensCC1vout(destEvalCode ? destEvalCode : EVAL_TOKENS, v.nValue, pubkey2pk(ParseHex(CC_BURNPUBKEY))))  // burned to dead pubkey
+                                        CTxOut(v.nValue, v.scriptPubKey) == MakeTokensCC1vout(EVAL_TOKENS, v.nValue, pubkey2pk(ParseHex(CC_BURNPUBKEY))))  // burned to dead pubkey
                                         burnAmount += v.nValue;
 
                                 entry.push_back(Pair("burnedAmount", ValueFromAmount(burnAmount)));

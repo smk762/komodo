@@ -45,7 +45,7 @@ bool Tokensv2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
 /// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
 //CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
-/// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set evalcodeAdd variable in the cp object to the eval code from tokencreate tx NFT data to spend NFT outputs properly
+/// Adds token inputs to transaction object.
 /// @param cp CCcontract_info structure
 /// @param mtx mutable transaction object
 /// @param tokenaddr address where token inputs to add
@@ -55,7 +55,7 @@ bool Tokensv2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
 /// @see AddTokenCCInputs
 //CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
-/// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set evalcodeAdd variable in the cp object to the eval code from tokencreate tx NFT data to spend NFT outputs properly
+/// Adds token inputs to transaction object.
 /// @param cp CCcontract_info structure
 /// @param mtx mutable transaction object
 /// @param pk pubkey from which the token cc address will be created and token inputs are added
@@ -279,8 +279,6 @@ inline bool IsTokenCreateFuncid(uint8_t funcid) { return funcid == 'c'; }
 inline bool IsTokenTransferFuncid(uint8_t funcid) { return funcid == 't'; }
 
 bool IsEqualDestinations(const CScript &spk1, const CScript &spk2);
-
-bool TokensIsVer1Active(const Eval *eval);
 
 const char cctokens_log[] = "cctokens";
 

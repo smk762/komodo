@@ -25,8 +25,6 @@
 
 #include "CCinclude.h"
 
-#include "old/CCassets_v0.h"
-
 #define ASSETS_GLOBALADDR_VIN  1
 #define ASSETS_GLOBALADDR_VOUT 0
 #define ASSETS_MARKER_AMOUNT 10000

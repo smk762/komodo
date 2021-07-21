@@ -166,13 +166,12 @@ template <class T, class A>
 UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     uint256 tokenid;
-    uint8_t evalcodeAdd = 0;
     const CPubKey emptypk;
 
-    if ( fHelp || params.size() > 2 )
-        throw runtime_error(name + " [tokenid|'*'] [evalcode]\n"
+    if ( fHelp || params.size() > 1 )
+        throw runtime_error(name + " [tokenid|'*']\n"
                             "returns token orders for the tokenid or all available token orders if tokenid is not set\n"
-                            "returns also NFT ask orders if NFT evalcode is set\n" "\n");
+                            "\n");
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 	if (params.size() >= 1) 
@@ -184,13 +183,7 @@ UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp
 			    throw runtime_error("incorrect tokenid\n");
         }
     }
-    if (params.size() == 2)
-        evalcodeAdd = strtol(params[1].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
-
-    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
-        return AssetOrders<T, A>(tokenid, emptypk, evalcodeAdd);
-    else
-        return tokensv0::AssetOrders(tokenid, emptypk, evalcodeAdd);
+    return AssetOrders<T, A>(tokenid, emptypk);
 }
 
 UniValue tokenorders(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -213,16 +206,11 @@ UniValue mytokenorders(const std::string& name, const UniValue& params, bool fHe
                             /*"if evalcode is set then returns mypubkey's token orders for non-fungible tokens with this evalcode\n"*/ "\n");
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    //uint8_t evalcodeAdd = 0;
-    //if (params.size() == 1)
-    //    evalcodeAdd = strtol(params[0].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
-    
+
+
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
-        return AssetOrders<T, A>(zeroid, mypk, 0);
-    else
-        return tokensv0::AssetOrders(zeroid, Mypubkey(), 0);
+    return AssetOrders<T, A>(zeroid, mypk);
 }
 
 UniValue mytokenorders(const UniValue& params, bool fHelp, const CPubKey& remotepk)
@@ -387,7 +375,7 @@ UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& rem
 
         tokenData = ParseTokelJson(jsonParams);
         if (tokenData.empty())
-            return MakeResultError("Tokel token data incorrect");
+            throw runtime_error("Tokel token data incorrect");
     }
 
     return tokencreate<TokensV1>(params, tokenData, fHelp, remotepk);
@@ -595,20 +583,13 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     
     for (const auto &tokenid : tokenids)
     {
-        TokenDataTuple tokenData;
-        vuint8_t vtokenData;
-        GetTokenData<V>(NULL, tokenid, tokenData, vtokenData);
         CCwrapper probeCond;
-        if (vtokenData.size() > 0)
-            probeCond.reset( V::MakeTokensCCcond1(vtokenData[0], mypk) );
-        else
-            probeCond.reset( MakeCCcond1(V::EvalCode(), mypk) );
+        probeCond.reset( MakeCCcond1(V::EvalCode(), mypk) );
 
         uint8_t mypriv[32];
         Myprivkey(mypriv);
         
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-        cpTokens->evalcodeAdd = vtokenData.size() > 0 ? vtokenData[0] : 0;
         GetTokensCCaddress(cpTokens, tokenaddr, mypk, V::IsMixed());
 
         UniValue addtxResult = TokenAddTransferVout<V>(mtx, cpTokens, remotepk, tokenid, tokenaddr, { destpk }, {probeCond, mypriv}, amount, false);
@@ -711,15 +692,7 @@ UniValue tokenbid(const std::string& name, const UniValue& params, bool fHelp, c
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
-        result = CreateBuyOffer<T, A>(mypk, 0, bidamount, tokenid, numtokens, expiryHeight);
-    else  {
-        hex = tokensv0::CreateBuyOffer(0, bidamount, tokenid, numtokens);
-        if (!hex.empty())
-            result = MakeResultSuccess(hex);
-        else
-            result = MakeResultError("could not create bid");
-    }
+    result = CreateBuyOffer<T, A>(mypk, 0, bidamount, tokenid, numtokens, expiryHeight);
     RETURN_IF_ERROR(CCerror);
     return result;
 }
@@ -755,15 +728,7 @@ UniValue tokencancelbid(const std::string& name, const UniValue& params, bool fH
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))
-        result = CancelBuyOffer<T, A>(mypk, 0,tokenid,bidtxid);
-    else  {
-        hex = tokensv0::CancelBuyOffer(0,tokenid,bidtxid);
-        if (!hex.empty())
-            result = MakeResultSuccess(hex);
-        else
-            result = MakeResultError("could not cancel bid");
-    }
+    result = CancelBuyOffer<T, A>(mypk, 0,tokenid,bidtxid);
     RETURN_IF_ERROR(CCerror);
     return result;
 }
@@ -811,15 +776,7 @@ UniValue tokenfillbid(const std::string& name, const UniValue& params, bool fHel
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
 
-    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
-        result = FillBuyOffer<T, A>(mypk, 0, tokenid, bidtxid, fillamount, unit_price);
-    else      {
-        hex = tokensv0::FillBuyOffer(0, tokenid, bidtxid, fillamount);
-        if (!hex.empty())
-            result = MakeResultSuccess(hex);
-        else
-            result = MakeResultError("could not fill bid");
-    }
+    result = FillBuyOffer<T, A>(mypk, 0, tokenid, bidtxid, fillamount, unit_price);
     RETURN_IF_ERROR(CCerror);
     return result;
 }
@@ -873,16 +830,7 @@ UniValue tokenask(const std::string& name, const UniValue& params, bool fHelp, c
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-
-    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
-        result = CreateSell<T, A>(mypk, 0, numtokens, tokenid, askamount, expiryHeight);
-    else      {
-        hex = tokensv0::CreateSell(0, numtokens, tokenid, askamount);
-        if (!hex.empty())
-            result = MakeResultSuccess(hex);
-        else
-            result = MakeResultError("could not create ask");
-    }
+    result = CreateSell<T, A>(mypk, 0, numtokens, tokenid, askamount, expiryHeight);
     RETURN_IF_ERROR(CCerror);    
     return result;
 }
@@ -958,15 +906,7 @@ UniValue tokencancelask(const std::string& name, const UniValue& params, bool fH
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
-        result = CancelSell<T, A>(mypk, 0, tokenid, asktxid);
-    else    {
-        hex = tokensv0::CancelSell(0, tokenid, asktxid);
-        if (!hex.empty())
-            result = MakeResultSuccess(hex);
-        else
-            result = MakeResultError("could not cancel ask");
-    }
+    result = CancelSell<T, A>(mypk, 0, tokenid, asktxid);
     RETURN_IF_ERROR(CCerror);
     return(result);
 }
@@ -1010,15 +950,7 @@ UniValue tokenfillask(const std::string& name, const UniValue& params, bool fHel
 
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
-    if (A::EvalCode() == EVAL_ASSETSV2 || TokensIsVer1Active(NULL))	 
-        result = FillSell<T, A>(mypk, 0, tokenid, asktxid, fillunits, unit_price);
-    else    {
-        hex = tokensv0::FillSell(0, tokenid, zeroid, asktxid, fillunits);
-        if (!hex.empty())
-            result = MakeResultSuccess(hex);
-        else
-            result = MakeResultError("could not fill ask");
-    }
+    result = FillSell<T, A>(mypk, 0, tokenid, asktxid, fillunits, unit_price);
     RETURN_IF_ERROR(CCerror);
     return result;
 }

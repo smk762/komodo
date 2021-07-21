@@ -14,7 +14,6 @@
  ******************************************************************************/
 
 #include "CCtokens.h"
-#include "old/CCtokens_v0.h"
 ///#include "importcoin.h"
 
 /* TODO: correct this:
@@ -148,6 +147,13 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                 errorStr = "tokenbase tx cannot have cc vins";
                 return -1;
             }
+
+            // call extra data validators
+            for (auto const &vd : vdatas)
+                if (vd.size() > 0 && vd[0] != 0)
+                    if (!SubcallCCValidate(eval, vd[0], tx, 0)) 
+                        return -1;
+
             // set returned tokend to tokenbase txid:
             reftokenid = tx.GetHash();
         }
@@ -172,17 +178,6 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                 evalCode1 = vdatas[0].size() > 0 ? vdatas[0][0] : 0;
                 if (vdatas.size() >= 2)
                     evalCode2 = vdatas[1].size() > 0 ? vdatas[1][0] : 0;
-            }
-
-            // get optional nft eval code:
-            TokenDataTuple tokenData;
-            vscript_t vopretNonfungible;
-            GetTokenData<TokensV1>(eval, reftokenid, tokenData, vopretNonfungible);
-
-            if (vopretNonfungible.size() > 0)   {
-                // shift evalcodes so the first is NFT evalcode 
-                evalCode2 = evalCode1;
-                evalCode1 = vopretNonfungible[0];
             }
 
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << funcname << "()" << " for txid=" << tx.GetHash().GetHex() << " checking evalCode1=" << (int)evalCode1 << " evalCode2=" << (int)evalCode2 << " voutPubkeysInOpret.size()=" << voutPubkeysInOpret.size() <<  std::endl);
@@ -308,13 +303,11 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
 
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << funcname << "()" << " function ValidateTokenOpret returned not-null funcId=" << (char)(funcId ? funcId : ' ') << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl);
             
-            TokenDataTuple tokenData;
-            vscript_t vopretExtra, vopretNonfungible;
+            vscript_t vopretExtra;
 
             // MakeTokenCCVout functions support up to two evalcodes in vouts
             // We assume one of them could be a cc module working with tokens like assets, gateways or heir
             // another eval code could be for a cc module responsible to non-fungible token data
-            uint8_t evalCodeNonfungible = 0;
             uint8_t evalCode1 = EVAL_TOKENS;     // if both payloads are empty maybe it is a transfer to non-payload-one-eval-token vout like GatewaysClaim
             uint8_t evalCode2 = 0;               // will be checked if zero or not
 
@@ -333,18 +326,13 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                 vopretExtra = vdatas[0];
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << funcname << "()" << " vopretExtra=" << HexStr(vopretExtra) << std::endl);
 
-            // get non-fungible data
-            GetTokenData<TokensV1>(eval, reftokenid, tokenData, vopretNonfungible);
             std::vector<CPubKey> voutPubkeys;
             FilterOutTokensUnspendablePk(voutPubkeysInOpret, voutPubkeys);  // cannot send tokens to token unspendable cc addr (only marker is allowed there)
 
             // NOTE: evalcode order in vouts is important: 
             // non-fungible-eval -> EVAL_TOKENS -> assets-eval
-
-            if (vopretNonfungible.size() > 0)
-                evalCodeNonfungible = evalCode1 = vopretNonfungible.begin()[0];
             if (vopretExtra.size() > 0)
-                evalCode2 = vopretExtra.begin()[0];
+                evalCode2 = vopretExtra[0];
 
             if (evalCode1 == EVAL_TOKENS && evalCode2 != 0)  {
                 evalCode1 = evalCode2;   // for using MakeTokensCC1vout(evalcode,...) instead of MakeCC1vout(EVAL_TOKENS, evalcode...)
@@ -378,8 +366,7 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                     }
                 
                     // maybe this is like gatewayclaim to single-eval token?
-                    if( evalCodeNonfungible == 0 )  // do not allow to convert non-fungible to fungible token
-                        testVouts.push_back(std::make_pair(MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, voutPubkeys[0]), std::string("single-eval cc1 pk[0]")));
+                    testVouts.push_back(std::make_pair(MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, voutPubkeys[0]), std::string("single-eval cc1 pk[0]")));
 
                     // maybe this is like FillSell for non-fungible token?
                     if( evalCode1 != 0 )
@@ -389,8 +376,7 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
 
                     // the same for pk[1]:
                     if (voutPubkeys.size() == 2) {
-                        if (evalCodeNonfungible == 0)  // do not allow to convert non-fungible to fungible token
-                            testVouts.push_back(std::make_pair(MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, voutPubkeys[1]), std::string("single-eval cc1 pk[1]")));
+                        testVouts.push_back(std::make_pair(MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, voutPubkeys[1]), std::string("single-eval cc1 pk[1]")));
                         if (evalCode1 != 0)
                             testVouts.push_back(std::make_pair(MakeTokensCC1vout(evalCode1, tx.vout[v].nValue, voutPubkeys[1]), std::string("dual-eval-token cc1 pk[1]")));
                         if (evalCode2 != 0)
@@ -422,8 +408,7 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                 FilterOutTokensUnspendablePk(vinPubkeysUnfiltered, vinPubkeys);  // cannot send tokens to token unspendable cc addr (only marker is allowed there)
 
                 for(std::vector<CPubKey>::iterator it = vinPubkeys.begin(); it != vinPubkeys.end(); it++) {
-                    if (evalCodeNonfungible == 0)  // do not allow to convert non-fungible to fungible token
-                        testVouts.push_back(std::make_pair(MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, *it), std::string("single-eval cc1 self vin pk")));
+                    testVouts.push_back(std::make_pair(MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, *it), std::string("single-eval cc1 self vin pk")));
                     testVouts.push_back(std::make_pair(MakeTokensCC1vout(evalCode1, evalCode2, tx.vout[v].nValue, *it), std::string("three-eval cc1 self vin pk")));
 
                     if (evalCode2 != 0) 
@@ -433,7 +418,7 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
 
                 // try all test vouts:
                 for (const auto &t : testVouts) {
-                    if (t.first == tx.vout[v]) {  // test vout matches 
+                    if (IsEqualDestinations(t.first.scriptPubKey, tx.vout[v].scriptPubKey)) {  // test vout matches 
                         LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << indentStr << funcname << "()" << " valid amount=" << tx.vout[v].nValue << " msg=" << t.second << " evalCode=" << (int)evalCode1 << " evalCode2=" << (int)evalCode2 << " txid=" << tx.GetHash().GetHex() << " tokenid=" << reftokenid.GetHex() << std::endl);
                         return tx.vout[v].nValue;
                     }
@@ -495,7 +480,7 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                     CAmount ccOutputs = 0;
                     for (const auto &vout : tx.vout)
                         if (vout.scriptPubKey.IsPayToCryptoCondition())  {
-                            CTxOut testvout = vopretNFT.size() == 0 ? MakeCC1vout(EVAL_TOKENS, vout.nValue, origPubkey) : MakeTokensCC1vout(vopretNFT[0], vout.nValue, origPubkey);
+                            CTxOut testvout = MakeCC1vout(EVAL_TOKENS, vout.nValue, origPubkey);
                             if (IsEqualDestinations(vout.scriptPubKey, testvout.scriptPubKey)) 
                                 ccOutputs += vout.nValue;
                         }
@@ -507,7 +492,7 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                         LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << funcname << "()" << " assured origInputs >= ccOutputs" << " for tokenbase=" << reftokenid.GetHex() << std::endl);
                         
                         // make test vout for origpubkey (either for fungible or NFT):
-                        CTxOut testvout = vopretNFT.size() == 0 ? MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, origPubkey) : MakeTokensCC1vout(vopretNFT[0], tx.vout[v].nValue, origPubkey);
+                        CTxOut testvout = MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, origPubkey);
                         
                         if (IsEqualDestinations(tx.vout[v].scriptPubKey, testvout.scriptPubKey))    // check vout sent to orig pubkey
                             return tx.vout[v].nValue;
@@ -592,6 +577,11 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
                 return -1;  // invalid tokendata
             }
             */
+            // call extra data validators
+            for (auto const &vd : vdatas)
+                if (vd.size() > 0 && vd[0] != 0)
+                    if (!SubcallCCValidate(eval, vd[0], tx, 0)) 
+                        return -1;
 
             // set returned tokend to tokenbase txid:
             reftokenid = tx.GetHash();
@@ -680,12 +670,6 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
 // NOTE: opreturn decode v1 functions (DecodeTokenCreateOpRetV1 DecodeTokenOpRetV1) understands both old and new opreturn versions
 bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
-    if (!TokensIsVer1Active(eval))
-        return tokensv0::TokensValidate(cp, eval, tx, nIn);
-
-    if (strcmp(ASSETCHAINS_SYMBOL, "ROGUE") == 0 && chainActive.Height() <= 12500)
-        return true;
-
     // check boundaries:
     if (tx.vout.size() < 1)
         return eval->Invalid("no vouts");
@@ -792,9 +776,6 @@ static bool CheckTokensV2CreateTx(struct CCcontract_info *cp, Eval* eval, const 
 // token 2 cc validation entry point
 bool Tokensv2Validate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn) 
 { 
-    if (!TokensIsVer1Active(eval))
-        return eval->Invalid("tokens v2 not active yet"); 
-
     // check boundaries:
     if (tx.vout.size() < 1) 
         return report_validation_error(__func__, eval, tx, "no vouts");
@@ -819,42 +800,6 @@ bool Tokensv2Validate(struct CCcontract_info *cp, Eval* eval, const CTransaction
     return true; 
 }
 
-
-// default old version functions:
-
-/*void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
-{
-    GetNonfungibleData<TokensV1>(tokenid, vopretNonfungible);
-}
-
-std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
-{
-    return CreateTokenLocal<TokensV1>(txfee, tokensupply, name, description, nonfungibleData);
-}*/
-
-/*bool IsTokenMarkerVout(CTxOut vout) {
-    return IsTokenMarkerVout<TokensV1>(vout);  // TODO: fix CheckMigration for tokens V2
-}*/
-
-//CAmount IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid)
-//{
-//    return IsTokensvout<TokensV1>(goDeeper, checkPubkeys, cp, eval, tx, v, reftokenid);
-//}
-
-//CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool)
-//{
-//    return AddTokenCCInputs<TokensV1>(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
-//}
-//CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool)
-//{
-//    return AddTokenCCInputs<TokensV1>(cp, mtx, pk, tokenid, total, maxinputs, useMempool);
-//}
-
-//CAmount GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
-//{
-//    return GetTokenBalance<TokensV1>(pk, tokenid, usemempool);
-//}
-//UniValue TokenInfo(uint256 tokenid) { return TokenInfo<TokensV1>(tokenid); }
 
 UniValue TokenList()
 {

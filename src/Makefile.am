@@ -296,23 +296,18 @@ libbitcoin_server_a_SOURCES = \
   cc/import.cpp \
   cc/importgateway.cpp \
   cc/CCassetsUtils.cpp \
-  cc/old/CCassetsCore_v0.cpp \
-  cc/old/CCassetstx_v0.cpp \
   cc/CCcustom.cpp \
   cc/CCtx.cpp \
   cc/CCutils.cpp \
   cc/CCvalidation.cpp \
   cc/CCtokens.cpp \
-  cc/old/CCtokens_v0.cpp \
   cc/assets.cpp \
-  cc/old/assets_v0.cpp \
   cc/faucet.cpp \
   cc/rewards.cpp \
   cc/dice.cpp \
   cc/lotto.cpp \
   cc/fsm.cpp \
   cc/heir.cpp \
-  cc/old/heir_v0.cpp \
   cc/oracles.cpp \
   cc/prices.cpp \
   cc/pegs.cpp \
@@ -511,7 +506,6 @@ libbitcoin_common_a_SOURCES = \
   script/standard.cpp \
   transaction_builder.cpp \
   cc/CCtokenutils.cpp \
-  cc/old/CCtokenutils_v0.cpp \
   cc/CCutilbits.cpp \
   gmp_i64.c \
   $(BITCOIN_CORE_H) \

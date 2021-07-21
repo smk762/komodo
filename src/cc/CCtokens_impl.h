@@ -83,17 +83,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     const char *funcname = __func__;
 
     if (cp->evalcode != V::EvalCode())
-        LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << funcname << "()" << " warning: EVAL_TOKENS *cp is needed but used evalcode=" << (int)cp->evalcode << std::endl);
-        
-    if (cp->evalcodeAdd == 0)  // if not set yet (in TransferToken or this func overload)
-    {
-        // check if this is a NFT
-        TokenDataTuple tokenData;
-        vscript_t vextraData;
-        GetTokenData<V>(NULL, tokenid, tokenData, vextraData);
-        if (vextraData.size() > 0)
-            cp->evalcodeAdd = vextraData.begin()[0];  // set evalcode of NFT, for signing
-    }
+        LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << funcname << "()" << " warning: EVAL_TOKENS *cp is needed but used evalcode=" << (int)cp->evalcode << std::endl);  
 
     // make lambda to use it for either index kind:
     auto add_token_vin = [&](uint256 txhash, int32_t index, CAmount satoshis) -> void
@@ -176,14 +166,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 {
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     
-    // check if this is a NFT
-    TokenDataTuple tokenData;
-    vscript_t vextraData;
-    GetTokenData<V>(NULL, tokenid, tokenData, vextraData);
-    if (vextraData.size() > 0)
-        cp->evalcodeAdd = vextraData.begin()[0];  // set evalcode of NFT
-    
-    GetTokensCCaddress(cp, tokenaddr, pk, V::IsMixed());  // GetTokensCCaddress will use 'evalcodeAdd'
+    GetTokensCCaddress(cp, tokenaddr, pk, V::IsMixed());  
     return AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
 } 
 
@@ -194,11 +177,6 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     if (!mypk.IsFullyValid())     {
         return MakeResultError("my pubkey not set");
-    }
-
-    if (V::EvalCode() == EVAL_TOKENS)   {
-        if (!TokensIsVer1Active(NULL))
-            return MakeResultError("tokens version 1 not active yet");
     }
 
     if (txfee == 0)
@@ -216,11 +194,6 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
 template<class V>
 UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<CCwrapper, uint8_t*> &probecond, CAmount amount, bool useMempool)
 {
-    if (V::EvalCode() == EVAL_TOKENS)   {
-        if (!TokensIsVer1Active(NULL))
-            return MakeResultError("tokens version 1 not active yet");
-    }
-
     if (amount < 0)	{
         CCerror = strprintf("negative amount");
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << CCerror << "=" << amount << std::endl);
@@ -243,12 +216,6 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
             return MakeResultError("insufficient token inputs");
         }
 
-        uint8_t destEvalCode = V::EvalCode();
-        if (cp->evalcodeAdd != 0)  // if set in AddTokenCCInputs
-        {
-            destEvalCode = cp->evalcodeAdd;
-        }
-
         if (probecond.first != nullptr)
         {
             // add probe cc and kogs priv to spend from kogs global pk
@@ -260,9 +227,9 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
         GetOpReturnData(opret, vopret);
         std::vector<vscript_t> vData { vopret };
         if (destpubkeys.size() == 1)
-            mtx.vout.push_back(V::MakeTokensCC1vout(destEvalCode, amount, destpubkeys[0], &vData));  // if destEvalCode == EVAL_TOKENS then it is actually equal to MakeCC1vout(EVAL_TOKENS,...)
+            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), amount, destpubkeys[0], &vData));  
         else if (destpubkeys.size() == 2)
-            mtx.vout.push_back(V::MakeTokensCC1of2vout(destEvalCode, amount, destpubkeys[0], destpubkeys[1], &vData)); 
+            mtx.vout.push_back(V::MakeTokensCC1of2vout(V::EvalCode(), amount, destpubkeys[0], destpubkeys[1], &vData)); 
         else
         {
             CCerror = "zero or unsupported destination pk count";
@@ -277,7 +244,7 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
             vscript_t vopret;
             GetOpReturnData(opret, vopret);
             std::vector<vscript_t> vData { vopret };
-            mtx.vout.push_back(V::MakeTokensCC1vout(destEvalCode, CCchange, mypk, &vData));
+            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vData));
         }
 
         return MakeResultSuccess("");
@@ -289,12 +256,6 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
 template<class V>
 UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, CAmount txfee, const CScript &opret)
 {
-    if (V::EvalCode() == EVAL_TOKENS)   {
-        if (!TokensIsVer1Active(NULL))
-            return MakeResultError("tokens version 1 not active yet");
-    }
-
-	//uint64_t mask = ~((1LL << mtx.vin.size()) - 1);  // seems, mask is not used anymore
     bool isRemote = IS_REMOTE(remotepk);
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     if (!mypk.IsFullyValid())     {
@@ -357,13 +318,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
     if (normalInputs > 0)
 	{        
 		if ((inputs = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, CC_MAXVINS, useMempool)) >= total)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
-    	{
-            uint8_t destEvalCode = V::EvalCode();
-            if (cp->evalcodeAdd != 0)  // if set in AddTokenCCInputs
-            {
-                destEvalCode = cp->evalcodeAdd;
-            }
-            
+    	{  
 			if (inputs > total)
 				CCchange = (inputs - total);
 
@@ -385,7 +340,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 }
             }
 
-            mtx.vout.push_back(V::MakeTokensCCMofNvout(destEvalCode, 0, total, M, destpubkeys)); 
+            mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys)); 
 
             // add optional custom probe conds to non-usual sign vins
             for (const auto &p : probeconds)
@@ -407,10 +362,10 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                         COptCCParams ccparams(vParams[0]);
                         if (ccparams.version != 0 && ccparams.vKeys.size() > 1)    {
                             if (CCchange != 0) {
-                                mtx.vout.push_back(V::MakeTokensCCMofNvout(destEvalCode, 0, CCchange, ccparams.m, ccparams.vKeys));
+                                mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, CCchange, ccparams.m, ccparams.vKeys));
                                 CCchange = 0;
                             }
-                            CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(destEvalCode, 0, ccparams.m, ccparams.vKeys) );
+                            CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(V::EvalCode(), 0, ccparams.m, ccparams.vKeys) );
                             CCAddVintxCond(cp, ccprobeMofN, nullptr); //add MofN probe to find vins and sign
                             break;
                         }
@@ -419,11 +374,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
             }
 
 			if (CCchange != 0)
-				mtx.vout.push_back(V::MakeTokensCC1vout(destEvalCode, CCchange, mypk));
-
-            // no need this: this prbe added in FinalizeCCV2Tx
-            //CCwrapper ccprobeNFT( MakeTokensv2CCcond1(destEvalCode, mypk) );
-            //CCAddVintxCond(cp, ccprobeNFT, nullptr); //add NFT probe to find vins and sign
+				mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk));
 
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
@@ -462,8 +413,6 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, uint8_t M, const std::
     TokenDataTuple tokenData;
     vscript_t vextraData;
     GetTokenData<V>(NULL, tokenid, tokenData, vextraData);
-    if (vextraData.size() > 0)
-        cp->evalcodeAdd = vextraData.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, mypk, V::IsMixed());
 
     UniValue sigData = TokenTransferExt<V>(CPubKey(), txfee, tokenid, tokenaddr, {}, M, destpubkeys, total, true);
@@ -522,13 +471,9 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
             return NullUniValue;
         }
 
-        uint8_t destEvalCode = V::EvalCode();
-        if( nonfungibleData.size() > 0 && nonfungibleData[0] != 0 )
-            destEvalCode = nonfungibleData[0];
-
         // NOTE: we should prevent spending fake-tokens from this marker in IsTokenvout():
         mtx.vout.push_back(V::MakeCC1vout(V::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
-		mtx.vout.push_back(V::MakeTokensCC1vout(destEvalCode, tokensupply, mypk));
+		mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), tokensupply, mypk));
 
         if (additionalMarkerEvalCode > 0) 
         {

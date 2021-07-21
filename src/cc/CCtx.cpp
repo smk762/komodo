@@ -104,7 +104,7 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
 	// to spend from dual/three-eval mypk vout
 	GetTokensCCaddress(cp, mytokensaddr, mypk);
     // NOTE: if additionalEvalcode2 is not set it is a dual-eval (not three-eval) cc cond:
-	mytokenscond = MakeTokensCCcond1(cp->evalcode, cp->evalcodeAdd, mypk);  
+	mytokenscond = MakeTokensCCcond1(cp->evalcode, mypk);  
 
 	// to spend from single-eval EVAL_TOKENS mypk 
 	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
@@ -113,7 +113,7 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
 
 	// to spend from dual/three-eval EVAL_TOKEN+evalcode 'unspendable' pk:
 	GetTokensCCaddress(cp, unspendabletokensaddr, unspendablepk);  // it may be a three-eval cc, if cp->additionalEvalcode2 is set
-	othertokenscond = MakeTokensCCcond1(cp->evalcode, cp->evalcodeAdd, unspendablepk);
+	othertokenscond = MakeTokensCCcond1(cp->evalcode, unspendablepk);
 
     //Reorder vins so that for multiple normal vins all other except vin0 goes to the end
     //This is a must to avoid hardfork change of validation in every CC, because there could be maximum one normal vin at the begining with current validation.
@@ -297,7 +297,7 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
 					if (othercond1of2tokens == 0)
                         // NOTE: if additionalEvalcode2 is not set then it is dual-eval cc else three-eval cc
                         // TODO: verify evalcodes order if additionalEvalcode2 is not 0
-						othercond1of2tokens = MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeAdd, cp->tokens1of2pk[0], cp->tokens1of2pk[1]);
+						othercond1of2tokens = MakeTokensCCcond1of2(cp->evalcode, cp->tokens1of2pk[0], cp->tokens1of2pk[1]);
 					cond = othercond1of2tokens;
 				}
                 else
@@ -530,7 +530,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                     cond.reset(MakeCCcond1(cp->evalcode, mypk));
                 } else if (strcmp(destaddr, mynftaddr) == 0) {
                     privkey = myprivkey;
-                    cond.reset(MakeTokensv2CCcond1(cp->evalcode, cp->evalcodeAdd, mypk));
+                    cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
                 } else {
                     const uint8_t nullpriv[32] = {'\0'};
                     // use vector of dest addresses and conds to probe vintxconds

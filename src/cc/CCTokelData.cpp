@@ -17,7 +17,6 @@
 #include "CCtokens.h"
 #include "CCTokelData.h"
 
-
 static UniValue tklReadString(CDataStream &ss)
 {
     std::string sval;
@@ -43,24 +42,31 @@ static UniValue tklReadVuint8(CDataStream &ss)
     return ret;
 }
 
-static void tklWriteString(CDataStream &ss, const UniValue &val)
+static bool tklWriteString(CDataStream &ss, const UniValue &val)
 {
     std::string sval = val.getValStr();
     ::Serialize(ss, sval);
+    return true;
 }
 
-static void tklWriteInt64(CDataStream &ss, const UniValue &val)
+static bool tklWriteInt64(CDataStream &ss, const UniValue &val)
 {
     int64_t i64val = 0;
+    if (!val.isNum())
+        return false;
     ParseInt64(val.getValStr(), &i64val);
     //::Serialize(ss, i64val);
     ss << COMPACTSIZE((uint64_t)i64val);
+    return true;
 }
 
-static void tklWriteVuint8(CDataStream &ss, const UniValue &val)
+static bool tklWriteVuint8(CDataStream &ss, const UniValue &val)
 {
     vuint8_t vuint8val = ParseHex(val.getValStr());
+    if (vuint8val.empty() && !val.getValStr().empty())  // can't decode hex string
+        return false;
     ::Serialize(ss, vuint8val);
+    return true;
 }
 
 typedef std::map<tklPropId, tklPropDesc_t> tklPropDesc_map;
@@ -70,16 +76,6 @@ static const tklPropDesc_map tklPropDesc = {
     { TKLPROP_ROYALTY, std::make_tuple(TKLTYP_INT64, std::string("royalty"), &tklReadInt64, &tklWriteInt64) },
     { TKLPROP_ARBITRARY, std::make_tuple(TKLTYP_VUINT8, std::string("arbitrary"), &tklReadVuint8, &tklWriteVuint8) }
 };
-
-/*typedef struct {
-    tklPropType type;
-    struct
-    {
-        uint64_t uint64;
-        vuint8_t vuint8;
-    } v;
-} tklPropValue;
-*/
 
 static tklPropId FindTokelDataIdByName(const std::string &name)
 {
@@ -109,13 +105,12 @@ vuint8_t ParseTokelJson(const UniValue &jsonParams)
     {
         std::string key = jsonParams.getKeys()[i];
         tklPropId id;
-        //CAmount valAmount;
-        //vuint8_t valVuint8;
         if ((id = FindTokelDataIdByName(key)) == (tklPropId)0)
-            throw std::runtime_error("invalid token data id=" + key);   
+            throw std::runtime_error("invalid token data id: " + key);   
         tklPropDesc_t entry = GetTokelDataDesc(id);
         ss << (uint8_t)id;
-        (*std::get<3>(entry))(ss, jsonParams[key]);
+        if (!(*std::get<3>(entry))(ss, jsonParams[key]))
+            throw std::runtime_error(std::string("tokel data invalid: ") + key);
     }
 
     return vuint8_t(ss.begin(), ss.end());
@@ -129,7 +124,6 @@ static bool UnmarshalTokelVData(const vuint8_t &vdata, std::map<tklPropId, UniVa
         bool invalidPropType = false;
         bool hasDuplicates = false;
         const char *funcname = __func__;
-        //int mandatoryCount = 0;
         std::map<tklPropId, UniValue> propMap;
 
         if (vdata[1] != TKLDATA_VERSION)
@@ -252,7 +246,7 @@ bool ValidatePrevTxTokelOpretV1(struct CCcontract_info *cp, Eval* eval, const CT
             std::vector<vuint8_t> vcroprets;
             std::string sError;
 
-            if (!myGetTransaction(vin.prevout.hash, vintx, hashBlock))
+            if (!eval->GetTxUnconfirmed(vin.prevout.hash, vintx, hashBlock))
                 return eval->Error("could load vintx");
             if (DecodeTokenCreateOpRetV1(vintx.vout.back().scriptPubKey, vorigpk, name, desc, vcroprets) == 0)
                 return eval->Error("could not decode token create tx opreturn");
@@ -286,11 +280,6 @@ bool ValidateTokelOpretV2(struct CCcontract_info *cp, Eval* eval, const CTransac
 
 bool TokelDataValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
-    //if (strcmp(ASSETCHAINS_SYMBOL, "TKLTEST") == 0 && chainActive.Height() <= 33711)
-    //    return true;
-    //if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY20") == 0 && chainActive.Height() <= 1704)
-    //    return true;
-
     if (tx.vout.size() < 1)
         return eval->Error("no vouts");
 

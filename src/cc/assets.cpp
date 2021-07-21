@@ -166,7 +166,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
     CTransaction vinTx, createTx; 
     uint256 hashBlock, assetid; 
     int32_t ccvins = -1, ccvouts = -1;
-	int64_t unit_price, vin_unit_price; 
+	CAmount unit_price, vin_unit_price; 
     vuint8_t vorigpubkey, vin_origpubkey, vextraData;
     TokenDataTuple tokenData;
 	uint8_t funcid, evalCodeInOpret; 
@@ -188,7 +188,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
     if((funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCodeInOpret, assetid, unit_price, vorigpubkey, expiryHeight)) == 0 )
         return eval->Invalid("AssetValidate: invalid opreturn payload");
 
-	// reinit cpAssets as we could set evalcodeAdd in it
+	// reinit cpAssets for a chance anything is set there
 	struct CCcontract_info *cpAssets, assetsC;
 	cpAssets = CCinit(&assetsC, A::EvalCode());
 
@@ -200,7 +200,6 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
     GetTokenData<T>(eval, assetid, tokenData, vextraData);
     int64_t royaltyFract = 0;  // royalty is N in N/1000 fraction
     if (vextraData.size() > 0)   {
-        cpAssets->evalcodeAdd = vextraData.begin()[0];
         GetTokelDataAsInt64(vextraData, TKLPROP_ROYALTY, royaltyFract);
         if (royaltyFract > TKLROYALTY_DIVISOR-1)
             royaltyFract = TKLROYALTY_DIVISOR-1; // royalty upper limit
@@ -649,13 +648,6 @@ bool AssetsValidate(struct CCcontract_info *cpAssets, Eval* eval,const CTransact
     
     if (strcmp(ASSETCHAINS_SYMBOL, "MGNX") == 0 && chainActive.Height() <= 210190)
         return true;
-
-    if (!TokensIsVer1Active(NULL))   {	 
-        bool valid = tokensv0::AssetsValidate(cpAssets, eval, tx, nIn); // call assets validation version 0
-        if (!valid) 
-            LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << "v0 validation error: " << eval->state.GetRejectReason() << ", code: " << eval->state.GetRejectCode() << ", tx: " << HexStr(E_MARSHAL(ss << tx)) << std::endl);
-        return valid;
-    }
 
     if (!AssetsValidateInternal<TokensV1, AssetsV1>(cpAssets, eval, tx, nIn))    {
         LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << "validation error: " << eval->state.GetRejectReason() << ", code: " << eval->state.GetRejectCode() << ", tx: " << HexStr(E_MARSHAL(ss << tx)) << std::endl);

@@ -232,7 +232,8 @@ struct CCVintxProbe {
 struct CCcontract_info
 {
     uint8_t evalcode;  //!< cc contract eval code, set by CCinit function
-    uint8_t evalcodeAdd;  //!< additional eval code for spending from three-eval-code vouts with EVAL_TOKENS, cc evalcode, cc evalcode NFT 
+    // unused:
+    // uint8_t evalcodeAdd;  //!< additional eval code for spending from three-eval-code vouts with EVAL_TOKENS, cc evalcode, cc evalcode NFT 
                                         //!< or vouts with two evalcodes: EVAL_TOKENS, evalcodeAdd. 
                                         //!< Set by AddTokenCCInputs function
 
@@ -293,7 +294,7 @@ struct CCcontract_info
     void init_to_zeros() {
         // init to zeros:
         evalcode = 0;
-        evalcodeAdd = 0;
+        // evalcodeAdd = 0;
 
         memset(CCpriv, '\0', sizeof(CCpriv) / sizeof(CCpriv[0]));
 
@@ -1110,6 +1111,8 @@ bool IsTxidInActiveChain(uint256 txid);
 /// @param hashBlock hash of block to check
 bool IsBlockHashInActiveChain(uint256 hashBlock);
 
+/// subcalls an additional evalcode validator
+bool SubcallCCValidate(Eval* eval, uint8_t evalcode, const CTransaction& ctx, int32_t nIn);
 
 extern bool fUnspentCCIndex;  // if unspent cc index enabled
 
