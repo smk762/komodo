@@ -1017,19 +1017,15 @@ CAmount TotalPubkeyCCInputs(Eval *eval, const CTransaction &tx, const CPubKey &p
 
 bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction& ctx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
-    //CTransaction createTx;
-    //uint256 assetid, assetid2, hashBlock;
-    //uint8_t funcid;
-    int32_t height, from_mempool = 0;
-    //int64_t amount;
-    std::vector<uint8_t> origpubkey;
+    int32_t height; 
+    //int32_t from_mempool = 0;
     height = KOMODO_CONNECTING;
     if (KOMODO_CONNECTING < 0) // always comes back with > 0 for final confirmation
-        return (true);
+        return true;
     if (ASSETCHAINS_CC == 0 || (height & ~(1 << 30)) < KOMODO_CCACTIVATE)
         return eval->Invalid("CC are disabled or not active yet");
     if ((KOMODO_CONNECTING & (1 << 30)) != 0) {
-        from_mempool = 1;
+        //from_mempool = 1;
         height &= ((1 << 30) - 1);
     }
     if (cp->validate == NULL)
@@ -1043,7 +1039,7 @@ bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> para
     //fprintf(stderr,"process CC %02x\n",cp->evalcode);
     CCclearvars(cp);
     if (paramsNull.size() != 0) // Don't expect params
-        return eval->Invalid("Cannot have params");
+        return eval->Invalid("eval conds cannot have params yet");
     //else if ( ctx.vout.size() == 0 )      // spend can go to z-addresses
     //    return eval->Invalid("no-vouts");
     else if ((*cp->validate)(cp, eval, ctx, nIn) != 0) {
@@ -1051,10 +1047,10 @@ bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> para
         //cp->prevtxid = txid;
         if (evalcodeChecker.get() != NULL)
             evalcodeChecker->MarkEvalCode(ctx.GetHash(), cp->evalcode);
-        return (true);
+        return true;
     }
     //fprintf(stderr,"invalid CC %02x\n",cp->evalcode);
-    return (false);
+    return false;
 }
 
 bool SubcallCCValidate(Eval* eval, uint8_t evalcode, const CTransaction& ctx, int32_t nIn)
@@ -1667,9 +1663,6 @@ UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vect
 // return funcid, version and creationid
 bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_t &funcid, uint8_t &version, uint256 &creationId)
 {
-    CScript opdrop;
-    vscript_t vccdata;
-
     if (tx.vout.size() > 0)     
     {
         // note: assumes that this is a cc vout (does not check this)
@@ -1677,6 +1670,8 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
         // first try if OP_DROP data exists
         bool usedOpreturn;
         CScript opdrop;
+        vscript_t vccdata;
+
         if (!(opdrop = GetCCDropAsOpret(tx.vout[n].scriptPubKey)).empty()) {
             GetOpReturnData(opdrop, vccdata);
             usedOpreturn = false;

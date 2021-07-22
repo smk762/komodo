@@ -104,7 +104,6 @@ UniValue tokenlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 }
 UniValue tokenv2list(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    uint256 tokenid;
     const static std::set<std::string> acceptable = { "beginHeight", "endHeight", "pubkey", "address" };
 
     if (fHelp || params.size() > 1)
@@ -139,12 +138,11 @@ UniValue tokenv2list(const UniValue& params, bool fHelp, const CPubKey& remotepk
 template <class V>
 static UniValue tokeninfo(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    uint256 tokenid;
-    if ( fHelp || params.size() != 1 )
+    if (fHelp || params.size() != 1)
         throw runtime_error(name + " tokenid\n");
-    if ( ensure_CCrequirements(V::EvalCode()) < 0 )
+    if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
+    uint256 tokenid = Parseuint256((char *)params[0].get_str().c_str());
     return TokenInfo<V>(tokenid, [](const vuint8_t &data){ return NullUniValue; });
 }
 
@@ -160,12 +158,11 @@ UniValue tokenv2info(const UniValue& params, bool fHelp, const CPubKey& remotepk
 template <class V>
 static UniValue tokeninfotokel(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    uint256 tokenid;
-    if ( fHelp || params.size() != 1 )
+    if (fHelp || params.size() != 1)
         throw runtime_error(name + " tokenid\n");
-    if ( ensure_CCrequirements(V::EvalCode()) < 0 )
+    if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
+    uint256 tokenid = Parseuint256((char *)params[0].get_str().c_str());
     return TokenInfo<V>(tokenid, ParseTokelVData);
 }
 
@@ -184,10 +181,10 @@ UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp
     uint256 tokenid;
     const CPubKey emptypk;
 
-    if ( fHelp || params.size() > 1 )
+    if (fHelp || params.size() > 1)
         throw runtime_error(name + " [tokenid|'*']\n"
-                            "returns tokens orders for the tokenid or all available token orders if tokenid is not set\n"
-                            "\n");
+                                   "returns tokens orders for the tokenid or all available token orders if tokenid is not set\n"
+                                   "\n");
     if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 	if (params.size() >= 1) 
@@ -214,7 +211,6 @@ UniValue tokenv2orders(const UniValue& params, bool fHelp, const CPubKey& remote
 template <class T, class A>
 UniValue mytokenorders(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    uint256 tokenid;
     if (fHelp || params.size() > 0)
         throw runtime_error(name + "\n"
                             "returns all tokens orders for mypubkey\n"
@@ -241,29 +237,33 @@ UniValue mytokenv2orders(const UniValue& params, bool fHelp, const CPubKey& remo
 template <class V>
 static UniValue tokenbalance(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    UniValue result(UniValue::VOBJ); uint256 tokenid; uint64_t balance; std::vector<unsigned char> vpubkey; struct CCcontract_info *cp,C;
-	CCerror.clear();
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear();
 
-    if ( fHelp || params.size() < 1 || params.size() > 2 )
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(name + " tokenid [pubkey]\n");
-    if ( ensure_CCrequirements(V::EvalCode()) < 0 )
+    if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    
-	//LOCK(cs_main);
 
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    if ( params.size() == 2 )
+    // LOCK(cs_main); 
+    // no need to lock cs_main as we use only indexes in this rpc
+    // but still use lock if you need to get chainActive.Height() or something like that
+
+    uint256 tokenid = Parseuint256((char *)params[0].get_str().c_str());
+    std::vector<unsigned char> vpubkey;
+    if (params.size() == 2)
         vpubkey = ParseHex(params[1].get_str().c_str());
-    else 
-		vpubkey = Mypubkey();
+    else
+        vpubkey = Mypubkey();
 
-    balance = GetTokenBalance<V>(pubkey2pk(vpubkey), tokenid, false);
+    CAmount balance = GetTokenBalance<V>(pubkey2pk(vpubkey), tokenid, false);
 
 	if (CCerror.empty()) {
 		char destaddr[KOMODO_ADDRESS_BUFSIZE];
+        struct CCcontract_info *cp, C;
+        cp = CCinit(&C, V::EvalCode());
 
 		result.push_back(Pair("result", "success"));
-        cp = CCinit(&C, V::EvalCode());
 		if (GetCCaddress(cp, destaddr, pubkey2pk(vpubkey), V::IsMixed()) != 0)
 			result.push_back(Pair("CCaddress", destaddr));
 
