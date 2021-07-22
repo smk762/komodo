@@ -465,7 +465,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
     // This what the AddNormalinputsRemote does (and it is not necessary that this is done only for nspv calls):
 	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfee + markerCount * TOKENS_MARKER_VALUE, 0x10000, useMempool)) > 0)
 	{
-        CAmount mypkInputs = TotalPubkeyNormalInputs(NULL, mtx, mypk);  
+        CAmount mypkInputs = TotalPubkeyNormalInputs(nullptr, mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
             CCerror = "some inputs signed not with mypubkey (-pubkey=pk)";
             return NullUniValue;

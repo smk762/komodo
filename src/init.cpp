@@ -2113,7 +2113,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     threadGroup.create_thread(boost::bind(ThreadSendAlert));
 
     if (KOMODO_NSPV_FULLNODE)
-        fprintf(stderr,"nLocalServices %llx %d, %d\n",(long long)nLocalServices,GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX),GetBoolArg("-spentindex", DEFAULT_SPENTINDEX));
+        LogPrintf("nLocalServices %llx %d, %d\n", (long long)nLocalServices, GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX), GetBoolArg("-spentindex", DEFAULT_SPENTINDEX));
 
     return !fRequestShutdown;
 }

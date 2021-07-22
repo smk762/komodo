@@ -313,8 +313,6 @@ CAmount TokensV1::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
 
             // test vouts for possible token use-cases:
             std::vector<std::pair<CTxOut, std::string>> testVouts;
-
-            uint8_t version;
             std::vector<vscript_t>  vdatas;
             DecodeTokenOpRetV1(tx.vout.back().scriptPubKey, tokenIdOpret, voutPubkeysInOpret, vdatas);
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << funcname << "()" << " vdatas.size()=" << vdatas.size() << std::endl);

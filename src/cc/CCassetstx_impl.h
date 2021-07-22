@@ -32,7 +32,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk)
     cpAssets = CCinit(&assetsC, A::EvalCode());
     cpTokens = CCinit(&tokensC, T::EvalCode());
 
-	auto addOrders = [&](struct CCcontract_info *cp, std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it)
+	auto addOrders = [&](struct CCcontract_info *cp, const CAddressUnspentKey &key)
 	{
 		uint256 txid, hashBlock, assetid;
 		CAmount unit_price;
@@ -42,7 +42,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk)
 		char origaddr[KOMODO_ADDRESS_BUFSIZE], origtokenaddr[KOMODO_ADDRESS_BUFSIZE];
         int32_t expiryHeight;
 
-        txid = it->first.txhash;
+        txid = key.txhash;
         LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname << " checking txid=" << txid.GetHex() << std::endl);
         if (!myGetTransaction(txid, ordertx, hashBlock)) {
             LOGSTREAM(ccassets_log, CCLOG_DEBUG2, stream << funcname <<" could not load order txid=" << txid.GetHex() << std::endl);
@@ -121,7 +121,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk)
                     item.push_back(Pair("ExpiryHeight", expiryHeight));
 
                 result.push_back(item);
-                LOGSTREAM(ccassets_log, CCLOG_DEBUG1, stream << funcname << " added order funcId=" << (char)(funcid ? funcid : ' ') << " it->first.index=" << it->first.index << " ordertx.vout[it->first.index].nValue=" << ordertx.vout[it->first.index].nValue << " tokenid=" << assetid.GetHex() << std::endl);
+                LOGSTREAM(ccassets_log, CCLOG_DEBUG1, stream << funcname << " added order funcId=" << (char)(funcid ? funcid : ' ') << " key.index=" << key.index << " ordertx.vout[key.index].nValue=" << ordertx.vout[key.index].nValue << " tokenid=" << assetid.GetHex() << std::endl);
             }
         }
 	};
@@ -136,7 +136,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk)
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itCoins = unspentOutputsCoins.begin();
             itCoins != unspentOutputsCoins.end();
             itCoins++)
-            addOrders(cpAssets, itCoins);
+            addOrders(cpAssets, itCoins->first);
         
         // tokenasks:
         std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputsTokens;
@@ -146,7 +146,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk)
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itTokens = unspentOutputsTokens.begin();
             itTokens != unspentOutputsTokens.end();
             itTokens++)
-            addOrders(cpAssets, itTokens);
+            addOrders(cpAssets, itTokens->first);
     }
     else 
     {
@@ -158,7 +158,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk)
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itOrders = unspentsMyAddr.begin();
             itOrders != unspentsMyAddr.end();
             itOrders++)
-            addOrders(cpAssets, itOrders);
+            addOrders(cpAssets, itOrders->first);
     }
     return(result);
 }
@@ -179,6 +179,11 @@ UniValue CreateBuyOffer(const CPubKey &mypk, CAmount txfee, CAmount bidamount, u
     if (bidamount <= 0 || numtokens <= 0)    {
         CCerror = "invalid bidamount or numtokens";
         return("");
+    }
+    CAmount unit_price = bidamount / numtokens;
+    if (unit_price <= 0)  {
+        CCerror = "invalid bid params";
+        return ("");
     }
 
     // check if valid token
@@ -203,11 +208,6 @@ UniValue CreateBuyOffer(const CPubKey &mypk, CAmount txfee, CAmount bidamount, u
 			return ("");
 		}
 
-        CAmount unit_price = bidamount / numtokens;
-        if (unit_price <= 0)  {
-            CCerror = "invalid bid params";
-            return ("");
-        }
 		CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, 0);
         mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), bidamount, unspendableAssetsPubkey));
         mtx.vout.push_back(T::MakeCC1of2vout(A::EvalCode(), ASSETS_MARKER_AMOUNT, mypk, unspendableAssetsPubkey));  // 1of2 marker for my orders
@@ -296,7 +296,7 @@ template<class T, class A>
 std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 assetid2,int64_t pricetotal)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk; uint64_t mask; int64_t inputs,CCchange; CScript opret; struct CCcontract_info *cp,C;
+    CPubKey mypk; int64_t inputs,CCchange; CScript opret; struct CCcontract_info *cp,C;
 
 	////////////////////////// NOT IMPLEMENTED YET/////////////////////////////////
     fprintf(stderr,"asset swaps disabled\n");
@@ -317,7 +317,6 @@ std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 a
 
     if (AddNormalinputs(mtx, mypk, txfee, 0x10000) > 0)
     {
-        mask = ~((1LL << mtx.vin.size()) - 1);
         if ((inputs = AddAssetInputs(cp, mtx, mypk, assetid, askamount, 60)) > 0)
         {
 			////////////////////////// NOT IMPLEMENTED YET/////////////////////////////////
@@ -417,7 +416,7 @@ UniValue CancelBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 assetid, uin
             else {
                 // send dust back to global addr
                 mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), bidamount, unspendableAssetsPk));
-                std::cerr << __func__ << " dust detected bidamount=" << bidamount << std::endl;
+                LOGSTREAMFN(ccassets_log, CCLOG_DEBUG1, stream << "dust detected bidamount=" << bidamount << std::endl);
             }
 
             // probe to spend marker:
@@ -607,14 +606,14 @@ UniValue FillBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint2
                 if (orig_units - fill_units > 0 || bid_amount - paid_amount <= ASSETS_NORMAL_DUST) { // bidder has coins for more tokens or only dust is sent back to global address
                     mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), bid_amount - paid_amount, unspendableAssetsPk));     // vout0 coins remainder or the dust is sent back to cc global addr
                     if (bid_amount - paid_amount <= ASSETS_NORMAL_DUST)
-                        std::cerr << __func__ << " dust detected (bid_amount - paid_amount)=" << (bid_amount - paid_amount) << std::endl;
+                        LOGSTREAMFN(ccassets_log, CCLOG_DEBUG1, stream << "dust detected (bid_amount - paid_amount)=" << (bid_amount - paid_amount) << std::endl);
                 }
                 else
                     mtx.vout.push_back(CTxOut(bid_amount - paid_amount, CScript() << ParseHex(HexStr(origpubkey)) << OP_CHECKSIG));     // vout0 if no more tokens to buy, send the remainder to originator
                 mtx.vout.push_back(CTxOut(paid_amount - royaltyValue, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));	// vout1 coins to mypk normal 
                 if (royaltyValue > 0)   { // note it makes vout even if roaltyValue is 0
                     mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ParseHex(HexStr(ownerpubkey)) << OP_CHECKSIG));  // vout2 trade royalty to token owner
-                    std::cerr << __func__ << " royaltyFract=" << royaltyFract << " royaltyValue=" << royaltyValue << " paid_amount - royaltyValue=" << paid_amount - royaltyValue << std::endl;
+                    LOGSTREAMFN(ccassets_log, CCLOG_DEBUG1, stream << "royaltyFract=" << royaltyFract << " royaltyValue=" << royaltyValue << " paid_amount - royaltyValue=" << paid_amount - royaltyValue << std::endl);
                 }
                 mtx.vout.push_back(T::MakeTokensCC1vout(T::EvalCode(), fill_units, pubkey2pk(origpubkey)));	  // vout2(3) single-eval tokens sent to the originator
                 if (orig_units - fill_units > 0)  // order is not finished yet
@@ -751,7 +750,7 @@ UniValue FillSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint256 a
             mtx.vout.push_back(CTxOut(paid_nValue - royaltyValue, CScript() << origpubkey << OP_CHECKSIG));		//vout.2 coins to ask originator's normal addr
             if (royaltyValue > 0)    {   // note it makes the vout even if roaltyValue is 0
                 mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ownerpubkey << OP_CHECKSIG));	// vout.3 royalty to token owner
-                std::cerr << __func__ << " royaltyFract=" << royaltyFract << " royaltyValue=" << royaltyValue << " paid_nValue - royaltyValue=" << paid_nValue - royaltyValue << std::endl;
+                LOGSTREAMFN(ccassets_log, CCLOG_DEBUG1, stream << "royaltyFract=" << royaltyFract << " royaltyValue=" << royaltyValue << " paid_nValue - royaltyValue=" << paid_nValue - royaltyValue << std::endl);
             }
         
             if (orig_assetoshis - fillunits > 0) // we dont need the marker if order is filled

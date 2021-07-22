@@ -137,7 +137,7 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
         if (fundingTxidInOpret == zeroid) {
             return eval->Invalid("incorrect tx opreturn: no fundingtxid present");
         }
-        latestTxid = FindLatestFundingTx(fundingTxidInOpret, tokenid, fundingTxOpRetScript, hasHeirSpendingBegun);
+        latestTxid = FindLatestFundingTx(eval, fundingTxidInOpret, tokenid, fundingTxOpRetScript, hasHeirSpendingBegun);
         
         if( tokenid != zeroid && tokenid != tokenidThis )
             return eval->Invalid("incorrect tx tokenid");
@@ -360,7 +360,7 @@ uint8_t DecodeHeirEitherOpRetV1(CScript scriptPubKey, uint256 &tokenid, uint256 
  * find the latest funding tx: it may be the first F tx or one of A or C tx's
  * Note: this function is also called from validation code (use non-locking calls)
  */
-uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_t& funcId, uint256 &tokenid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, std::string& memo, CScript& fundingOpretScript, uint8_t &hasHeirSpendingBegun)
+uint256 _FindLatestFundingTx(Eval *eval, uint256 fundingtxid, uint8_t& funcId, uint256 &tokenid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, std::string& memo, CScript& fundingOpretScript, uint8_t &hasHeirSpendingBegun)
 {
     CTransaction fundingtx;
     uint256 hashBlock;
@@ -414,7 +414,7 @@ uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_t& funcId, uint256 &toke
         int32_t blockHeight = (int32_t)it->second.blockHeight;
         
         //NOTE: maybe called from validation code:
-        if (myGetTransaction(txid, regtx, hash)) {
+        if (GetTxUnconfirmedOpt(eval, txid, regtx, hash)) {
             // std::cerr << __func__ << " found tx for txid=" << txid.GetHex() << " blockHeight=" << blockHeight << " maxBlockHeight=" << maxBlockHeight << '\n';
             uint256 fundingTxidInOpret;
             uint256 tokenidInOpret;  // not to contaminate the tokenid from the params!
@@ -432,8 +432,7 @@ uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_t& funcId, uint256 &toke
 					bool isNonOwner = false;
 
 					// we ignore 'donations' tx (with non-owner inputs) for calculating if heir is allowed to spend:
-                    // TODO: pass Eval instead of NULL
-                    if (TotalPubkeyNormalInputs(NULL, regtx, ownerPubkey) > 0 || TotalPubkeyCCInputs(NULL, regtx, ownerPubkey) > 0)  
+                    if (TotalPubkeyNormalInputs(eval, regtx, ownerPubkey) > 0 || TotalPubkeyCCInputs(eval, regtx, ownerPubkey) > 0)  
                     {
 					// CheckVinPubkey(regtx.vin, ownerPubkey, isOwner, isNonOwner);
 					// if (isOwner && !isNonOwner) {
@@ -452,7 +451,7 @@ uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_t& funcId, uint256 &toke
 }
 
 // overload for validation code
-uint256 FindLatestFundingTx(uint256 fundingtxid, uint256 &tokenid, CScript& opRetScript, uint8_t &hasHeirSpendingBegun)
+uint256 FindLatestFundingTx(Eval *eval, uint256 fundingtxid, uint256 &tokenid, CScript& opRetScript, uint8_t &hasHeirSpendingBegun)
 {
     uint8_t funcId;
     CPubKey ownerPubkey;
@@ -460,7 +459,7 @@ uint256 FindLatestFundingTx(uint256 fundingtxid, uint256 &tokenid, CScript& opRe
     int64_t inactivityTime;
     std::string heirName, memo;
     
-    return _FindLatestFundingTx(fundingtxid, funcId, tokenid, ownerPubkey, heirPubkey, inactivityTime, heirName, memo, opRetScript, hasHeirSpendingBegun);
+    return _FindLatestFundingTx(eval, fundingtxid, funcId, tokenid, ownerPubkey, heirPubkey, inactivityTime, heirName, memo, opRetScript, hasHeirSpendingBegun);
 }
 
 // overload for transaction creation code
@@ -468,7 +467,7 @@ uint256 FindLatestFundingTx(uint256 fundingtxid, uint8_t& funcId, uint256 &token
 {
     CScript opRetScript;
     
-    return _FindLatestFundingTx(fundingtxid, funcId, tokenid, ownerPubkey, heirPubkey, inactivityTime, heirName, memo, opRetScript, hasHeirSpendingBegun);
+    return _FindLatestFundingTx(nullptr, fundingtxid, funcId, tokenid, ownerPubkey, heirPubkey, inactivityTime, heirName, memo, opRetScript, hasHeirSpendingBegun);
 }
 
 // add inputs of 1 of 2 cc address
@@ -629,7 +628,7 @@ template <typename Helper> UniValue _HeirFund(int64_t txfee, int64_t amount, std
 
 		// for initial funding do not allow to sign by non-owner key:
 		// if (hasNotMypubkey) {
-        if (TotalPubkeyNormalInputs(NULL, mtx, myPubkey) < amount && TotalPubkeyCCInputs(NULL, mtx, myPubkey) < amount)
+        if (TotalPubkeyNormalInputs(nullptr, mtx, myPubkey) < amount && TotalPubkeyCCInputs(NULL, mtx, myPubkey) < amount)
         {
 			result.push_back(Pair("result", "error"));
 			result.push_back(Pair("error", "using non-owner inputs not allowed"));
@@ -756,7 +755,7 @@ template <class Helper> UniValue _HeirAdd(uint256 fundingtxid, int64_t txfee, in
 		// warn the user he's making a donation if this is all non-owner keys:
 		// if (hasNotMypubkey) {
         // TODO: change to Eval instead of NULL
-        if (TotalPubkeyNormalInputs(NULL, mtx, myPubkey) < amount && TotalPubkeyCCInputs(NULL, mtx, myPubkey) < amount)  {
+        if (TotalPubkeyNormalInputs(nullptr, mtx, myPubkey) < amount && TotalPubkeyCCInputs(NULL, mtx, myPubkey) < amount)  {
 			result.push_back(Pair("result", "warning"));
 			result.push_back(Pair("warning", "you are about to make a donation to heir fund"));
 		}

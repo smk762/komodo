@@ -88,7 +88,7 @@ static tklPropId FindTokelDataIdByName(const std::string &name)
 
 static tklPropDesc_t GetTokelDataDesc(tklPropId id)
 {
-    tklPropDesc_t empty = std::make_tuple( TKLTYP_INVALID, std::string(), nullptr, nullptr );
+    static const tklPropDesc_t empty = std::make_tuple( TKLTYP_INVALID, std::string(), nullptr, nullptr );
     auto found = tklPropDesc.find(id);
     if (found != tklPropDesc.end())
         return found->second;

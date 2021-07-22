@@ -6,6 +6,7 @@
 
 
 int main(int argc, char **argv) {
+    std::cerr << "testing cc modules consensus code..." << std::endl;
     assert(init_and_check_sodium() != -1);
     ECC_Start();
     ECCVerifyHandle handle;  // Inits secp256k1 verify context
