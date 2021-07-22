@@ -426,17 +426,17 @@ protected:
         eval.AddTx(txtokencreateUnused);
         tokenidUnused = txtokencreateUnused.GetHash();
 
-        txask1 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, ASSETS_NORMAL_DUST+1, 0);
+        txask1 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, ASSETS_NORMAL_DUST+1, 222);
         eval.AddTx(txask1);
 
-        txask2 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, ASSETS_NORMAL_DUST+1, 0);
+        txask2 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, ASSETS_NORMAL_DUST+1, 222);
         eval.AddTx(txask2);
 
-        txbid1 = MakeTokenV2BidTx(cpAssets, pk2, tokenid2, 2, ASSETS_NORMAL_DUST+1, 0);
+        txbid1 = MakeTokenV2BidTx(cpAssets, pk2, tokenid2, 2, ASSETS_NORMAL_DUST+1, 222);
         eval.AddTx(txbid1);
 
 
-        //txbid2 = MakeTokenV2BidTx(pk2, 1000+1, 2, 1000/2, 0);  // test dust
+        //txbid2 = MakeTokenV2BidTx(pk2, 1000+1, 2, 1000/2, 222);  // test dust
 
     }
 
@@ -947,6 +947,9 @@ TEST_F(TestAssetsCC, tokenv2ask)
 {
 	struct CCcontract_info *cpTokens, tokensC;
     cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+
+    eval.SetCurrentHeight(111);  //set height 
+
     CAmount numtokens = 2LL;
     CPubKey mypk = pk1;
     uint256 mytokenid = tokenid1;
@@ -955,7 +958,7 @@ TEST_F(TestAssetsCC, tokenv2ask)
     cpAssets = CCinit(&C, AssetsV2::EvalCode());   // NOTE: assets here!
     CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, 0);    
 
-    CMutableTransaction mtx = MakeTokenV2AskTx(cpTokens, mypk, mytokenid, numtokens, 501, 0); // price more than dust
+    CMutableTransaction mtx = MakeTokenV2AskTx(cpTokens, mypk, mytokenid, numtokens, 501, 222); // price more than dust
     ASSERT_FALSE(CTransaction(mtx).IsNull());
 
     vuint8_t origpubkey;
@@ -1053,11 +1056,13 @@ TEST_F(TestAssetsCC, tokenv2ask)
 TEST_F(TestAssetsCC, tokenv2bid)
 {
     CAmount txfee = 10000;
+    eval.SetCurrentHeight(111);  //set height 
+
     struct CCcontract_info *cpAssets, C; 
     cpAssets = CCinit(&C, AssetsV2::EvalCode());   // NOTE: assets here!
     CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, 0);    
 
-    CMutableTransaction mtx = MakeTokenV2BidTx(cpAssets, pk2, tokenid1, 2, 501, 0); // price more than dust
+    CMutableTransaction mtx = MakeTokenV2BidTx(cpAssets, pk2, tokenid1, 2, 501, 222); // price more than dust
     ASSERT_FALSE(CTransaction(mtx).IsNull());
 
     // test: valid tokenv2bid
@@ -1083,6 +1088,9 @@ TEST_F(TestAssetsCC, tokenv2fillask)
     UniValue data(UniValue::VOBJ);
     struct CCcontract_info *cpAssets, C; 
     cpAssets = CCinit(&C, AssetsV2::EvalCode());
+
+    eval.SetCurrentHeight(111);  //set height 
+
     CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, txask1.GetHash(), 2, 0, data);
     ASSERT_FALSE(CTransaction(mtx).IsNull());
 
@@ -1181,6 +1189,7 @@ TEST_F(TestAssetsCC, tokenv2fillbid)
     UniValue data(UniValue::VOBJ);
     struct CCcontract_info *cpTokens, C; 
     cpTokens = CCinit(&C, TokensV2::EvalCode());  
+    eval.SetCurrentHeight(111);  //set height 
 
     CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, txbid1.GetHash(), 2, 0, data);  
     ASSERT_FALSE(CTransaction(mtx).IsNull());
@@ -1241,6 +1250,8 @@ TEST_F(TestAssetsCC, tokenv2fillbid)
 
 TEST_F(TestAssetsCC, tokenv2fillbid_royalty)
 {
+    eval.SetCurrentHeight(111);  //set height 
+
     for(int r = 0; r < 1000; r += 100)
     {
         UniValue data(UniValue::VOBJ); // some data returned from MakeTokenV2FillBidTx
@@ -1256,7 +1267,7 @@ TEST_F(TestAssetsCC, tokenv2fillbid_royalty)
         uint256 mytokenid = mytxtokencreate.GetHash();
         eval.AddTx(mytxtokencreate);
 
-        static CTransaction mytxbid = MakeTokenV2BidTx(cpAssets, pk2, mytokenid, 1, ASSETS_NORMAL_DUST*2+1, 0);
+        static CTransaction mytxbid = MakeTokenV2BidTx(cpAssets, pk2, mytokenid, 1, ASSETS_NORMAL_DUST*2+1, 222);
         eval.AddTx(mytxbid);
 
         CMutableTransaction mytxfill = MakeTokenV2FillBidTx(cpTokens, pk1, mytokenid, mytxbid.GetHash(), 1, 0, data);  
@@ -1269,6 +1280,8 @@ TEST_F(TestAssetsCC, tokenv2fillbid_royalty)
 
 TEST_F(TestAssetsCC, tokenv2fillask_royalty)
 {
+    eval.SetCurrentHeight(111);  //set height 
+
     for(int r = 0; r < 1000; r += 100)
     {
         UniValue data(UniValue::VOBJ); // some data returned from MakeTokenV2FillBidTx
@@ -1283,7 +1296,7 @@ TEST_F(TestAssetsCC, tokenv2fillask_royalty)
         uint256 mytokenid = mytxtokencreate.GetHash();
         eval.AddTx(mytxtokencreate);
 
-        static CTransaction mytxask = MakeTokenV2AskTx(cpTokens, pk1, mytokenid, 1, ASSETS_NORMAL_DUST*2+1, 0);
+        static CTransaction mytxask = MakeTokenV2AskTx(cpTokens, pk1, mytokenid, 1, ASSETS_NORMAL_DUST*2+1, 222);
         eval.AddTx(mytxask);
 
         CMutableTransaction mytxfill = MakeTokenV2FillAskTx(cpAssets, pk2, mytokenid, mytxask.GetHash(), 1, 0, data);  
@@ -1299,6 +1312,7 @@ TEST_F(TestAssetsCC, tokenv2cancelask)
 {
 	struct CCcontract_info *cpAssets, C; 
 	struct CCcontract_info *cpTokens, tokensC;
+    eval.SetCurrentHeight(111);  //set height 
 
     CAmount txfee = 10000;
 
@@ -1369,6 +1383,8 @@ TEST_F(TestAssetsCC, tokenv2cancelask)
 TEST_F(TestAssetsCC, tokenv2cancelask_expired)
 {
     CAmount txfee = 10000;
+    eval.SetCurrentHeight(111);  //set height 
+
 
     {
 	    struct CCcontract_info *cpTokens, tokensC;
@@ -1441,11 +1457,41 @@ TEST_F(TestAssetsCC, tokenv2cancelask_expired)
     }
 }
 
+TEST_F(TestAssetsCC, tokenv2fillask_expired)
+{
+    CAmount txfee = 10000;
+    eval.SetCurrentHeight(111);  //set height 
+    {
+	    struct CCcontract_info *cpTokens, tokensC;
+        cpTokens = CCinit(&tokensC, TokensV2::EvalCode()); 
+
+        static CTransaction txaskexp = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, 10000, 222); // set expiry height 222
+        ASSERT_FALSE(CTransaction(txaskexp).IsNull());
+        eval.AddTx(txaskexp);
+        EXPECT_TRUE(TestRunCCEval(txaskexp));
+
+        UniValue data(UniValue::VOBJ);
+        uint256 asktxid = txaskexp.GetHash();
+
+        eval.SetCurrentHeight(222);  //set height expired
+        struct CCcontract_info *cpAssets, C; 
+        cpAssets = CCinit(&C, AssetsV2::EvalCode());   
+
+        CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, asktxid, 1, 0, data);  
+
+        ASSERT_FALSE(CTransaction(mtx).IsNull()); 
+        
+        // test: try tokenv2fillask already expired 
+        EXPECT_FALSE(TestRunCCEval(mtx)); // should fail
+    }
+}
+
 TEST_F(TestAssetsCC, tokenv2cancelbid)
 {
 	struct CCcontract_info *cpAssets, C; 
 	struct CCcontract_info *cpTokens, tokensC;
     CAmount txfee = 10000;
+    eval.SetCurrentHeight(111);  //set height 
 
     cpAssets = CCinit(&C, AssetsV2::EvalCode());   
     cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
@@ -1520,6 +1566,7 @@ TEST_F(TestAssetsCC, tokenv2cancelbid)
 TEST_F(TestAssetsCC, tokenv2cancelbid_expired)
 {
     CAmount txfee = 10000;
+    eval.SetCurrentHeight(111);  //set height 
 
     {
         struct CCcontract_info *cpAssets0, C0; 
@@ -1592,6 +1639,36 @@ TEST_F(TestAssetsCC, tokenv2cancelbid_expired)
     }
 }
 
+TEST_F(TestAssetsCC, tokenv2fillbid_expired)
+{
+    CAmount txfee = 10000;
+    eval.SetCurrentHeight(111);  //set height 
+    {
+	    struct CCcontract_info *cpAssets, assetsC;
+        cpAssets = CCinit(&assetsC, AssetsV2::EvalCode()); 
+
+        static CTransaction txbidexp = MakeTokenV2BidTx(cpAssets, pk1, tokenid2, 2, 10000, 222); // set expiry height 222
+        ASSERT_FALSE(CTransaction(txbidexp).IsNull());
+        eval.AddTx(txbidexp);
+        EXPECT_TRUE(TestRunCCEval(txbidexp));
+
+        UniValue data(UniValue::VOBJ);
+        uint256 bidtxid = txbidexp.GetHash();
+
+        eval.SetCurrentHeight(222);  //set height expired
+	    struct CCcontract_info *cpTokens, tokensC;
+        cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+
+        CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, bidtxid, 1, 0, data);  
+
+        ASSERT_FALSE(CTransaction(mtx).IsNull()); 
+        
+        // test: try tokenv2fillask already expired 
+        EXPECT_FALSE(TestRunCCEval(mtx)); // should fail
+    }
+}
+
+
 /* ---------------------------------------------------------------------------------------------------------------------------------- */
 // tokens tests:
 
@@ -1599,6 +1676,9 @@ TEST_F(TestAssetsCC, tokenv2create)
 {
     struct CCcontract_info *cpTokens, C; 
     cpTokens = CCinit(&C, TokensV2::EvalCode()); 
+
+    eval.SetCurrentHeight(111);  //set height 
+
     CMutableTransaction mtx = MakeTokenV2CreateTx(pk1, 10);
     ASSERT_FALSE(CTransaction(mtx).IsNull());
 
