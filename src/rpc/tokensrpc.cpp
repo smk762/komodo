@@ -701,7 +701,7 @@ UniValue tokenbid(const std::string& name, const UniValue& params, bool fHelp, c
     int32_t expiryHeight; 
     {
         LOCK(cs_main);
-        expiryHeight = chainActive.Height() + 4 * 7 * 24 * 60; // 2 weeks for blocktime 60 sec
+        expiryHeight = chainActive.Height() + 4 * 7 * 24 * 60; // 4 weeks for blocktime 60 sec
     }
     if (params.size() == 4)  {
         expiryHeight = atol(params[3].get_str().c_str());	
@@ -844,7 +844,7 @@ UniValue tokenask(const std::string& name, const UniValue& params, bool fHelp, c
     int32_t expiryHeight; 
     {
         LOCK(cs_main);
-        expiryHeight = chainActive.Height() + 4 * 7 * 24 * 60; // 2 weeks for blocktime 60 sec
+        expiryHeight = chainActive.Height() + 4 * 7 * 24 * 60; // 4 weeks for blocktime 60 sec
     }
     if (params.size() == 4) {
         expiryHeight = atol(params[3].get_str().c_str());		
