@@ -423,6 +423,8 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                     if (!A::ConstrainVout(tx.vout[2], NORMALVOUT, ownerNormalAddr, 0LL, 0))        // validate owner royalty dest
                         return eval->Invalid("vout2 invalid royalty detination for fillask");
                 }
+                if (eval->GetCurrentHeight() >= vin_expiryHeight)  
+                    return eval->Invalid("order is expired");
             }
             break;
 
@@ -564,6 +566,8 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                         return eval->Invalid("invalid marker vout for original pubkey");
                     ccvouts ++;
                 }
+                if (eval->GetCurrentHeight() >= vin_expiryHeight)  
+                    return eval->Invalid("order is expired");
             }
             break;
 
@@ -642,13 +646,6 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
 // redirect to AssetsValidateInternal and log error
 bool AssetsValidate(struct CCcontract_info *cpAssets, Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
-    // add specific chains exceptions for old token support:
-    if (strcmp(ASSETCHAINS_SYMBOL, "SEC") == 0 && chainActive.Height() <= 144073)
-        return true;
-    
-    if (strcmp(ASSETCHAINS_SYMBOL, "MGNX") == 0 && chainActive.Height() <= 210190)
-        return true;
-
     if (!AssetsValidateInternal<TokensV1, AssetsV1>(cpAssets, eval, tx, nIn))    {
         LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << "validation error: " << eval->state.GetRejectReason() << ", code: " << eval->state.GetRejectCode() << ", tx: " << HexStr(E_MARSHAL(ss << tx)) << std::endl);
         return false;
