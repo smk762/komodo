@@ -232,7 +232,8 @@ struct CCVintxProbe {
 struct CCcontract_info
 {
     uint8_t evalcode;  //!< cc contract eval code, set by CCinit function
-    uint8_t evalcodeAdd;  //!< additional eval code for spending from three-eval-code vouts with EVAL_TOKENS, cc evalcode, cc evalcode NFT 
+    // unused:
+    // uint8_t evalcodeAdd;  //!< additional eval code for spending from three-eval-code vouts with EVAL_TOKENS, cc evalcode, cc evalcode NFT 
                                         //!< or vouts with two evalcodes: EVAL_TOKENS, evalcodeAdd. 
                                         //!< Set by AddTokenCCInputs function
 
@@ -293,7 +294,7 @@ struct CCcontract_info
     void init_to_zeros() {
         // init to zeros:
         evalcode = 0;
-        evalcodeAdd = 0;
+        // evalcodeAdd = 0;
 
         memset(CCpriv, '\0', sizeof(CCpriv) / sizeof(CCpriv[0]));
 
@@ -883,7 +884,7 @@ extern std::vector<CPubKey> NULL_pubkeys; //!< constant value for use in functio
 /// @param opret opreturn vout which function will add if it is not empty 
 /// @param pubkeys array of pubkeys to make multiple probe 1of2 cc's with the call Make1of2cond(cp->evalcode, globalpk, pubkeys[i])
 /// @returns signed transaction in hex encoding
-std::string FinalizeCCTx(uint32_t changeFlag,struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey mypk,uint64_t txfee,CScript opret,std::vector<CPubKey> pubkeys = NULL_pubkeys);
+std::string FinalizeCCTx(uint32_t changeFlag, struct CCcontract_info* cp, CMutableTransaction& mtx, CPubKey mypk, CAmount txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
 
 /// FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and might add an opreturn output.
 /// This allows for Antara module transaction creation rpc functions to create an CMutableTransaction object, add the appropriate vins and vouts to it and use FinalizeCCTx to properly sign the transaction.
@@ -903,11 +904,11 @@ std::string FinalizeCCTx(uint32_t changeFlag,struct CCcontract_info *cp,CMutable
 /// @param opret opreturn vout which function will add if it is not empty 
 /// @param pubkeys array of pubkeys to make multiple probe 1of2 cc's with the call Make1of2cond(cp->evalcode, globalpk, pubkeys[i])
 /// @returns signed transaction in hex encoding
-UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
+UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, CAmount txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
 
 /// version FinalizeCCTx for CC v2, for params @see FinalizeCCTxExt
 /// @returns signed transaction in hex and optional PartiallySigned univalue object with vin indexes and partially signed conditions (if signature threshold not reached)
-UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret);
+UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, CAmount txfee, CScript opret);
 
 /// Add signature to multisig scriptSig
 /// @param mtx mutable tx with multisig cc vins
@@ -1110,6 +1111,8 @@ bool IsTxidInActiveChain(uint256 txid);
 /// @param hashBlock hash of block to check
 bool IsBlockHashInActiveChain(uint256 hashBlock);
 
+/// subcalls an additional evalcode validator
+bool SubcallCCValidate(Eval* eval, uint8_t evalcode, const CTransaction& ctx, int32_t nIn);
 
 extern bool fUnspentCCIndex;  // if unspent cc index enabled
 

@@ -15,22 +15,11 @@
 
 #include "CCHeir.h"
 #include "heir_validate.h"
-#include "old/heir_validate_v0.h"
 #include <iomanip>
 
 class CoinHelper;
 class TokenHelper;
 
-//#ifndef MAY2020_NNELECTION_HARDFORK
-//#define MAY2020_NNELECTION_HARDFORK 1590926400
-//#endif
-
-// return true if new v1 version activation time is passed or chain is always works v1
-// return false if v0 is still active  
-bool HeirIsVer1Active(const Eval *eval)
-{
-    return true; // aleays true for tokel chains
-}
 
 /*
  The idea of Heir CC is to allow crypto inheritance.
@@ -336,11 +325,6 @@ uint8_t _DecodeHeirEitherOpRetV1(CScript scriptPubKey, uint256 &tokenid, CPubKey
     std::vector<vscript_t> oprets;
     vscript_t vopretExtra /*, vopretStripped*/;
 
-    // try to parse
-    uint8_t oldfuncid;
-    if ((oldfuncid = heirv0::_DecodeHeirEitherOpRet(scriptPubKey, tokenid, ownerPubkey, heirPubkey, inactivityTime, heirName, memo, fundingTxidInOpret, hasHeirSpendingBegun, noLogging)) != 0)
-        return oldfuncid;
-
 	if (DecodeTokenOpRetV1(scriptPubKey, tokenid, voutPubkeysDummy, oprets) != 0 && GetOpReturnCCBlob(oprets, vopretExtra)) 
     {
         if (vopretExtra.size() < 1) {
@@ -381,10 +365,7 @@ uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_t& funcId, uint256 &toke
     CTransaction fundingtx;
     uint256 hashBlock;
     const bool allowSlow = false;
-    
-    if (!HeirIsVer1Active(NULL)) 
-        return heirv0::_FindLatestFundingTx(fundingtxid, funcId, tokenid, ownerPubkey, heirPubkey, inactivityTime, heirName, memo, fundingOpretScript, hasHeirSpendingBegun);
-    
+        
     hasHeirSpendingBegun = 0;
     funcId = 0;
     

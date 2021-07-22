@@ -17,7 +17,7 @@
 #include "CCtokens.h"
 #include <iomanip> 
 
-vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, uint256 assetid2, int64_t unit_price, std::vector<uint8_t> origpubkey)
+vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, CAmount unit_price, vscript_t origpubkey, int32_t expiryHeight)
 {
     vscript_t vopret; 
 	uint8_t evalcode = EVAL_ASSETS;
@@ -30,12 +30,12 @@ vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, uint256 assetid2, int64_t unit
 			vopret = E_MARSHAL(ss << evalcode << assetFuncId << version);
             break;
         case 's': case 'b': case 'S': case 'B':
-            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << unit_price << origpubkey);
+            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << unit_price << origpubkey << expiryHeight);
             break;
-        case 'E': case 'e':
+        /*case 'E': case 'e':
             assetid2 = revuint256(assetid2);
-            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << assetid2 << unit_price << origpubkey);
-            break;
+            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << expiryHeight << unit_price << origpubkey);
+            break;*/
         default:
             CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s illegal funcid.%02x\n", __func__, assetFuncId);
             break;
@@ -43,7 +43,7 @@ vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, uint256 assetid2, int64_t unit
     return(vopret);
 }
 
-uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey)
+uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, CAmount &unit_price, vscript_t &origpubkey, int32_t &expiryHeight)
 {
     vscript_t vopretAssets; //, vopretAssetsStripped;
 	uint8_t *script, funcId = 0, assetsFuncId = 0, dummyAssetFuncId, dummyEvalCode, version;
@@ -52,7 +52,6 @@ uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEval
     std::vector<vscript_t>  oprets;
 
 	tokenid = zeroid;
-	assetid2 = zeroid;
 	unit_price = 0;
     assetsEvalCode = 0;
     assetsFuncId = 0;
@@ -88,13 +87,13 @@ uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEval
                 }
                 break;
             case 's': case 'b': case 'S': case 'B':
-                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> unit_price; ss >> origpubkey) != 0)
+                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> unit_price; ss >> origpubkey; ss >> expiryHeight) != 0)
                 {
                     //fprintf(stderr,"DecodeAssetTokenOpRet() got price %lld\n",(long long)price);
                     return(assetsFuncId);
                 }
                 break;
-            case 'E': case 'e':
+            /*case 'E': case 'e':
                 // not implemented yet
                 if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> assetid2; ss >> unit_price; ss >> origpubkey) != 0)
                 {
@@ -102,7 +101,7 @@ uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEval
                     assetid2 = revuint256(assetid2);
                     return(assetsFuncId);
                 }
-                break;
+                break;*/
             default:
                 break;
             }
@@ -114,7 +113,7 @@ uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEval
 }
 
 
-vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, uint256 assetid2, int64_t unit_price, std::vector<uint8_t> origpubkey)
+vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, CAmount unit_price, vscript_t origpubkey, int32_t expiryHeight)
 {
     vscript_t vopret; 
 	uint8_t evalcode = EVAL_ASSETSV2;
@@ -127,12 +126,13 @@ vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, uint256 assetid2, int64_t unit
 			vopret = E_MARSHAL(ss << evalcode << assetFuncId << version);
             break;
         case 's': case 'b': case 'S': case 'B':
-            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << unit_price << origpubkey);
+            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << unit_price << origpubkey << expiryHeight);
             break;
+    /*  swaps not implemented  
         case 'E': case 'e':
             assetid2 = revuint256(assetid2);
             vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << assetid2 << unit_price << origpubkey);
-            break;
+            break;*/
         default:
             CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s illegal funcid.%02x\n", __func__, assetFuncId);
             break;
@@ -140,7 +140,7 @@ vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, uint256 assetid2, int64_t unit
     return(vopret);
 }
 
-uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey)
+uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, CAmount &unit_price, vscript_t &origpubkey, int32_t &expiryHeight)
 {
     vscript_t vopretAssets; //, vopretAssetsStripped;
 	uint8_t *script, funcId = 0, assetsFuncId = 0, dummyAssetFuncId, dummyEvalCode, version;
@@ -149,7 +149,6 @@ uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEval
     std::vector<vscript_t>  oprets;
 
 	tokenid = zeroid;
-	assetid2 = zeroid;
 	unit_price = 0;
     assetsEvalCode = 0;
     assetsFuncId = 0;
@@ -185,13 +184,13 @@ uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEval
                 }
                 break;
             case 's': case 'b': case 'S': case 'B':
-                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> unit_price; ss >> origpubkey) != 0)
+                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> unit_price; ss >> origpubkey; ss >> expiryHeight) != 0)
                 {
                     //fprintf(stderr,"DecodeAssetTokenOpRet() got price %lld\n",(long long)price);
                     return(assetsFuncId);
                 }
                 break;
-            case 'E': case 'e':
+            /* case 'E': case 'e':
                 // not implemented yet
                 if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> assetid2; ss >> unit_price; ss >> origpubkey) != 0)
                 {
@@ -199,7 +198,7 @@ uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEval
                     assetid2 = revuint256(assetid2);
                     return(assetsFuncId);
                 }
-                break;
+                break; */
             default:
                 break;
             }
@@ -213,9 +212,9 @@ uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEval
 // validate:
 // unit_price received for a token >= seller's unit_price
 // remaining_nValue calculated correctly
-bool ValidateBidRemainder(CAmount unit_price, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units)
+bool ValidateBidRemainder(CAmount unit_price, CAmount remaining_nValue, CAmount orig_nValue, CAmount received_nValue, CAmount paid_units)
 {
-    int64_t received_unit_price;
+    CAmount received_unit_price;
     // int64_t new_unit_price = 0;
     if (orig_nValue == 0 || received_nValue == 0 || paid_units == 0)
     {
@@ -254,7 +253,7 @@ bool ValidateBidRemainder(CAmount unit_price, int64_t remaining_nValue, int64_t 
 // paid_units is tokens paid to the bidder
 // orig_units it the tokens amount the bidder wants to buy
 // paid_unit_price is unit_price that token seller sells his tokens for
-bool SetBidFillamounts(CAmount unit_price, int64_t &received_nValue, int64_t orig_nValue, int64_t &paid_units, int64_t orig_units, CAmount paid_unit_price)
+bool SetBidFillamounts(CAmount unit_price, CAmount &received_nValue, CAmount orig_nValue, CAmount &paid_units, CAmount orig_units, CAmount paid_unit_price)
 {
     // int64_t remaining_nValue;
 
@@ -299,7 +298,7 @@ bool SetBidFillamounts(CAmount unit_price, int64_t &received_nValue, int64_t ori
 // fill_assetoshis is tokens purchased
 // orig_assetoshis is available tokens to sell
 // paid_nValue is the paid coins calculated as fill_assetoshis * paid_unit_price 
-bool SetAskFillamounts(CAmount unit_price, int64_t fill_assetoshis, int64_t orig_assetoshis, int64_t paid_nValue)
+bool SetAskFillamounts(CAmount unit_price, CAmount fill_assetoshis, CAmount orig_assetoshis, CAmount paid_nValue)
 {
     //int64_t remaining_assetoshis; 
     //double dunit_price;
@@ -351,9 +350,9 @@ bool SetAskFillamounts(CAmount unit_price, int64_t fill_assetoshis, int64_t orig
 // validate: 
 // paid unit_price for a token <= the bidder's unit_price
 // remaining coins calculated correctly
-bool ValidateAskRemainder(CAmount unit_price, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue)
+bool ValidateAskRemainder(CAmount unit_price, CAmount remaining_assetoshis, CAmount orig_assetoshis, CAmount received_assetoshis, CAmount paid_nValue)
 {
-    int64_t paid_unit_price;
+    CAmount paid_unit_price;
     //CAmount unit_price = AssetsGetUnitPrice(ordertxid);
     //int64_t new_unit_price = 0;
 

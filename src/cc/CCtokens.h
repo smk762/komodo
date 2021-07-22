@@ -45,7 +45,7 @@ bool Tokensv2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
 /// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
 //CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
-/// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set evalcodeAdd variable in the cp object to the eval code from tokencreate tx NFT data to spend NFT outputs properly
+/// Adds token inputs to transaction object.
 /// @param cp CCcontract_info structure
 /// @param mtx mutable transaction object
 /// @param tokenaddr address where token inputs to add
@@ -55,7 +55,7 @@ bool Tokensv2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
 /// @see AddTokenCCInputs
 //CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
-/// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set evalcodeAdd variable in the cp object to the eval code from tokencreate tx NFT data to spend NFT outputs properly
+/// Adds token inputs to transaction object.
 /// @param cp CCcontract_info structure
 /// @param mtx mutable transaction object
 /// @param pk pubkey from which the token cc address will be created and token inputs are added
@@ -273,14 +273,12 @@ CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nV
 CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> & pks, vscript_t* pvData = nullptr);
 
 UniValue TokenList();
-UniValue TokenV2List(int32_t beginHeight, int32_t endHeight);
+UniValue TokenV2List(const UniValue &params);
 
 inline bool IsTokenCreateFuncid(uint8_t funcid) { return funcid == 'c'; }
 inline bool IsTokenTransferFuncid(uint8_t funcid) { return funcid == 't'; }
 
 bool IsEqualDestinations(const CScript &spk1, const CScript &spk2);
-
-bool TokensIsVer1Active(const Eval *eval);
 
 const char cctokens_log[] = "cctokens";
 
@@ -329,23 +327,27 @@ public:
     }
 
     // vouts:
-    static CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL)
+    static CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<vscript_t>* vData = NULL)
     {
         return ::MakeCC1vout(evalcode, nValue, pk, vData);
     }
-    static CTxOut MakeTokensCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL)
+    static CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<vscript_t>* vData = NULL)
+    {
+        return ::MakeCC1of2vout(evalcode, nValue, pk1, pk2, vData);
+    }
+    static CTxOut MakeTokensCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<vscript_t>* vData = NULL)
     {
         return ::MakeTokensCC1vout(evalcode, nValue, pk, vData);
     }
-    static CTxOut MakeTokensCC1vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL)
+    static CTxOut MakeTokensCC1vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk, std::vector<vscript_t>* vData = NULL)
     {
         return ::MakeTokensCC1vout(evalcode1, evalcode2, nValue, pk, vData);
     }
-    static CTxOut MakeTokensCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL)
+    static CTxOut MakeTokensCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<vscript_t>* vData = NULL)
     {
         return ::MakeTokensCC1of2vout(evalcode, nValue, pk1, pk2, vData);
     }
-    static CTxOut MakeTokensCC1of2vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL)
+    static CTxOut MakeTokensCC1of2vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<vscript_t>* vData = NULL)
     {
         return ::MakeTokensCC1of2vout(evalcode1, evalcode2, nValue, pk1, pk2, vData);
     }  
@@ -360,7 +362,7 @@ public:
             return CTxOut();
     }    
 
-    static UniValue FinalizeCCTx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
+    static UniValue FinalizeCCTx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, CAmount txfee, CScript opret)
     {
         return ::FinalizeCCTxExt(remote, changeFlag, cp, mtx, mypk, txfee, opret);
     }
@@ -416,6 +418,10 @@ public:
     {
         return ::MakeCC1voutMixed(evalcode, nValue, pk, (pvvData != nullptr ? &(*pvvData)[0] : nullptr));
     }
+    static CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<vscript_t>* pvvData = NULL)
+    {
+        return ::MakeCC1of2voutMixed(evalcode, nValue, pk1, pk2, (pvvData != nullptr ? &(*pvvData)[0] : nullptr));
+    }
     static CTxOut MakeTokensCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<vscript_t>* pvvData = NULL)
     {
         return ::MakeTokensCC1voutMixed(evalcode, nValue, pk, (pvvData != nullptr ? &(*pvvData)[0] : nullptr));
@@ -437,7 +443,7 @@ public:
     {
         return ::MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, M, pks, (pvvData != nullptr ? &(*pvvData)[0] : nullptr));
     }
-    static UniValue FinalizeCCTx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
+    static UniValue FinalizeCCTx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, CAmount txfee, CScript opret)
     {
         return ::FinalizeCCV2Tx(remote, changeFlag, cp, mtx, mypk, txfee, opret);
     }

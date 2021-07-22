@@ -23,7 +23,7 @@ enum tklPropType : uint8_t {
     TKLTYP_VUINT8 = 0x2 
 };
 
-typedef void tklWriteSS(CDataStream &ss, const UniValue &val);
+typedef bool tklWriteSS(CDataStream &ss, const UniValue &val);
 typedef UniValue tklReadSS(CDataStream &ss);
 
 

@@ -440,7 +440,7 @@ bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, 
 	destaddr[0] = 0;
 	if (pk.size() == 0)
 		pk = GetUnspendable(cp, 0);
-	return(_GetTokensCCaddress(destaddr, cp->evalcode, cp->evalcodeAdd, pk, mixed));
+	return(_GetTokensCCaddress(destaddr, cp->evalcode, 0, pk, mixed));
 }
 
 bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed)
@@ -459,12 +459,12 @@ bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey 
 {
 	CCwrapper payoutCond;
     if (!mixed)
-        payoutCond.reset(MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeAdd, pk1, pk2));
+        payoutCond.reset(MakeTokensCCcond1of2(cp->evalcode, pk1, pk2));
     else
-        payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, cp->evalcodeAdd, pk1, pk2));
+        payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, pk1, pk2));
 
 	destaddr[0] = 0;
-	if (payoutCond != nullptr)  //  if evalcodeAdd not set then it is dual-eval cc else three-eval cc
+	if (payoutCond != nullptr) 
 	{
         if (mixed) 
             CCtoAnon(payoutCond.get());
@@ -1017,11 +1017,11 @@ CAmount TotalPubkeyCCInputs(Eval *eval, const CTransaction &tx, const CPubKey &p
 
 bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction& ctx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
-    CTransaction createTx;
-    uint256 assetid, assetid2, hashBlock;
-    uint8_t funcid;
-    int32_t height, i, n, from_mempool = 0;
-    int64_t amount;
+    //CTransaction createTx;
+    //uint256 assetid, assetid2, hashBlock;
+    //uint8_t funcid;
+    int32_t height, from_mempool = 0;
+    //int64_t amount;
     std::vector<uint8_t> origpubkey;
     height = KOMODO_CONNECTING;
     if (KOMODO_CONNECTING < 0) // always comes back with > 0 for final confirmation
@@ -1055,6 +1055,41 @@ bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> para
     }
     //fprintf(stderr,"invalid CC %02x\n",cp->evalcode);
     return (false);
+}
+
+bool SubcallCCValidate(Eval* eval, uint8_t evalcode, const CTransaction& ctx, int32_t nIn)
+{
+    if (ASSETCHAINS_CC == 0)
+        return eval->Invalid("CC are disabled");
+
+
+    if ( ASSETCHAINS_CCDISABLES[evalcode] != 0 )
+    {
+        // check if a height activation has been set. 
+        if ( mapHeightEvalActivate[evalcode] == 0 || eval->GetCurrentHeight() == 0 || mapHeightEvalActivate[evalcode] > eval->GetCurrentHeight() )
+        {
+            return eval->Invalid("disabled-code, -ac_ccenables didnt include this ecode");
+        }
+    }
+
+    struct CCcontract_info *cp;
+    cp = &CCinfos[(int32_t)evalcode];
+    if ( cp->didinit == 0 )
+    {
+        CCinit(cp, evalcode);
+        cp->didinit = 1;
+    }
+
+    if (cp->validate == NULL)
+        return eval->Invalid("validation not supported for eval code");
+
+    CCclearvars(cp);
+    if ((*cp->validate)(cp, eval, ctx, nIn) != false) {
+        return true;
+    }
+    else  {
+        return false;
+    }
 }
 
 bool CClib_Dispatch(const CC* cond, Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction& txTo, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)

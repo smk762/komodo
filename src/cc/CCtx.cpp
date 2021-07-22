@@ -42,7 +42,7 @@ This allows the contract transaction functions to create the appropriate vins an
 
 By using -addressindex=1, it allows tracking of all the CC addresses
 */
-std::string FinalizeCCTx(uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
+std::string FinalizeCCTx(uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, CAmount txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
     UniValue sigData = FinalizeCCTxExt(false, changeFlag, cp, mtx, mypk, txfee, opret, pubkeys);
     return sigData[JSON_HEXTX].getValStr();
@@ -50,7 +50,7 @@ std::string FinalizeCCTx(uint32_t changeFlag, struct CCcontract_info *cp, CMutab
 
 
 // extended version that supports signInfo object with conds to vins map for remote cc calls
-UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
+UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, CAmount txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; CPubKey globalpk; uint256 hashBlock; uint64_t mask=0,nmask=0,vinimask=0;
@@ -104,7 +104,7 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
 	// to spend from dual/three-eval mypk vout
 	GetTokensCCaddress(cp, mytokensaddr, mypk);
     // NOTE: if additionalEvalcode2 is not set it is a dual-eval (not three-eval) cc cond:
-	mytokenscond = MakeTokensCCcond1(cp->evalcode, cp->evalcodeAdd, mypk);  
+	mytokenscond = MakeTokensCCcond1(cp->evalcode, mypk);  
 
 	// to spend from single-eval EVAL_TOKENS mypk 
 	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
@@ -113,7 +113,7 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
 
 	// to spend from dual/three-eval EVAL_TOKEN+evalcode 'unspendable' pk:
 	GetTokensCCaddress(cp, unspendabletokensaddr, unspendablepk);  // it may be a three-eval cc, if cp->additionalEvalcode2 is set
-	othertokenscond = MakeTokensCCcond1(cp->evalcode, cp->evalcodeAdd, unspendablepk);
+	othertokenscond = MakeTokensCCcond1(cp->evalcode, unspendablepk);
 
     //Reorder vins so that for multiple normal vins all other except vin0 goes to the end
     //This is a must to avoid hardfork change of validation in every CC, because there could be maximum one normal vin at the begining with current validation.
@@ -170,12 +170,13 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
     // 
     if (changeFlag != FINALIZECCTX_NO_CHANGE)  {   // no need change at all (already added by the caller itself)
         CAmount change = totalinputs - (totaloutputs + txfee);
+        CTxOut changeVout(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
         if (change >= 0)
         {
             if ((change != 0LL || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_ZERO) &&                // prevent adding zero change
-                (change > ASSETS_NORMAL_DUST || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
+                (!changeVout.IsDust(::minRelayTxFee) || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
             {    
-                mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+                mtx.vout.push_back(changeVout);
             }
         }
     }
@@ -296,7 +297,7 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
 					if (othercond1of2tokens == 0)
                         // NOTE: if additionalEvalcode2 is not set then it is dual-eval cc else three-eval cc
                         // TODO: verify evalcodes order if additionalEvalcode2 is not 0
-						othercond1of2tokens = MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeAdd, cp->tokens1of2pk[0], cp->tokens1of2pk[1]);
+						othercond1of2tokens = MakeTokensCCcond1of2(cp->evalcode, cp->tokens1of2pk[0], cp->tokens1of2pk[1]);
 					cond = othercond1of2tokens;
 				}
                 else
@@ -425,7 +426,7 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
 }
 
 // extended version that supports signInfo object with conds to vins map for remote cc calls - for V2 mixed mode cc vins
-UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info* cp, CMutableTransaction& mtx, CPubKey mypk, uint64_t txfee, CScript opret)
+UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info* cp, CMutableTransaction& mtx, CPubKey mypk, CAmount txfee, CScript opret)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx;
@@ -477,12 +478,13 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
     }
     if (changeFlag != FINALIZECCTX_NO_CHANGE) {  // no need change at all (already added by the caller itself)
         CAmount change = totalinputs - (totaloutputs + txfee);
+        CTxOut changeVout(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
         if (change >= 0)
         {
             if ((change != 0LL || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_ZERO) &&                // prevent adding zero change
-                (change > ASSETS_NORMAL_DUST || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
+                (!changeVout.IsDust(::minRelayTxFee) || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_DUST))    // prevent adding dust change
             {    
-                mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+                mtx.vout.push_back(changeVout);
             }
         }
     }
@@ -528,7 +530,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                     cond.reset(MakeCCcond1(cp->evalcode, mypk));
                 } else if (strcmp(destaddr, mynftaddr) == 0) {
                     privkey = myprivkey;
-                    cond.reset(MakeTokensv2CCcond1(cp->evalcode, cp->evalcodeAdd, mypk));
+                    cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
                 } else {
                     const uint8_t nullpriv[32] = {'\0'};
                     // use vector of dest addresses and conds to probe vintxconds

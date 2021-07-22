@@ -45,15 +45,16 @@
 
 // validates opret for asset tx:
 template<class A>
-bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out) 
+bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, CAmount &remaining_units_out, std::vector<uint8_t> &origpubkey_out) 
 {
-	uint256 assetidOpret, assetidOpret2;
+	uint256 assetidOpret;
 	uint8_t funcid, evalCode;
+    int32_t expiryHeight;
 
 	// this is just for log messages indentation fur debugging recursive calls:
 	int32_t n = tx.vout.size();
 
-	if ((funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetidOpret, assetidOpret2, remaining_units_out, origpubkey_out)) == 0)
+	if ((funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetidOpret, remaining_units_out, origpubkey_out, expiryHeight)) == 0)
 	{
         LOGSTREAMFN(ccassets_log, CCLOG_DEBUG1, stream << "called DecodeAssetTokenOpRet returned funcId=0 for opret from txid=" << tx.GetHash().GetHex() << std::endl);
 		return(false);
@@ -66,19 +67,19 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &re
 			return(true);
 		}
 	}
-	else if (funcid == 'E')  // NOTE: not implemented yet!
+	/*else if (funcid == 'E')  // NOTE: not implemented yet!
 	{
 		if (v < 2 && assetid != zeroid && assetidOpret == assetid)
 			return(true);
 		else if (v == 2 && assetid != zeroid && assetidOpret2 == assetid)
 			return(true);
-	}
+	}*/
 	return false;
 }  
 
 // Checks if the vout is a really Asset CC vout
 template<class A>
-int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out, const CTransaction& tx, int32_t v, uint256 refassetid)
+CAmount IsAssetvout(struct CCcontract_info *cp, CAmount &remaining_units_out, std::vector<uint8_t> &origpubkey_out, const CTransaction& tx, int32_t v, uint256 refassetid)
 {
     // just check boundaries:
     int32_t n = tx.vout.size();
@@ -100,12 +101,12 @@ int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &remaining_units_out, st
 
 // extract sell/buy owner's pubkey from the opret
 template<class A>
-uint8_t GetOrderParams(std::vector<uint8_t> &origpubkey_out, CAmount &unit_price, uint256 &assetid, const CTransaction &tx)
+uint8_t GetOrderParams(std::vector<uint8_t> &origpubkey_out, CAmount &unit_price, uint256 &assetid, int32_t &expiryHeightOut, const CTransaction &tx)
 {
     uint256 assetid2;
     uint8_t evalCode, funcid;
 
-    if (tx.vout.size() > 0 && (funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey_out)) != 0)
+    if (tx.vout.size() > 0 && (funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetid, unit_price, origpubkey_out, expiryHeightOut)) != 0)
         return funcid;
     else
         return 0;
@@ -115,16 +116,17 @@ uint8_t GetOrderParams(std::vector<uint8_t> &origpubkey_out, CAmount &unit_price
 template<class A>
 bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origNormalAddr, const CTransaction& vintx)
 {
-    uint256 assetid, assetid2; 
-    int64_t price,nValue=0; 
+    uint256 assetid; 
+    CAmount price, nValue=0; 
     int32_t n; 
     uint8_t vintxFuncId; 
 	std::vector<uint8_t> origpubkey; 
 	CScript script;
 	uint8_t evalCode;
+    int32_t expiryHeight;
 
     n = vintx.vout.size();
-    if( n == 0 || (vintxFuncId = A::DecodeAssetTokenOpRet(vintx.vout[n-1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey)) == 0 ) {
+    if( n == 0 || (vintxFuncId = A::DecodeAssetTokenOpRet(vintx.vout.back().scriptPubKey, evalCode, assetid, price, origpubkey, expiryHeight)) == 0 ) {
         LOGSTREAMFN(ccassets_log, CCLOG_INFO, stream << "could not get vintx opreturn" << std::endl);
         return(false);
     }
@@ -133,7 +135,6 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
     cpTokens = CCinit(&tokensC, A::TokensEvalCode());
 
 	if (vintxFuncId == 's' || vintxFuncId == 'S' || vintxFuncId == 'b' || vintxFuncId == 'B') {
-        cpTokens->evalcodeAdd = cp->evalcodeAdd;  // add non-fungible evalcode if present
         if (!GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey), A::IsMixed()))  // tokens to single-eval token or token+nonfungible
             return false;
 	}
@@ -148,16 +149,17 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
 }
 
 template<class A>
-CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, int32_t vini, CTransaction &vinTx)
+CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *origCCaddr_out, char *origaddr_out, int32_t &vinExpiryHeightOut, const CTransaction &tx, int32_t vini, CTransaction &vinTx)
 {
 	uint256 hashBlock;
-    uint256 assetid, assetid2;
-    uint256 vinAssetId, vinAssetId2;
+    uint256 assetid;
+    uint256 vinAssetId;
 	CAmount tmpprice, vinPrice;
     std::vector<uint8_t> tmporigpubkey;
     std::vector<uint8_t> vinOrigpubkey;
     uint8_t evalCode;
     uint8_t vinEvalCode;
+    int32_t tmpExpiryHeight;
 	char destaddr[KOMODO_ADDRESS_BUFSIZE], unspendableAddr[KOMODO_ADDRESS_BUFSIZE];
 
     origaddr_out[0] = destaddr[0] = origCCaddr_out[0] = 0;
@@ -165,9 +167,11 @@ CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
     uint8_t funcid = 0;
     uint8_t vinFuncId = 0;
 	if (tx.vout.size() > 0) 
-		funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetid, assetid2, tmpprice, tmporigpubkey);
+		funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetid, tmpprice, tmporigpubkey, tmpExpiryHeight);
     else
         return eval->Invalid("no vouts in tx"), 0LL;
+    if (funcid == 0)
+        return eval->Invalid("could not decode opreturn for tx"), 0LL;
 
     if (tx.vin.size() < 2)
         return eval->Invalid("not enough vins"), 0LL;
@@ -178,7 +182,7 @@ CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
 		LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << "cannot load vintx for vin=" << vini << " vintx id=" << tx.vin[vini].prevout.hash.GetHex() << std::endl);
         return eval->Invalid("could not load previous tx or it has too few vouts"), 0LL;
     }
-    else if (vinTx.vout.size() < 1 || (vinFuncId = A::DecodeAssetTokenOpRet(vinTx.vout.back().scriptPubKey, vinEvalCode, vinAssetId, vinAssetId2, vinPrice, vinOrigpubkey)) == 0) {
+    else if (vinTx.vout.size() < 1 || (vinFuncId = A::DecodeAssetTokenOpRet(vinTx.vout.back().scriptPubKey, vinEvalCode, vinAssetId, vinPrice, vinOrigpubkey, vinExpiryHeightOut)) == 0) {
         return eval->Invalid("could not find assets opreturn in previous tx"), 0LL;
     }
 	// if fillSell or cancelSell --> should spend tokens from dual-eval token-assets global addr:
@@ -228,28 +232,29 @@ CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
 }
 
 template<class A>
-CAmount AssetValidateBuyvin(struct CCcontract_info *cpAssets, Eval* eval, CAmount &unit_price, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 refassetid)
+CAmount AssetValidateBuyvin(struct CCcontract_info *cpAssets, Eval* eval, CAmount &unit_price, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, int32_t &expiryHeightOut, const CTransaction &tx, uint256 refassetid)
 {
-    CTransaction vinTx; CAmount nValue; uint256 assetid, assetid2; uint8_t funcid, evalCode;
+    CTransaction vinTx; 
+    CAmount nValue; 
+    uint256 assetid; 
+    uint8_t funcid, evalCode;
+    int32_t expiryHeight;
 
     origCCaddr_out[0] = origaddr_out[0] = 0;
 
     // get first ccvin:
-    int32_t ivincc;
-    for (ivincc = 0; ivincc < tx.vin.size(); ivincc ++)
-        if (cpAssets->ismyvin(tx.vin[ivincc].scriptSig))
-            break;
-    if (ivincc == tx.vin.size())
+    auto ccvin = std::find_if(tx.vin.begin(), tx.vin.end(), [&](const CTxIn &vin) { return cpAssets->ismyvin(vin.scriptSig); });
+    if (ccvin == tx.vin.end())
         return eval->Invalid("cc vin not found in tx"), 0LL;
 
     // validate locked coins on Assets vin[1]
-    if ((nValue = AssetValidateCCvin<A>(cpAssets, eval, origCCaddr_out, origaddr_out, tx, /*ASSETS_GLOBALADDR_VIN*/ivincc, vinTx)) == 0)
+    if ((nValue = AssetValidateCCvin<A>(cpAssets, eval, origCCaddr_out, origaddr_out, expiryHeightOut, tx, ccvin-tx.vin.begin(), vinTx)) == 0)
         return 0LL; // eval is set already in AssetValidateCCvin
     else if (vinTx.vout.size() < 2)
         return eval->Invalid("invalid previous tx, too few vouts"), 0LL;
     else if (vinTx.vout[0].scriptPubKey.IsPayToCryptoCondition() == false)
         return eval->Invalid("invalid not cc vout0 for buyvin"), 0LL;
-    else if ((funcid = A::DecodeAssetTokenOpRet(vinTx.vout[vinTx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, unit_price, origpubkey_out)) == 'b' &&
+    else if ((funcid = A::DecodeAssetTokenOpRet(vinTx.vout.back().scriptPubKey, evalCode, assetid, unit_price, origpubkey_out, expiryHeightOut)) == 'b' &&
         vinTx.vout[1].scriptPubKey.IsPayToCryptoCondition() == false)  // marker is only in 'b'?
         return eval->Invalid("invalid not cc vout1 for buyvin"), 0LL;
     else
@@ -263,21 +268,19 @@ CAmount AssetValidateBuyvin(struct CCcontract_info *cpAssets, Eval* eval, CAmoun
 }
 
 template<class A>
-CAmount AssetValidateSellvin(struct CCcontract_info *cpAssets, Eval* eval, CAmount &unit_price, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 assetid)
+CAmount AssetValidateSellvin(struct CCcontract_info *cpAssets, Eval* eval, CAmount &unit_price, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, int32_t &expiryHeightOut, const CTransaction &tx, uint256 assetid)
 {
-    CTransaction vinTx; CAmount nValue, assetoshis;
+    CTransaction vinTxOut; 
+    CAmount nValue, assetoshis;
 
     // get first ccvin:
-    int32_t ivincc;
-    for (ivincc = 0; ivincc < tx.vin.size(); ivincc ++)
-        if (cpAssets->ismyvin(tx.vin[ivincc].scriptSig))
-            break;
-    if (ivincc == tx.vin.size())
+    auto ccvin = std::find_if(tx.vin.begin(), tx.vin.end(), [&](const CTxIn &vin) { return cpAssets->ismyvin(vin.scriptSig); });
+    if (ccvin == tx.vin.end())
         return eval->Invalid("cc vin not found"), 0LL;
-    if ((nValue = AssetValidateCCvin<A>(cpAssets, eval, origCCaddr_out, origaddr_out, tx, /*ASSETS_GLOBALADDR_VIN*/ivincc, vinTx)) == 0)
+    if ((nValue = AssetValidateCCvin<A>(cpAssets, eval, origCCaddr_out, origaddr_out, expiryHeightOut, tx, ccvin-tx.vin.begin(), vinTxOut)) == 0)
         return 0LL; // eval is set already in AssetValidateCCvin
     
-    if ((assetoshis = IsAssetvout<A>(cpAssets, unit_price, origpubkey_out, vinTx, ASSETS_GLOBALADDR_VOUT, assetid)) == 0)
+    if ((assetoshis = IsAssetvout<A>(cpAssets, unit_price, origpubkey_out, vinTxOut, ASSETS_GLOBALADDR_VOUT, assetid)) == 0)
         return eval->Invalid("invalid missing CC vout0 for sellvin"), 0LL;
     else
         return assetoshis;
