@@ -698,7 +698,11 @@ UniValue tokenbid(const std::string& name, const UniValue& params, bool fHelp, c
     if (bidamount <= 0)
         return MakeResultError("bid amount must be positive");
 
-    int32_t expiryHeight = std::numeric_limits<int32_t>::max();
+    int32_t expiryHeight; 
+    {
+        LOCK(cs_main);
+        expiryHeight = chainActive.Height() + 4 * 7 * 24 * 60; // 2 weeks for blocktime 60 sec
+    }
     if (params.size() == 4)  {
         expiryHeight = atol(params[3].get_str().c_str());	
         if (!remotepk.IsValid() && expiryHeight < chainActive.LastTip()->GetHeight())
@@ -837,7 +841,11 @@ UniValue tokenask(const std::string& name, const UniValue& params, bool fHelp, c
     if (askamount <= 0)
         return MakeResultError("askamount invalid");
 
-    int32_t expiryHeight = std::numeric_limits<int32_t>::max();
+    int32_t expiryHeight; 
+    {
+        LOCK(cs_main);
+        expiryHeight = chainActive.Height() + 4 * 7 * 24 * 60; // 2 weeks for blocktime 60 sec
+    }
     if (params.size() == 4) {
         expiryHeight = atol(params[3].get_str().c_str());		
         if (!remotepk.IsValid() && expiryHeight < chainActive.LastTip()->GetHeight())
