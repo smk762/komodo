@@ -6,7 +6,7 @@
 This is the `'tokel'` branch of Komodo's sourcecode repository.
 
 
-## What is the Tokel platform?
+## What is the Tokel Platform?
 Tokel is a dedicated token platform. This platform will provide a solid foundation, using existing Komodo Technologies, for token projects to launch and succeed from by offering end-to-end token solutions for fixed supply and non-fungible tokens (NFT's). Furthermore Tokel aims to provide a wealth of knowledge, information and assistance for open-sourced applications, projects and businesses looking to capitalize on token economics or token applications. The Tokel platform will provide simple to use, streamlined token creation, explorer and wallet integration, decentralized exchange integration assistance and more.
 
 #### What Tokel aims to offer:
