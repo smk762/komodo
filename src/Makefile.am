@@ -66,6 +66,8 @@ if ENABLE_WALLET
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
 endif
 
+LIBDYNCUSTOMCONSENSUS = cc/libcc.a 
+
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
 
@@ -89,6 +91,9 @@ $(LIBUNIVALUE): $(wildcard univalue/lib/*)
 
 $(LIBCRYPTOCONDITIONS): $(wildcard cryptoconditions/src/*) $(wildcard cryptoconditions/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
+
+$(LIBDYNCUSTOMCONSENSUS): $(wildcard *.h) $(wildcard cc/*.h) $(wildcard cryptoconditions/include/*)
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) -f Makefile_custom HOST=$(host)
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -291,23 +296,18 @@ libbitcoin_server_a_SOURCES = \
   cc/import.cpp \
   cc/importgateway.cpp \
   cc/CCassetsUtils.cpp \
-  cc/old/CCassetsCore_v0.cpp \
-  cc/old/CCassetstx_v0.cpp \
   cc/CCcustom.cpp \
   cc/CCtx.cpp \
   cc/CCutils.cpp \
   cc/CCvalidation.cpp \
   cc/CCtokens.cpp \
-  cc/old/CCtokens_v0.cpp \
   cc/assets.cpp \
-  cc/old/assets_v0.cpp \
   cc/faucet.cpp \
   cc/rewards.cpp \
   cc/dice.cpp \
   cc/lotto.cpp \
   cc/fsm.cpp \
   cc/heir.cpp \
-  cc/old/heir_v0.cpp \
   cc/oracles.cpp \
   cc/prices.cpp \
   cc/pegs.cpp \
@@ -318,7 +318,7 @@ libbitcoin_server_a_SOURCES = \
   cc/betprotocol.cpp \
   cc/pricesfeed.cpp \
   cc/priceslibs/cjsonpointer.cpp \
-  cc/CCNFTData.cpp \
+  cc/CCTokelData.cpp \
   chain.cpp \
   checkpoints.cpp \
   fs.cpp \
@@ -506,7 +506,6 @@ libbitcoin_common_a_SOURCES = \
   script/standard.cpp \
   transaction_builder.cpp \
   cc/CCtokenutils.cpp \
-  cc/old/CCtokenutils_v0.cpp \
   cc/CCutilbits.cpp \
   gmp_i64.c \
   $(BITCOIN_CORE_H) \
@@ -598,15 +597,7 @@ komodod_LDADD += \
   $(LIBVERUS_PORTABLE_CRYPTO) \
   $(LIBZCASH_LIBS)
 
-if TARGET_DARWIN
-komodod_LDADD += libcc.dylib $(LIBSECP256K1)
-endif
-if TARGET_WINDOWS
-komodod_LDADD += libcc.dll $(LIBSECP256K1)
-endif
-if TARGET_LINUX
-komodod_LDADD += libcc.so $(LIBSECP256K1)
-endif
+komodod_LDADD += $(LIBDYNCUSTOMCONSENSUS) $(LIBSECP256K1)
 
 if ENABLE_PROTON
 komodod_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
@@ -771,7 +762,9 @@ clean-local:
 	-$(MAKE) -C cryptoconditions clean
 	rm -f leveldb/*/*.gcno leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
-	rm -f cc/customcc.so
+	-rm -f cc/customcc.so cc/customcc.dll cc/customcc.dylib # clean now unused file
+	-rm -f libcc.so libcc.dll libcc.dylib  # clean now unused file 
+	-$(MAKE) -C cc -f Makefile_custom clean
 
 .rc.o:
 	@test -f $(WINDRES)
@@ -799,6 +792,7 @@ endif
 
 if ENABLE_TESTS
 include Makefile.ktest.include
+include Makefile.kcctest.include
 #include Makefile.test.include
 #include Makefile.gtest.include
 endif
