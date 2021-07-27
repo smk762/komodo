@@ -1,9 +1,9 @@
-<!--![Tokel Logo](https://raw.githubusercontent.com/TokelPlatform/tokel_app/development/brand_package/TOKEL-ICON.png "Tokel Logo")-->
+![Tokel Logo](https://raw.githubusercontent.com/TokelPlatform/tokel_app/brand_pack/brand_package/assets/tokel.svg "Tokel Logo")
 
 
-## Tokel Branch
+## Komodo's 'Tokel' Branch
 
-This is the `'tokel'` branch of Komodo's sourcecode repository.
+This is the `tokel` branch of Komodo's sourcecode repository.
 
 
 ## What is the Tokel Platform?
