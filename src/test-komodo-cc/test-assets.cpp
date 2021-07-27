@@ -654,8 +654,40 @@ protected:
         return mtx;
     }
 
+    bool TestSetBidFillamounts(CAmount unit_price, CAmount &received_nValue, CAmount orig_nValue, CAmount &paid_units, CAmount orig_units, CAmount paid_unit_price)
+    {
+        if (orig_units == 0)
+        {
+            received_nValue = paid_units = 0;
+            return(false);
+        }
+        if (paid_units > orig_units)   // not 
+        {
+            paid_units = 0;
+            // received_nValue = orig_nValue;
+            received_nValue = (paid_units * paid_unit_price);  // as paid unit_price might be less than original unit_price
+            //  remaining_units = 0;
+            fprintf(stderr, "%s not enough units!\n", __func__);
+            return(false);
+        }
+        
+        received_nValue = (paid_units * paid_unit_price);
+        fprintf(stderr, "%s orig_units.%lld - paid_units.%lld, (orig_value.%lld - received_value.%lld)\n", __func__, 
+                (long long)orig_units, (long long)paid_units, (long long)orig_nValue, (long long)received_nValue);
+        if (unit_price > 0 && received_nValue > 0 && received_nValue <= orig_nValue)
+        {
+            CAmount remaining_nValue = (orig_nValue - received_nValue);
+            return true;
+        }
+        else 
+        {
+            fprintf(stderr, "%s incorrect values: unit_price %lld > 0, orig_value.%lld >= received_value.%lld\n", __func__, 
+                (long long)unit_price, (long long)orig_nValue, (long long)received_nValue);
+            return(false);
+        }
+    }
 
-    static CMutableTransaction MakeTokenV2FillBidTx(struct CCcontract_info *cpTokens, CPubKey mypk, uint256 tokenid, uint256 bidtxid, CAmount fill_units, CAmount unit_price, UniValue &data)
+    static CMutableTransaction MakeTokenV2FillBidTx(struct CCcontract_info *cpTokens, CPubKey mypk, uint256 tokenid, uint256 bidtxid, CAmount fill_units, CAmount paid_unit_price, UniValue &data)
     {
         CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
         struct CCcontract_info *cpAssets, C; 
@@ -669,7 +701,6 @@ protected:
         //CAmount fill_units = 2;
         CAmount txfee = 10000;
         uint256 assetidOpret;
-        CAmount paid_unit_price = 0;  // not set
 
         cpAssets = CCinit(&C, AssetsV2::EvalCode());   
         //cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
@@ -701,6 +732,7 @@ protected:
         CAmount bid_amount = bidtx.vout[bidvout].nValue;
         vuint8_t origpubkey;
         int32_t expiryHeight;
+        CAmount unit_price;
         if (GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, bidtx) == 0) { // get orig pk, orig value
             std::cerr << __func__ << " cant get order data" << std::endl;
             return CTransaction();
@@ -728,8 +760,7 @@ protected:
         mtx.vin.push_back(CTxIn(bidtx.GetHash(), bidvout, CScript()));  // spend order tx
 
         if (!SetBidFillamounts(unit_price, paid_amount, bid_amount, fill_units, orig_units, paid_unit_price)) {
-            std::cerr << __func__ << " SetBidFillamounts return false" << std::endl;
-            return CTransaction();    
+            std::cerr << __func__ << " SetBidFillamounts return false, continue..." << std::endl;
         }
 
         CAmount royaltyValue = royaltyFract > 0 ? paid_amount / TKLROYALTY_DIVISOR * royaltyFract : 0;
@@ -747,12 +778,14 @@ protected:
                 std::cerr << __func__ << " dust detected (bid_amount - paid_amount)=" << (bid_amount - paid_amount) << std::endl;
         }
         else
-            mtx.vout.push_back(CTxOut(bid_amount - paid_amount, CScript() << ParseHex(HexStr(origpubkey)) << OP_CHECKSIG));     // vout0 if no more tokens to buy, send the remainder to originator
-        mtx.vout.push_back(CTxOut(paid_amount - royaltyValue, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));	// vout1 coins to mypk normal 
+            mtx.vout.push_back(CTxOut(bid_amount - paid_amount, CScript() << origpubkey << OP_CHECKSIG));     // vout0 if no more tokens to buy, send the remainder to originator
+        mtx.vout.push_back(CTxOut(paid_amount - royaltyValue, CScript() << vuint8_t(mypk.begin(), mypk.end()) << OP_CHECKSIG));	// vout1 coins to mypk normal 
         if (royaltyValue > 0)   // note it makes vout even if roaltyValue is 0
-            mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ParseHex(HexStr(ownerpubkey)) << OP_CHECKSIG));  // vout2 trade royalty to token owner
+            mtx.vout.push_back(CTxOut(royaltyValue, CScript() << ownerpubkey << OP_CHECKSIG));  // vout2 trade royalty to token owner
         mtx.vout.push_back(TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), fill_units, pubkey2pk(origpubkey)));	  // vout2(3) single-eval tokens sent to the originator
-        if (orig_units - fill_units > 0)  // order is not finished yet
+        //specially change to make valid tx if bidder takes tokens for lower price
+        //if (orig_units - fill_units > 0)  // order is not finished yet
+        if (mtx.vout[0].scriptPubKey.IsPayToCryptoCondition() && mtx.vout[0].nValue / unit_price > 0)
             mtx.vout.push_back(TokensV2::MakeCC1of2vout(AssetsV2::EvalCode(), ASSETS_MARKER_AMOUNT, pubkey2pk(origpubkey), unspendableAssetsPk));                    // vout3(4 if royalty) marker to origpubkey
 
         if (tokensChange != 0LL)
@@ -943,7 +976,7 @@ protected:
 // --------------------------------------------------
 // assets cc tests:
 
-TEST_F(TestAssetsCC, tokenv2ask)
+TEST_F(TestAssetsCC, tokenv2ask_basic)
 {
 	struct CCcontract_info *cpTokens, tokensC;
     cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
@@ -1053,7 +1086,7 @@ TEST_F(TestAssetsCC, tokenv2ask)
     }
 }
 
-TEST_F(TestAssetsCC, tokenv2bid)
+TEST_F(TestAssetsCC, tokenv2bid_basic)
 {
     CAmount txfee = 10000;
     eval.SetCurrentHeight(111);  //set height 
@@ -1083,7 +1116,7 @@ TEST_F(TestAssetsCC, tokenv2bid)
 }
 
 
-TEST_F(TestAssetsCC, tokenv2fillask)
+TEST_F(TestAssetsCC, tokenv2fillask_basic)
 {
     UniValue data(UniValue::VOBJ);
     struct CCcontract_info *cpAssets, C; 
@@ -1181,10 +1214,37 @@ TEST_F(TestAssetsCC, tokenv2fillask)
                 { AssetsV2::EncodeAssetOpRet('S', unit_price, vuint8_t(pkunused.begin(), pkunused.end()), expiryHeight) })));  // not matched origpk (should be pk1)
         EXPECT_FALSE(TestRunCCEval(mtx1));
     }
+    {
+        vuint8_t origpubkey;
+        CAmount unit_price;
+        uint256 assetidOpret;
+        int32_t expiryHeight;
+        uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txask1);
+
+        CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, txask1.GetHash(), 2, unit_price-1, data);
+        ASSERT_FALSE(CTransaction(mtx).IsNull());
+
+        // test: invalid tokenv2fillask with a lower price
+        EXPECT_FALSE(TestRunCCEval(mtx)); // must fail
+    }
+    {
+        vuint8_t origpubkey;
+        CAmount unit_price;
+        uint256 assetidOpret;
+        int32_t expiryHeight;
+        uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txask1);
+
+        CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, txask1.GetHash(), 2, unit_price+1, data);
+        ASSERT_FALSE(CTransaction(mtx).IsNull());
+
+        // test: valid tokenv2fillask with a bigger price
+        EXPECT_TRUE(TestRunCCEval(mtx)); 
+    }
+
 }
 
 
-TEST_F(TestAssetsCC, tokenv2fillbid)
+TEST_F(TestAssetsCC, tokenv2fillbid_basic)
 {
     UniValue data(UniValue::VOBJ);
     struct CCcontract_info *cpTokens, C; 
@@ -1244,7 +1304,47 @@ TEST_F(TestAssetsCC, tokenv2fillbid)
         ASSERT_TRUE(TestFinalizeTx(mtx1, cpTokens, testKeys[pk2], 10000,
             TokensV2::EncodeTokenOpRet(assetidOpret, { pk2 },     
                 { AssetsV2::EncodeAssetOpRet('B', unit_price, vuint8_t(pkunused.begin(), pkunused.end()), expiryHeight) })));  // not matched origpk (should be pk1)
-        EXPECT_FALSE(TestRunCCEval(mtx1));
+        EXPECT_FALSE(TestRunCCEval(mtx1)); // must fail changed origpk
+    }
+    {
+        vuint8_t origpubkey;
+        CAmount unit_price;
+        uint256 assetidOpret;
+        int32_t expiryHeight;
+        uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txbid1); // get orig pk, orig value
+
+        CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, txbid1.GetHash(), 1, unit_price, data);  
+        mtx.vout[1].nValue += 1;  // imitate lower price
+        ASSERT_FALSE(CTransaction(mtx).IsNull());
+
+        // test: invalid tokenv2fillbid with lower price but invalid cc inputs != cc outputs
+        EXPECT_FALSE(TestRunCCEval(mtx)); // must fail
+    } 
+    {
+        vuint8_t origpubkey;
+        CAmount unit_price;
+        uint256 assetidOpret;
+        int32_t expiryHeight;
+        uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txbid1); // get orig pk, orig value
+
+        CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, txbid1.GetHash(), 1, unit_price-1, data);  
+        ASSERT_FALSE(CTransaction(mtx).IsNull());
+
+        // test: valid tokenv2fillbid with lower sell price than requested 
+        EXPECT_TRUE(TestRunCCEval(mtx)); 
+    }
+    {
+        vuint8_t origpubkey;
+        CAmount unit_price;
+        uint256 assetidOpret;
+        int32_t expiryHeight;
+        uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txbid1); // get orig pk, orig value
+
+        CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, txbid1.GetHash(), 1, unit_price+1, data);  
+        ASSERT_FALSE(CTransaction(mtx).IsNull());
+
+        // test: invalid tokenv2fillbid with bigger sell price than requested 
+        EXPECT_FALSE(TestRunCCEval(mtx)); // must fail
     }
 }
 
