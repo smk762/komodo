@@ -53,8 +53,9 @@ def run_tokens_create(rpc):
     rpc3 = rpclib.rpc_connect("user972794450", "passe7eb16f5c015a53463cc5f27a004854cb76f4ec5c9aece177f01d8b3d13119e445", 16723)
 
 
-    ## for v in ["", "v2"] :
-    for v in ["v2"] :
+    for v in ["", "v2"] :
+    ## for v in [""] :
+    ## for v in ["v2"] :
         print("creating fungible token 1...")
         result = call_rpc(rpc1, "token"+v+"create", "T1", str(0.000001))  # 100
         assert(check_tx(result))
@@ -128,6 +129,8 @@ def run_tokens_create(rpc):
         print("starting assets tests for nftf7id4 with unit price creating dust royalty and checking that round correct, version=" + v + "...")
         run_assets_orders(rpc1, rpc2, v, nftf7id4, 1, 1, 0.0000_1001, True)
 
+        print("starting assets order expiration tests for tokenid1 version=" + v + "...")
+        run_assets_expired_orders(rpc1, rpc2, v, tokenid1, 10, 8, 0.0001, False)
 
         if v == "v2" :  # MofN supported for tokens cc v2 only
             print("running MofN tests for tokens v2:")
@@ -136,7 +139,7 @@ def run_tokens_create(rpc):
             print("starting MofN tests for nft00id1...")
             run_MofN_transfers(rpc1, rpc2, rpc3, nft00id1, 1)
             print("starting MofN tests for nftf7id1...")
-            run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id1, 1)        
+            run_MofN_transfers(rpc1, rpc2, rpc3, nftf7id1, 1)     
 
     print("token/assets tests finished okay")
     time.sleep(3)
@@ -578,6 +581,96 @@ def run_assets_orders(rpc1, rpc2, v, tokenid, total, units, unitprice, isnft):
             time.sleep(delay)                
 
     assert(int(finresult["balance"]) == initial_balance)
+
+
+# test expiration height in orders
+def run_assets_expired_orders(rpc1, rpc2, v, tokenid, total, units, unitprice, isnft):
+
+    askunits = bidunits = units
+
+    getinfo = rpc1.getinfo()
+    hoff = 5
+    h0 = getinfo["blocks"]
+
+    # create tokenask with expiration height
+    print("creating token"+v+"ask with expiration tx #1...")
+    askid1 = call_token_rpc_send_tx(rpc1, "token"+v+"ask", '', str(total), tokenid, str(unitprice), str(h0+hoff))
+
+    print("trying to cancel not yet expired order with other pk: token"+v+"cancelask...")
+    result = call_token_rpc_create_tx(rpc2, "token"+v+"cancelask", 'ask is empty', tokenid, askid1)
+    assert(check_tx(result))
+    try :
+        cancelid = rpc2.sendrawtransaction(result['hex'])
+        assert(get_result_error(cancelid))  # should return error for not yet expired order
+    except RpcException as e :
+        print ('got a normal exception for tokencancelask not expired', e.message)
+        pass # exception is a normal execution    
+
+    # wait for expiration height
+    while True :
+        time.sleep(30)
+        getinfo = rpc1.getinfo()
+        h1 = getinfo["blocks"]
+        if h1 >= h0 + hoff :
+            break
+        print ('waiting for expiration height...')
+
+    print("trying to fill expired order token"+v+"fillask tx #1...")
+    result = call_token_rpc_create_tx(rpc2, "token"+v+"fillask", '', tokenid, askid1, str(askunits))
+    assert(check_tx(result))
+    try :
+        fillaskid1 = rpc2.sendrawtransaction(result['hex'])
+        print("fillaskid1", fillaskid1)
+        print("get_result_error(fillaskid1)", get_result_error(fillaskid1))
+        assert(get_result_error(fillaskid1))  # should return error for yet expired order
+    except RpcException as e :
+        print ('got a normal exception for tokenfillask expired', e.message)
+        pass # exception is a normal execution 
+
+    print("trying to cancel not yet expired order with other pk: token"+v+"cancelask...")
+    cancelid2 = call_token_rpc_send_tx(rpc2, "token"+v+"cancelask", 'ask is empty', tokenid, askid1)
+
+    # same for tokenbid
+    getinfo = rpc1.getinfo()
+    h0 = getinfo["blocks"]
+
+    # create tokenbid with expiration height
+    print("creating token"+v+"bid with expiration tx #1...")
+    bidid1 = call_token_rpc_send_tx(rpc2, "token"+v+"bid", '', str(total), tokenid, str(unitprice), str(h0+hoff))
+
+    print("trying to cancel not yet expired order with other pk: token"+v+"cancelbid...")
+    result = call_token_rpc_create_tx(rpc1, "token"+v+"cancelbid", 'bid is empty', tokenid, bidid1)
+    assert(check_tx(result))
+    try :
+        cancelid = rpc1.sendrawtransaction(result['hex'])
+        assert(get_result_error(cancelid))  # should return error for not yet expired order
+    except RpcException as e :
+        print ('got a normal exception for tokencancelbid not expired', e.message)
+        pass # should be exception     
+
+    # wait for expiration height
+    while True :
+        time.sleep(30)
+        getinfo = rpc1.getinfo()
+        h1 = getinfo["blocks"]
+        if h1 >= h0 + hoff :
+            break
+        print ('waiting for expiration height...')
+
+    print("trying to fill expired order token"+v+"fillbid tx #1...")
+    result = call_token_rpc_create_tx(rpc1, "token"+v+"fillbid", '', tokenid, bidid1, str(bidunits))
+    assert(check_tx(result))
+    try :
+        fillbidid1 = rpc1.sendrawtransaction(result['hex'])
+        assert(get_result_error(fillbidid1))  # should return error for yet expired order
+    except RpcException as e :
+        print ('got a normal exception for tokenfillbid expired', e.message)
+        pass # should be exception here 
+
+    print("trying to cancel not yet expired order with other pk: token"+v+"cancelbid...")
+    cancelid3 = call_token_rpc_send_tx(rpc1, "token"+v+"cancelbid", 'bid is empty', tokenid, bidid1)
+
+
 
 menuItems = [
     {"run token create/transfers and assets orders": run_tokens_create},
