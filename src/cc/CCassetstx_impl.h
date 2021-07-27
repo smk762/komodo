@@ -120,7 +120,8 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk)
                 if (expiryHeight > 0)
                     item.push_back(Pair("ExpiryHeight", expiryHeight));
 
-                result.push_back(item);
+                if (ordertx.vout[0].nValue > 0LL) // do not add totally filled orders 
+                    result.push_back(item);
                 LOGSTREAM(ccassets_log, CCLOG_DEBUG1, stream << funcname << " added order funcId=" << (char)(funcid ? funcid : ' ') << " key.index=" << key.index << " ordertx.vout[key.index].nValue=" << ordertx.vout[key.index].nValue << " tokenid=" << assetid.GetHex() << std::endl);
             }
         }
