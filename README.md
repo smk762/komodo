@@ -57,9 +57,10 @@ https://github.com/TokelPlatform/tokel_app
 - Email: [contact@tokel.io](mailto:contact@tokel.io)
 - Whitepaper: [Tokel Paper](https://tokel.io/TokelPaper1stEdition.pdf)
 - Knowledgebase & How-to: [Tokel Documentation](https://docs.tokel.io)
-  - [How to run the blockchain](https://docs.tokel.io/guides/LaunchTheChain/)
+  - [How to run the Tokel blockchain](https://docs.tokel.io/guides/LaunchTheChain/)
   - [Tokens RPC/API documentation](https://docs.tokel.io/api/tokens/)
   - [Assets RPC/API documentation](https://docs.tokel.io/api/assets/)
+  - [How to run the Tokel test chain](https://docs.tokel.io/guides/LaunchTKLTESTchain/)
 
 ## List of Tokel Platform Technologies
 
