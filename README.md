@@ -1,4 +1,4 @@
-![Tokel Logo](https://raw.githubusercontent.com/TokelPlatform/tokel_app/brand_pack/brand_package/assets/tokel.svg "Tokel Logo")
+![Tokel Header](https://github.com/TokelPlatform/tokel_app/blob/development/assets/tokel-header.png "Tokel Header")
 
 
 ## Komodo's 'Tokel' Branch
