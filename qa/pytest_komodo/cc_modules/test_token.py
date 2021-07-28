@@ -186,8 +186,12 @@ def test_token(test_params):
         assert result > 0.1
 
         print("making invalid node token" + v + "cancelask(s)...")
-        result = call_token_rpc(rpc1, "token"+v+"cancelask", tokenid, testorderid)
-        assert_error(result)
+        badcancel = call_token_rpc(rpc1, "token"+v+"cancelask", tokenid, testorderid)
+        try :
+            rpc1.sendrawtransaction(badcancel["hex"])   # checked at consensus
+            assert False, "order should not be cancelled with another pk"  # should be exception
+        except RPCError :
+            pass # exception is normal here
 
         print("making valid node token" + v + "cancelask...")
         # from valid node

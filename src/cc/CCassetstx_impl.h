@@ -120,7 +120,8 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk)
                 if (expiryHeight > 0)
                     item.push_back(Pair("ExpiryHeight", expiryHeight));
 
-                result.push_back(item);
+                if (ordertx.vout[0].nValue > 0LL) // do not add totally filled orders 
+                    result.push_back(item);
                 LOGSTREAM(ccassets_log, CCLOG_DEBUG1, stream << funcname << " added order funcId=" << (char)(funcid ? funcid : ' ') << " key.index=" << key.index << " ordertx.vout[key.index].nValue=" << ordertx.vout[key.index].nValue << " tokenid=" << assetid.GetHex() << std::endl);
             }
         }
@@ -412,7 +413,7 @@ UniValue CancelBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 assetid, uin
             }
 
             if (bidamount > ASSETS_NORMAL_DUST)  
-                mtx.vout.push_back(CTxOut(bidamount, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+                mtx.vout.push_back(CTxOut(bidamount, CScript() << ParseHex(HexStr(origpubkey)) << OP_CHECKSIG));
             else {
                 // send dust back to global addr
                 mtx.vout.push_back(T::MakeCC1vout(A::EvalCode(), bidamount, unspendableAssetsPk));
@@ -488,7 +489,7 @@ UniValue CancelSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint256
                 CCerror = "invalid ask tx or not enough vouts";
                 return "";
             }
-            mtx.vout.push_back(T::MakeTokensCC1vout(T::EvalCode(), askamount, mypk));	// one-eval token vout
+            mtx.vout.push_back(T::MakeTokensCC1vout(T::EvalCode(), askamount, pubkey2pk(origpubkey)));	// one-eval token vout
             // mtx.vout.push_back(CTxOut(ASSETS_MARKER_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));  // we dont need marker for cancelled orders
 
             // init assets 'unspendable' privkey and pubkey
