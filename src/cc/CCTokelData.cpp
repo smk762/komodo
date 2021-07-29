@@ -42,29 +42,36 @@ static UniValue tklReadVuint8(CDataStream &ss)
     return ret;
 }
 
-static bool tklWriteString(CDataStream &ss, const UniValue &val)
+static bool tklWriteString(CDataStream &ss, const UniValue &val, std::string &err)
 {
     std::string sval = val.getValStr();
     ::Serialize(ss, sval);
     return true;
 }
 
-static bool tklWriteInt64(CDataStream &ss, const UniValue &val)
+static bool tklWriteInt64(CDataStream &ss, const UniValue &val, std::string &err)
 {
     int64_t i64val = 0;
     if (!val.isNum())
         return false;
     ParseInt64(val.getValStr(), &i64val);
-    //::Serialize(ss, i64val);
+    if (i64val > MAX_SIZE)   {
+        err = "value too big";
+        return false;
+    }
     ss << COMPACTSIZE((uint64_t)i64val);
     return true;
 }
 
-static bool tklWriteVuint8(CDataStream &ss, const UniValue &val)
+static bool tklWriteVuint8(CDataStream &ss, const UniValue &val, std::string &err)
 {
-    vuint8_t vuint8val = ParseHex(val.getValStr());
-    if (vuint8val.empty() && !val.getValStr().empty())  // can't decode hex string
-        return false;
+    std::string s = val.getValStr();
+    for(auto const &c : s)
+        if (!std::isxdigit(c)) {
+            err = "not hex string";
+            return false;
+        }
+    vuint8_t vuint8val = ParseHex(s);
     ::Serialize(ss, vuint8val);
     return true;
 }
@@ -106,11 +113,12 @@ vuint8_t ParseTokelJson(const UniValue &jsonParams)
         std::string key = jsonParams.getKeys()[i];
         tklPropId id;
         if ((id = FindTokelDataIdByName(key)) == (tklPropId)0)
-            throw std::runtime_error("invalid token data id: " + key);   
+            throw std::runtime_error("invalid token data id: '" + key + "'");   
         tklPropDesc_t entry = GetTokelDataDesc(id);
         ss << (uint8_t)id;
-        if (!(*std::get<3>(entry))(ss, jsonParams[key]))
-            throw std::runtime_error(std::string("tokel data invalid: ") + key);
+        std::string err;
+        if (!(*std::get<3>(entry))(ss, jsonParams[key], err))
+            throw std::runtime_error(std::string("tokel data invalid: '") + key + "' " + err);
     }
 
     return vuint8_t(ss.begin(), ss.end());
@@ -154,8 +162,12 @@ static bool UnmarshalTokelVData(const vuint8_t &vdata, std::map<tklPropId, UniVa
             }
             propMapOut = propMap;
             return true;
+        } catch(std::system_error se) {
+            std::cerr << __func__ << " system_error=" << se.what() << std::endl;
+            sError = std::string("could not parse tokel token data: ") + se.what();
+            return false;
         } catch(...) {
-            sError = "could not parse tokel token data";
+            sError = std::string("could not parse tokel token data");
             return false;
         }
     }
@@ -206,17 +218,19 @@ bool GetTokelDataAsVuint8(const vuint8_t &vdata, tklPropId propId, vuint8_t &val
     return false;
 }
 
-static bool CheckTokelData(const vuint8_t &vdata, std::string &sError)
+bool CheckTokelData(const vuint8_t &vdata, std::string &sError)
 {
     std::map<tklPropId, UniValue> propMap;
-    if( UnmarshalTokelVData(vdata, propMap, sError) )  {
+    if (UnmarshalTokelVData(vdata, propMap, sError))  {
         // check props if present
+        std::cerr << __func__ << " propMap.count(TKLPROP_ROYALTY)=" << propMap.count(TKLPROP_ROYALTY) << std::endl;
         if (propMap.count(TKLPROP_ROYALTY) > 0)  {
             int64_t val;
             if (!ParseInt64(propMap[TKLPROP_ROYALTY].getValStr(), &val)) {
                 sError = "could not parse tokel royalty";
                 return false;
             }
+            std::cerr << __func__ << " val=" << val << std::endl;
             if (val < 0 || val >= TKLROYALTY_DIVISOR) {
                 sError = "invalid tokel royalty value (must be in 0...999)";
                 return false;
