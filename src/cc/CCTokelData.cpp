@@ -223,14 +223,12 @@ bool CheckTokelData(const vuint8_t &vdata, std::string &sError)
     std::map<tklPropId, UniValue> propMap;
     if (UnmarshalTokelVData(vdata, propMap, sError))  {
         // check props if present
-        std::cerr << __func__ << " propMap.count(TKLPROP_ROYALTY)=" << propMap.count(TKLPROP_ROYALTY) << std::endl;
         if (propMap.count(TKLPROP_ROYALTY) > 0)  {
             int64_t val;
             if (!ParseInt64(propMap[TKLPROP_ROYALTY].getValStr(), &val)) {
                 sError = "could not parse tokel royalty";
                 return false;
             }
-            std::cerr << __func__ << " val=" << val << std::endl;
             if (val < 0 || val >= TKLROYALTY_DIVISOR) {
                 sError = "invalid tokel royalty value (must be in 0...999)";
                 return false;
