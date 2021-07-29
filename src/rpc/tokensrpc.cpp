@@ -381,6 +381,7 @@ UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& rem
     vuint8_t tokenData;
     if (params.size() >= 4)    {
         UniValue jsonParams;
+        std::string sError;
 
         if (params[3].getType() == UniValue::VOBJ)
             jsonParams = params[3].get_array();
@@ -392,6 +393,8 @@ UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& rem
         tokenData = ParseTokelJson(jsonParams);
         if (tokenData.empty())
             throw runtime_error("Tokel token data incorrect");
+        if (!CheckTokelData(tokenData, sError))
+            throw runtime_error("Tokel token data incorrect: " + sError);
     }
 
     return tokencreate<TokensV1>(params, tokenData, fHelp, remotepk);
@@ -411,6 +414,7 @@ UniValue tokenv2createtokel(const UniValue& params, bool fHelp, const CPubKey& r
     vuint8_t tokenData;
     if (params.size() >= 4)    {
         UniValue jsonParams;
+        std::string sError;
 
         if (params[3].getType() == UniValue::VOBJ)
             jsonParams = params[3].get_array();
@@ -422,6 +426,8 @@ UniValue tokenv2createtokel(const UniValue& params, bool fHelp, const CPubKey& r
         tokenData = ParseTokelJson(jsonParams);
         if (tokenData.empty())
             return MakeResultError("Token data incorrect");
+        if (!CheckTokelData(tokenData, sError))
+            throw runtime_error("Tokel token data incorrect: " + sError);
     }
     return tokencreate<TokensV2>(params, tokenData, fHelp, remotepk);
 }

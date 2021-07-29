@@ -23,7 +23,7 @@ enum tklPropType : uint8_t {
     TKLTYP_VUINT8 = 0x2 
 };
 
-typedef bool tklWriteSS(CDataStream &ss, const UniValue &val);
+typedef bool tklWriteSS(CDataStream &ss, const UniValue &val, std::string &err);
 typedef UniValue tklReadSS(CDataStream &ss);
 
 
@@ -34,6 +34,7 @@ bool GetTokelDataAsInt64(const vuint8_t &vdata, tklPropId propId, int64_t &val);
 bool GetTokelDataAsVuint8(const vuint8_t &vdata, tklPropId propId, vuint8_t &val);
 vuint8_t ParseTokelJson(const UniValue &jsonParams);
 UniValue ParseTokelVData(const vuint8_t &vdata);
+bool CheckTokelData(const vuint8_t &vdata, std::string &sError);
 
 
 bool TokelDataValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
