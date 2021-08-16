@@ -416,6 +416,8 @@ CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount n
     CCwrapper payoutCond( MakeTokensv2CCcondMofN(evalcode1, evalcode2, M, pks) );
     if (!CCtoAnon(payoutCond.get())) 
         return vout;
+
+    std::cerr << " CCtoAnon=" << cc_conditionToJSONString(payoutCond.get()) << std::endl;
     vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
 
     {
