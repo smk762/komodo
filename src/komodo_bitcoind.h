@@ -942,6 +942,7 @@ int32_t komodo_blockload(CBlock& block,CBlockIndex *pindex)
 
 uint32_t komodo_chainactive_timestamp()
 {
+    AssertLockHeld(cs_main);
     if ( chainActive.LastTip() != 0 )
         return((uint32_t)chainActive.LastTip()->GetBlockTime());
     else return(0);
@@ -949,6 +950,7 @@ uint32_t komodo_chainactive_timestamp()
 
 CBlockIndex *komodo_chainactive(int32_t height)
 {
+    AssertLockHeld(cs_main);
     if ( chainActive.LastTip() != 0 )
     {
         if ( height <= chainActive.LastTip()->GetHeight() )
@@ -961,6 +963,7 @@ CBlockIndex *komodo_chainactive(int32_t height)
 
 uint32_t komodo_heightstamp(int32_t height)
 {
+    AssertLockHeld(cs_main);
     CBlockIndex *ptr;
     if ( height > 0 && (ptr= komodo_chainactive(height)) != 0 )
         return(ptr->nTime);
@@ -1273,6 +1276,8 @@ uint64_t komodo_interest(int32_t txheight,uint64_t nValue,uint32_t nLockTime,uin
 uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight)
 {
     uint64_t value; uint32_t tiptime=0,txheighttimep; CBlockIndex *pindex;
+    AssertLockHeld(cs_main);
+
     if ( (pindex= chainActive[tipheight]) != 0 )
         tiptime = (uint32_t)pindex->nTime;
     else fprintf(stderr,"cant find height[%d]\n",tipheight);
@@ -1288,6 +1293,7 @@ uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 
 
 int32_t komodo_nextheight()
 {
+    AssertLockHeld(cs_main);
     CBlockIndex *pindex; int32_t ht;
     if ( (pindex= chainActive.LastTip()) != 0 && (ht= pindex->GetHeight()) > 0 )
         return(ht+1);
@@ -1297,6 +1303,8 @@ int32_t komodo_nextheight()
 int32_t komodo_isrealtime(int32_t *kmdheightp)
 {
     struct komodo_state *sp; CBlockIndex *pindex;
+    
+    AssertLockHeld(cs_main);
     if ( (sp= komodo_stateptrget((char *)"KMD")) != 0 )
         *kmdheightp = sp->CURRENT_HEIGHT;
     else *kmdheightp = 0;

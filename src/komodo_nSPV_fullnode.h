@@ -37,7 +37,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "tokenv2ask", true }, { "tokenv2bid", true }, { "tokenv2fillask", true }, { "tokenv2fillbid", true }, { "tokenv2cancelask", true }, { "tokenv2cancelbid", true }, 
     { "tokenv2orders", true }, { "mytokenv2orders", true }, { "tokenv2transfer", true },{ "tokenv2create", true },
     // nspv helpers
-    { "createtxwithnormalinputs", true }, { "tokenv2addccinputs", true },
+    { "createtxwithnormalinputs", true }, { "tokenv2addccinputs", true }, { "tokenv2infotokel", true }
 };
 
 struct NSPV_ntzargs
@@ -89,6 +89,8 @@ int32_t NSPV_notarized_bracket(struct NSPV_ntzargs *prev,struct NSPV_ntzargs *ne
 int32_t NSPV_ntzextract(struct NSPV_ntz *ptr,uint256 ntztxid,int32_t txidht,uint256 desttxid,int32_t ntzheight)
 {
     CBlockIndex *pindex;
+
+    LOCK(cs_main);
     ptr->blockhash = *chainActive[ntzheight]->phashBlock;
     ptr->height = ntzheight;
     ptr->txidheight = txidht;
@@ -102,8 +104,11 @@ int32_t NSPV_ntzextract(struct NSPV_ntz *ptr,uint256 ntztxid,int32_t txidht,uint
 int32_t NSPV_getntzsresp(struct NSPV_ntzsresp *ptr,int32_t origreqheight)
 {
     struct NSPV_ntzargs prev,next; int32_t reqheight = origreqheight;
-    if ( reqheight < chainActive.LastTip()->GetHeight() )
-        reqheight++;
+    {
+        LOCK(cs_main);
+        if ( reqheight < chainActive.LastTip()->GetHeight() )
+            reqheight++;
+    }
     if ( NSPV_notarized_bracket(&prev,&next,reqheight) == 0 )
     {
         if ( prev.ntzheight != 0 )
@@ -124,6 +129,8 @@ int32_t NSPV_getntzsresp(struct NSPV_ntzsresp *ptr,int32_t origreqheight)
 int32_t NSPV_setequihdr(struct NSPV_equihdr *hdr,int32_t height)
 {
     CBlockIndex *pindex;
+    LOCK(cs_main);
+
     if ( (pindex= komodo_chainactive(height)) != 0 )
     {
         hdr->nVersion = pindex->nVersion;
@@ -143,33 +150,46 @@ int32_t NSPV_setequihdr(struct NSPV_equihdr *hdr,int32_t height)
 
 int32_t NSPV_getinfo(struct NSPV_inforesp *ptr,int32_t reqheight)
 {
-    int32_t prevMoMheight,len = 0; CBlockIndex *pindex, *pindex2; struct NSPV_ntzsresp pair;
-    if ( (pindex= chainActive.LastTip()) != 0 )
-    {
+    int32_t prevMoMheight, len = 0;
+    CBlockIndex *pindex, *pindex2;
+    struct NSPV_ntzsresp pair;
+    LOCK(cs_main);
+
+    if ((pindex = chainActive.LastTip()) != 0) {
         ptr->height = pindex->GetHeight();
         ptr->blockhash = pindex->GetBlockHash();
-        memset(&pair,0,sizeof(pair));
-        if ( NSPV_getntzsresp(&pair,ptr->height-1) < 0 )
-            return(-1);
+        memset(&pair, 0, sizeof(pair));
+        if (NSPV_getntzsresp(&pair, ptr->height - 1) < 0)
+            return (-1);
         ptr->notarization = pair.prevntz;
-        if ( (pindex2= komodo_chainactive(ptr->notarization.txidheight)) != 0 )
+        if ((pindex2 = komodo_chainactive(ptr->notarization.txidheight)) != 0)
             ptr->notarization.timestamp = pindex->nTime;
         //fprintf(stderr, "timestamp.%i\n", ptr->notarization.timestamp );
-        if ( reqheight == 0 )
+        if (reqheight == 0)
             reqheight = ptr->height;
         ptr->hdrheight = reqheight;
         ptr->version = NSPV_PROTOCOL_VERSION;
-        if ( NSPV_setequihdr(&ptr->H,reqheight) < 0 )
-            return(-1);
-        return(sizeof(*ptr));
-    } else return(-1);
+        if (NSPV_setequihdr(&ptr->H, reqheight) < 0)
+            return (-1);
+        return (sizeof(*ptr));
+    } else
+        return (-1);
 }
 
 int32_t NSPV_getaddressutxos(struct NSPV_utxosresp *ptr,char *coinaddr,bool isCC,int32_t skipcount,uint32_t filter)
 {
-    int64_t total = 0,interest=0; uint32_t locktime; int32_t ind=0,tipheight,maxlen,txheight,n = 0,len = 0;
+    CAmount total = 0, interest = 0;
+    uint32_t locktime;
+    int32_t ind = 0, tipheight, maxlen, txheight, n = 0, len = 0;
+
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
     SetCCunspents(unspentOutputs,coinaddr,isCC);
+
+    {
+        LOCK(cs_main);
+        tipheight = chainActive.LastTip()->GetHeight();
+    }
+
     maxlen = MAX_BLOCK_SIZE(tipheight) - 512;
     maxlen /= sizeof(*ptr->utxos);
     strncpy(ptr->coinaddr,coinaddr,sizeof(ptr->coinaddr)-1);
@@ -179,7 +199,6 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp *ptr,char *coinaddr,bool isCC
         skipcount = 0;
     if ( (ptr->numutxos= (int32_t)unspentOutputs.size()) >= 0 && ptr->numutxos < maxlen )
     {
-        tipheight = chainActive.LastTip()->GetHeight();
         ptr->nodeheight = tipheight;
         if ( skipcount >= ptr->numutxos )
             skipcount = ptr->numutxos-1;
@@ -335,6 +354,10 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
     SetCCunspents(unspentOutputs, coinaddr, true);
 
+    {
+        LOCK(cs_main);
+        tipheight = chainActive.LastTip()->GetHeight();  
+    }
     maxlen = MAX_BLOCK_SIZE(tipheight) - 512;
     //maxlen /= sizeof(*ptr->utxos);  // TODO why was this? we need maxlen in bytes, don't we? 
     
@@ -345,7 +368,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     ptr->numutxos = 0;
     strncpy(ptr->coinaddr, coinaddr, sizeof(ptr->coinaddr) - 1);
     ptr->CCflag = 1;
-    tipheight = chainActive.LastTip()->GetHeight();  
+
     ptr->nodeheight = tipheight; // will be checked in libnspv
     //}
    
@@ -631,7 +654,10 @@ int32_t NSPV_mempoolfuncs(bits256 *satoshisp,int32_t *vindexp,std::vector<uint25
 int32_t NSPV_mempooltxids(struct NSPV_mempoolresp *ptr,char *coinaddr,uint8_t isCC,uint8_t funcid,uint256 txid,int32_t vout)
 {
     std::vector<uint256> txids; bits256 satoshis; uint256 tmp,tmpdest; int32_t i,len = 0;
-    ptr->nodeheight = chainActive.LastTip()->GetHeight();
+    {
+        LOCK(cs_main);
+        ptr->nodeheight = chainActive.LastTip()->GetHeight();
+    }
     strncpy(ptr->coinaddr,coinaddr,sizeof(ptr->coinaddr)-1);
     ptr->CCflag = isCC;
     ptr->txid = txid;
@@ -753,7 +779,7 @@ int32_t NSPV_sendrawtransaction(struct NSPV_broadcastresp *ptr,uint8_t *data,int
         //LOCK(cs_main);
         ptr->txid = tx.GetHash();
         //fprintf(stderr,"try to addmempool transaction %s\n",ptr->txid.GetHex().c_str());
-        if ( myAddtomempool(tx) != 0 )
+        if (myAddtomempool(tx) != 0)
         {
             ptr->retcode = 1;
             //int32_t i;
@@ -761,9 +787,13 @@ int32_t NSPV_sendrawtransaction(struct NSPV_broadcastresp *ptr,uint8_t *data,int
             //    fprintf(stderr,"%02x",data[i]);
             fprintf(stderr," relay transaction %s retcode.%d\n",ptr->txid.GetHex().c_str(),ptr->retcode);
             RelayTransaction(tx);
-        } else ptr->retcode = -3;
+        } 
+        else 
+            ptr->retcode = -3;
 
-    } else ptr->retcode = -1;
+    } 
+    else 
+        ptr->retcode = -1;
     return(sizeof(*ptr));
 }
 
@@ -772,29 +802,36 @@ int32_t NSPV_sendrawtransaction(struct NSPV_broadcastresp *ptr,uint8_t *data,int
 // otherwise only block hash alone will be returned
 int32_t NSPV_gettxproof(struct NSPV_txproof* ptr, int32_t vout, uint256 txid, int32_t height)
 {
-    int32_t flag = 0, len = 0;
+    int32_t len = 0;
     CTransaction _tx;
     uint256 hashBlock;
     CBlock block;
     CBlockIndex* pindex;
     ptr->height = -1;
 
-    if ((ptr->tx = NSPV_getrawtx(_tx, hashBlock, &ptr->txlen, txid)) != 0) {
+    if ((ptr->tx = NSPV_getrawtx(_tx, hashBlock, &ptr->txlen, txid)) != nullptr) {
         ptr->txid = txid;
         ptr->vout = vout;
         ptr->hashblock = hashBlock;
-        if (height == 0)
+        if (height == 0)  {
+            LOCK(cs_main);
             ptr->height = komodo_blockheight(hashBlock);
+        }
         else {
             ptr->height = height;
-            if ((pindex = komodo_chainactive(height)) != 0 && komodo_blockload(block, pindex) == 0) {
+            {
+                LOCK(cs_main);
+                pindex = komodo_chainactive(height);
+            }
+            if (pindex != nullptr && komodo_blockload(block, pindex) == 0) {
+                bool found = false;
                 BOOST_FOREACH (const CTransaction& tx, block.vtx) {
                     if (tx.GetHash() == txid) {
-                        flag = 1;
+                        found = true;
                         break;
                     }
                 }
-                if (flag != 0) {
+                if (found) {
                     set<uint256> setTxids;
                     CDataStream ssMB(SER_NETWORK, PROTOCOL_VERSION);
                     setTxids.insert(txid);
@@ -809,6 +846,9 @@ int32_t NSPV_gettxproof(struct NSPV_txproof* ptr, int32_t vout, uint256 txid, in
                     }
                     //fprintf(stderr,"gettxproof slen.%d\n",(int32_t)(sizeof(*ptr) - sizeof(ptr->tx) - sizeof(ptr->txproof) + ptr->txlen + ptr->txprooflen));
                 }
+                else {
+                    LogPrint("nspv-details", "%s txid=%s not found in the block of ht=%d", __func__, txid.GetHex().c_str(), ptr->height);
+                }
             }
         }
         ptr->unspentvalue = CCgettxout(txid, vout, 1, 1);
@@ -819,6 +859,9 @@ int32_t NSPV_gettxproof(struct NSPV_txproof* ptr, int32_t vout, uint256 txid, in
 int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp *ptr,uint256 prevntztxid,uint256 nextntztxid)
 {
     int32_t i; uint256 hashBlock,bhash0,bhash1,desttxid0,desttxid1; CTransaction tx;
+
+    LOCK(cs_main);
+
     ptr->prevtxid = prevntztxid;
     ptr->prevntz = NSPV_getrawtx(tx,hashBlock,&ptr->prevtxlen,ptr->prevtxid);
     ptr->prevtxidht = komodo_blockheight(hashBlock);
@@ -829,7 +872,7 @@ int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp *ptr,uint256 prevntztxid
     
     ptr->nexttxid = nextntztxid;
     ptr->nextntz = NSPV_getrawtx(tx,hashBlock,&ptr->nexttxlen,ptr->nexttxid);
-    ptr->nexttxidht = komodo_blockheight(hashBlock);
+    ptr->nexttxidht = ptr->prevtxidht;  // komodo_blockheight(hashBlock);
     if ( NSPV_notarizationextract(0,&ptr->common.nextht,&bhash1,&desttxid1,tx) < 0 )
         return(-5);
     else if ( komodo_blockheight(bhash1) != ptr->common.nextht )
