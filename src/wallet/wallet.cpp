@@ -38,6 +38,8 @@
 #include "crypter.h"
 #include "coins.h"
 #include "zcash/zip32.h"
+
+#include "komodo_globals.h"
 #include "cc/CCinclude.h"
 
 #include <assert.h>
@@ -4222,7 +4224,7 @@ CAmount CWallet::GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarge
 }
 
 
-void komodo_prefetch(FILE *fp);
+//void komodo_prefetch(FILE *fp);
 
 DBErrors CWallet::LoadWallet(bool& fFirstRunRet)
 {
