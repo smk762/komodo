@@ -39,7 +39,7 @@
 #include "coins.h"
 #include "zcash/zip32.h"
 
-#include "komodo_globals.h"
+#include "komodo_defs.h"
 #include "cc/CCinclude.h"
 
 #include <assert.h>

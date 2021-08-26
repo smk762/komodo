@@ -57,7 +57,6 @@
 
 static bool fDaemon;
 #include "komodo_defs.h"
-#include "komodo_globals.h"
 
 // #define KOMODO_ASSETCHAIN_MAXLEN 65
 
