@@ -1293,11 +1293,18 @@ uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 
 
 int32_t komodo_nextheight()
 {
-    AssertLockHeld(cs_main);
-    CBlockIndex *pindex; int32_t ht;
-    if ( (pindex= chainActive.LastTip()) != 0 && (ht= pindex->GetHeight()) > 0 )
-        return(ht+1);
-    else return(komodo_longestchain() + 1);
+    CBlockIndex* pindex;
+    int32_t ht;
+    
+    {
+        LOCK(cs_main); // dimxy added to protect chainActive concurrent use. 
+        pindex = chainActive.LastTip();
+    }
+
+    if (pindex != nullptr && (ht = pindex->GetHeight()) > 0)
+        return (ht + 1);
+    else
+        return (komodo_longestchain() + 1);
 }
 
 int32_t komodo_isrealtime(int32_t *kmdheightp)
