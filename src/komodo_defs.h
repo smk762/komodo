@@ -629,6 +629,9 @@ void komodo_broadcast(CBlock *pblock,int32_t limit);
 int32_t komodo_block2pubkey33(uint8_t *pubkey33,CBlock *block);
 void komodo_event_rewind(struct komodo_state *sp,char *symbol,int32_t height);
 int32_t komodo_connectblock(bool fJustCheck, CBlockIndex *pindex,CBlock& block);
+arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t height,int32_t goalperc,int32_t newStakerActive);
+int32_t komodo_baseid(char *origbase);
+int32_t komodo_eligiblenotary(uint8_t pubkeys[66][33],int32_t *mids,uint32_t *blocktimes,int32_t *nonzpkeysp,int32_t height);
 
 int32_t gettxout_scriptPubKey(uint8_t *scriptPubkey,int32_t maxsize,uint256 txid,int32_t n);
 bool Getscriptaddress(char *destaddr,const CScript &scriptPubKey);
@@ -649,6 +652,7 @@ extern int32_t ASSETCHAINS_STAKED;
 extern uint64_t ASSETCHAINS_DECAY[];
 extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
 extern int32_t KOMODO_LOADINGBLOCKS;
+extern int32_t ASSETCHAINS_FOUNDERS;
 
 #ifndef KOMODO_NSPV_FULLNODE
 #define KOMODO_NSPV_FULLNODE (KOMODO_NSPV <= 0)

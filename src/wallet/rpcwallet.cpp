@@ -63,6 +63,8 @@
 #include "komodo_defs.h"
 #include <string.h>
 
+#include "rpcwallet.h"
+
 #include "../cc/CCfaucet.h"
 #include "../cc/CCrewards.h"
 #include "../cc/CCdice.h"

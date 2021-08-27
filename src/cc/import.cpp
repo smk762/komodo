@@ -35,23 +35,6 @@
  ##### 0xffffffff is a special CCid for single chain/dual daemon imports
  */
 
-/* todo remove*/
-
-/*
-extern uint8_t ASSETCHAINS_OVERRIDE_PUBKEY33[33];
-extern uint256 KOMODO_EARLYTXID;
-
-// utilities from gateways.cpp
-uint256 BitcoinGetProofMerkleRoot(const std::vector<uint8_t> &proofData, std::vector<uint256> &txids);
-uint256 GatewaysReverseScan(uint256 &txid, int32_t height, uint256 reforacletxid, uint256 batontxid);
-int32_t GatewaysCointxidExists(struct CCcontract_info *cp, uint256 cointxid);
-uint8_t DecodeImportGatewayBindOpRet(char *burnaddr,const CScript &scriptPubKey,std::string &coin,uint256 &oracletxid,uint8_t &M,uint8_t &N,std::vector<CPubKey> &importgatewaypubkeys,uint8_t &taddr,uint8_t &prefix,uint8_t &prefix2,uint8_t &wiftype);
-int64_t ImportGatewayVerify(char *refburnaddr,uint256 oracletxid,int32_t claimvout,std::string refcoin,uint256 burntxid,const std::string deposithex,std::vector<uint8_t>proof,uint256 merkleroot,CPubKey destpub,uint8_t taddr,uint8_t prefix,uint8_t prefix2);
-char *nonportable_path(char *str);
-char *portable_path(char *str);
-void *loadfile(char *fname,uint8_t **bufp,long *lenp,long *allocsizep);
-void *filestr(long *allocsizep,char *_fname);*/
-
 cJSON* CodaRPC(char **retstr,char const *arg0,char const *arg1,char const *arg2,char const *arg3,char const *arg4,char const *arg5)
 {
     char cmdstr[5000],fname[256],*jsonstr;

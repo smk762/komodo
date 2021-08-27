@@ -1117,13 +1117,10 @@ static bool ProcessBlockFound(CBlock* pblock)
     return true;
 }
 
-int32_t komodo_baseid(char *origbase);
-int32_t komodo_eligiblenotary(uint8_t pubkeys[66][33],int32_t *mids,uint32_t *blocktimes,int32_t *nonzpkeysp,int32_t height);
-arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t height,int32_t goalperc,int32_t newStakerActive);
-int32_t FOUND_BLOCK,KOMODO_MAYBEMINED;
-extern int32_t KOMODO_LASTMINED,KOMODO_INSYNC;
+
+int32_t FOUND_BLOCK, KOMODO_MAYBEMINED;
 int32_t roundrobin_delay;
-arith_uint256 HASHTarget,HASHTarget_POW;
+arith_uint256 HASHTarget, HASHTarget_POW;
 
 // wait for peers to connect
 void waitForPeers(const CChainParams &chainparams)

@@ -50,12 +50,6 @@ using namespace std;
 
 #include "komodo_defs.h"
 
-extern int32_t ASSETCHAINS_FOUNDERS;
-uint64_t komodo_commission(const CBlock *pblock,int32_t height);
-int32_t komodo_blockload(CBlock& block,CBlockIndex *pindex);
-arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t height,int32_t goalperc,int32_t newStakerActive);
-int32_t komodo_newStakerActive(int32_t height, uint32_t timestamp);
-
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
  * or over the difficulty averaging window if 'lookup' is nonpositive.
