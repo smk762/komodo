@@ -12,8 +12,10 @@
  * Removal or modification of this copyright notice is prohibited.            *
  *                                                                            *
  ******************************************************************************/
-#include "komodo_defs.h"
 #include "key_io.h"
+#include "net.h"
+#include "util.h"
+#include "komodo_defs.h"
 #include "cc/CCinclude.h"
 #include <string.h>
 
@@ -1669,10 +1671,6 @@ uint64_t komodo_ac_block_subsidy(int nHeight)
     return(subsidy);
 }
 
-extern int64_t MAX_MONEY;
-void komodo_cbopretupdate(int32_t forceflag);
-void SplitStr(const std::string& strVal, std::vector<std::string> &outVals);
-
 int8_t equihash_params_possible(uint64_t n, uint64_t k)
 {
     /* To add more of these you also need to edit:
@@ -2495,3 +2493,154 @@ void komodo_prefetch(FILE *fp)
 {
     return GetLatestTimestamp(komodo_currentheight()) > JUNE2021_NNELECTION_HARDFORK;
 } */
+
+int32_t KOMODO_LONGESTCHAIN;
+int32_t komodo_longestchain()
+{
+    static int32_t depth;
+    int32_t ht,n=0,num=0,maxheight=0,height = 0;
+    if ( depth < 0 )
+        depth = 0;
+    if ( depth == 0 )
+    {
+
+        /**
+         * Seems here we need to try to lock cs_main, to avoid wrong order of lock (cs_main, cs_vNodes),
+         * implementation of getting max(nStartingHeight, nSyncHeight, nCommonHeight) from CNodeStateStats
+         * and loop here is similar to getpeerinfo RPC and there we have LOCK(cs_main). If we'll not able
+         * to acquire lock on cs_main komodo_longestchain() will return previous saved value of
+         * KOMODO_LONGESTCHAIN, anyway, on next call it will be updated, when lock will success.
+        */
+
+        TRY_LOCK(cs_main, lockMain); // Acquire cs_main
+        if (!lockMain) {
+            return(KOMODO_LONGESTCHAIN);
+        }
+
+        depth++;
+        vector<CNodeStats> vstats;
+        {
+            //LOCK(cs_main);
+            CopyNodeStats(vstats);
+        }
+        BOOST_FOREACH(const CNodeStats& stats, vstats)
+        {
+            //fprintf(stderr,"komodo_longestchain iter.%d\n",n);
+            CNodeStateStats statestats;
+            bool fStateStats = GetNodeStateStats(stats.nodeid,statestats);
+            if ( statestats.nSyncHeight < 0 )
+                continue;
+            ht = 0;
+            if ( stats.nStartingHeight > ht )
+                ht = stats.nStartingHeight;
+            if ( statestats.nSyncHeight > ht )
+                ht = statestats.nSyncHeight;
+            if ( statestats.nCommonHeight > ht )
+                ht = statestats.nCommonHeight;
+            if ( maxheight == 0 || ht > maxheight*1.01 )
+                maxheight = ht, num = 1;
+            else if ( ht > maxheight*0.99 )
+                num++;
+            if ( ht > height )
+                height = ht;
+        }
+        depth--;
+        if ( num > (n >> 1) )
+        {
+            if ( 0 && height != KOMODO_LONGESTCHAIN )
+                fprintf(stderr,"set %s KOMODO_LONGESTCHAIN <- %d\n",ASSETCHAINS_SYMBOL,height);
+            KOMODO_LONGESTCHAIN = height;
+            return(height);
+        }
+        KOMODO_LONGESTCHAIN = 0;
+    }
+    return(KOMODO_LONGESTCHAIN);
+}
+
+int64_t komodo_get_blocktime(uint256 hashBlock)
+{
+    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+    if (mi != mapBlockIndex.end() && (*mi).second)
+    {
+        CBlockIndex* pindex = (*mi).second;
+        if (chainActive.Contains(pindex))
+            return pindex->GetBlockTime();
+    }
+    return 0;
+}
+
+extern struct NSPV_inforesp NSPV_inforesult;
+int32_t komodo_get_current_height()
+{
+    if ( KOMODO_NSPV_SUPERLITE )
+    {
+        return (NSPV_inforesult.height);
+    }
+    else return chainActive.LastTip()->GetHeight();
+}
+
+bool komodo_txnotarizedconfirmed(uint256 txid, int32_t minconfirms)
+{
+    char str[65];
+    int32_t confirms,minimumconfirms,notarized=0,txheight=0,currentheight=0;;
+    CTransaction tx;
+    uint256 hashBlock;
+    CBlockIndex *pindex;    
+    char symbol[KOMODO_ASSETCHAIN_MAXLEN],dest[KOMODO_ASSETCHAIN_MAXLEN]; struct komodo_state *sp;
+
+    if (minconfirms==0) return (true);
+    if ( KOMODO_NSPV_SUPERLITE )
+    {
+        if ( NSPV_myGetTransaction(txid,tx,hashBlock,txheight,currentheight) == 0 )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed cant find txid %s\n",txid.ToString().c_str());
+            return(0);
+        }
+        else if (txheight<=0)
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed no txheight.%d for txid %s\n",txheight,txid.ToString().c_str());
+            return(0);
+        }
+        else if (txheight>currentheight)
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed backwards heights for txid %s hts.(%d %d)\n",txid.ToString().c_str(),txheight,currentheight);
+            return(0);
+        }
+        confirms=1 + currentheight - txheight;
+    }
+    else
+    {
+        if ( myGetTransaction(txid,tx,hashBlock) == 0 )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed cant find txid %s\n",txid.ToString().c_str());
+            return(0);
+        }
+        else if ( hashBlock == zeroid )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed no hashBlock for txid %s\n",txid.ToString().c_str());
+            return(0);
+        }
+        else if ( (pindex= komodo_blockindex(hashBlock)) == 0 || (txheight= pindex->GetHeight()) <= 0 )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed no txheight.%d %p for txid %s\n",txheight,pindex,txid.ToString().c_str());
+            return(0);
+        }
+        else if ( (pindex= chainActive.LastTip()) == 0 || pindex->GetHeight() < txheight )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed backwards heights for txid %s hts.(%d %d)\n",txid.ToString().c_str(),txheight,(int32_t)pindex->GetHeight());
+            return(0);
+        }    
+        confirms=1 + pindex->GetHeight() - txheight;
+    }
+    if (minconfirms>1) minimumconfirms=minconfirms;
+    else minimumconfirms=MIN_NON_NOTARIZED_CONFIRMS;
+    if ((sp= komodo_stateptr(symbol,dest)) != 0 && (notarized=sp->NOTARIZED_HEIGHT) > 0 && txheight > sp->NOTARIZED_HEIGHT)  notarized=0;            
+#ifdef TESTMODE           
+    notarized=0;
+#endif //TESTMODE
+    if (notarized>0 && confirms > 1)
+        return (true);
+    else if (notarized==0 && confirms >= minimumconfirms)
+        return (true);
+    return (false);
+}

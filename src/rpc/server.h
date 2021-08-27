@@ -35,6 +35,9 @@
 
 #include <univalue.h>
 #include <pubkey.h>
+#include "primitives/block.h"
+#include "primitives/transaction.h"
+#include "script/script.h"
 
 class AsyncRPCQueue;
 class CRPCCommand;
@@ -193,6 +196,14 @@ extern double GetNetworkDifficulty(const CBlockIndex* blockindex = NULL);
 extern std::string HelpRequiringPassphrase();
 extern std::string HelpExampleCli(const std::string& methodname, const std::string& args);
 extern std::string HelpExampleRpc(const std::string& methodname, const std::string& args);
+
+extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
+extern UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
+extern UniValue mempoolInfoToJSON();
+extern UniValue mempoolToJSON(bool fVerbose = false);
+extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
+extern UniValue blockheaderToJSON(const CBlockIndex* blockindex);
+extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 
 extern void EnsureWalletIsUnlocked();
 

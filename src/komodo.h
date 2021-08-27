@@ -37,10 +37,7 @@ uint256 NOTARIZED_HASH,NOTARIZED_DESTTXID;
 #include "uthash.h"
 #include "utlist.h"
 
-int32_t gettxout_scriptPubKey(uint8_t *scriptPubkey,int32_t maxsize,uint256 txid,int32_t n);
-void komodo_event_rewind(struct komodo_state *sp,char *symbol,int32_t height);
-int32_t komodo_connectblock(bool fJustCheck, CBlockIndex *pindex,CBlock& block);
-bool check_pprevnotarizedht();
+//bool check_pprevnotarizedht();
 
 #include "komodo_structs.h"
 #include "komodo_globals.h"
@@ -792,7 +789,7 @@ int32_t komodo_voutupdate(bool fJustCheck,int32_t *isratificationp,int32_t notar
 // if txi == 0 && 2 outputs and 2nd OP_RETURN, len == 32*2+4 -> notarized, 1st byte 'P' -> pricefeed
 // OP_RETURN: 'D' -> deposit, 'W' -> withdraw
 
-int32_t gettxout_scriptPubKey(uint8_t *scriptPubKey,int32_t maxsize,uint256 txid,int32_t n);
+//int32_t gettxout_scriptPubKey(uint8_t *scriptPubKey,int32_t maxsize,uint256 txid,int32_t n);
 
 int32_t komodo_notarycmp(uint8_t *scriptPubKey,int32_t scriptlen,uint8_t pubkeys[64][33],int32_t numnotaries,uint8_t rmd160[20])
 {

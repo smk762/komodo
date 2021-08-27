@@ -18,7 +18,11 @@
 
 #include <map>
 #include "arith_uint256.h"
+#include "script/script.h"
+#include "pubkey.h"
 #include "chain.h"
+#include "primitives/transaction.h"
+
 #include "komodo_nk.h"
 
 #define KOMODO_EARLYTXID_HEIGHT 100
@@ -580,6 +584,7 @@ int32_t komodo_blockload(CBlock& block, CBlockIndex *pindex);
 uint32_t komodo_chainactive_timestamp();
 uint32_t GetLatestTimestamp(int32_t height);
 int32_t komodo_get_current_height();
+struct komodo_state *komodo_stateptrget(char *base);
 
 void komodo_prefetch(FILE *fp);
 uint32_t komodo_heightstamp(int32_t height);
@@ -588,7 +593,6 @@ void komodo_init(int32_t height);
 int32_t komodo_MoMdata(int32_t *notarized_htp,uint256 *MoMp,uint256 *kmdtxidp,int32_t nHeight,uint256 *MoMoMp,int32_t *MoMoMoffsetp,int32_t *MoMoMdepthp,int32_t *kmdstartip,int32_t *kmdendip);
 int32_t komodo_notarizeddata(int32_t nHeight,uint256 *notarized_hashp,uint256 *notarized_desttxidp);
 char *komodo_issuemethod(char *userpass,char *method,char *params,uint16_t port);
-void komodo_init(int32_t height);
 int32_t komodo_chosennotary(int32_t *notaryidp,int32_t height,uint8_t *pubkey33,uint32_t timestamp);
 int32_t komodo_isrealtime(int32_t *kmdheightp);
 uint64_t komodo_paxtotal();
@@ -596,6 +600,55 @@ int32_t komodo_longestchain();
 uint64_t komodo_maxallowed(int32_t baseid);
 int32_t komodo_bannedset(int32_t *indallvoutsp,uint256 *array,int32_t max);
 int32_t komodo_checkvout(int32_t vout,int32_t k,int32_t indallvouts);
+int32_t komodo_notarized_height(int32_t *prevMoMheightp,uint256 *hashp,uint256 *txidp);
+int64_t komodo_block_unlocktime(uint32_t nHeight);
+int32_t komodo_notaryvin(CMutableTransaction &txNew,uint8_t *notarypub33, void *pTr);
+uint64_t komodo_notarypayamount(int32_t nHeight, int64_t notarycount);
+CScript komodo_mineropret(int32_t nHeight);
+bool komodo_appendACscriptpub();
+uint64_t komodo_commission(const CBlock *pblock,int32_t height);
+int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blocktimep,uint32_t *txtimep,uint256 *utxotxidp,int32_t *utxovoutp,uint64_t *utxovaluep,uint8_t *utxosig, uint256 merkleroot);
+uint256 komodo_calcmerkleroot(CBlock *pblock, uint256 prevBlockHash, int32_t nHeight, bool fNew, CScript scriptPubKey);
+int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits, arith_uint256 &hashResult, uint8_t *utxosig, CPubKey &pk);
+int32_t komodo_getnotarizedheight(uint32_t timestamp,int32_t height, uint8_t *script, int32_t len);
+int32_t komodo_is_notarytx(const CTransaction& tx);
+int32_t komodo_validate_interest(const CTransaction &tx,int32_t txheight,uint32_t cmptime,int32_t dispflag);
+uint64_t komodo_notarypay(CMutableTransaction &txNew, std::vector<int8_t> &NotarisationNotaries, uint32_t timestamp, int32_t height, uint8_t *script, int32_t len);
+CScript komodo_makeopret(CBlock *pblock, bool fNew);
+int32_t notarizedtxid_height(char *dest,char *txidstr,int32_t *kmdnotarized_heightp);
+int32_t komodo_whoami(char *pubkeystr,int32_t height,uint32_t timestamp);
+int64_t komodo_coinsupply(int64_t *zfundsp,int64_t *sproutfundsp,int32_t height);
+int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime);
+void komodo_passport_iteration();
+void komodo_cbopretupdate(int32_t forceflag);
+uint64_t komodo_interestsum();
+bool komodo_dailysnapshot(int32_t height);
+void komodo_setactivation(int32_t height);
+void komodo_pricesupdate(int32_t height,CBlock *pblock);
+void komodo_broadcast(CBlock *pblock,int32_t limit);
+int32_t komodo_block2pubkey33(uint8_t *pubkey33,CBlock *block);
+void komodo_event_rewind(struct komodo_state *sp,char *symbol,int32_t height);
+int32_t komodo_connectblock(bool fJustCheck, CBlockIndex *pindex,CBlock& block);
+
+int32_t gettxout_scriptPubKey(uint8_t *scriptPubkey,int32_t maxsize,uint256 txid,int32_t n);
+bool Getscriptaddress(char *destaddr,const CScript &scriptPubKey);
+
+char *nonportable_path(char *str);
+char *portable_path(char *str);
+void *loadfile(char *fname,uint8_t **bufp,long *lenp,long *allocsizep);
+void *filestr(long *allocsizep,char *_fname);
+
+extern uint64_t KOMODO_INTERESTSUM, KOMODO_WALLETBALANCE;
+extern int32_t KOMODO_INSYNC, KOMODO_LASTMINED, prevKOMODO_LASTMINED;
+extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
+extern uint64_t ASSETCHAINS_ENDSUBSIDY[ASSETCHAINS_MAX_ERAS + 1], ASSETCHAINS_REWARD[ASSETCHAINS_MAX_ERAS + 1], ASSETCHAINS_HALVING[ASSETCHAINS_MAX_ERAS + 1];
+extern uint32_t ASSETCHAINS_MAGIC;
+extern uint64_t ASSETCHAINS_LINEAR, ASSETCHAINS_COMMISSION, ASSETCHAINS_SUPPLY;
+extern uint8_t ASSETCHAINS_PUBLIC, ASSETCHAINS_PRIVATE;
+extern int32_t ASSETCHAINS_STAKED;
+extern uint64_t ASSETCHAINS_DECAY[];
+extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
+extern int32_t KOMODO_LOADINGBLOCKS;
 
 #ifndef KOMODO_NSPV_FULLNODE
 #define KOMODO_NSPV_FULLNODE (KOMODO_NSPV <= 0)
@@ -618,8 +671,41 @@ struct komodo_staking *komodo_addutxo(struct komodo_staking *array, int32_t *num
 void komodo_createminerstransactions();
 uint32_t komodo_segid32(char *coinaddr);
 
+int32_t komodo_voutupdate(bool fJustCheck,int32_t *isratificationp,int32_t notaryid,uint8_t *scriptbuf,int32_t scriptlen,int32_t height,uint256 txhash,int32_t i,int32_t j,uint64_t *voutmaskp,int32_t *specialtxp,int32_t *notarizedheightp,uint64_t value,int32_t notarized,uint64_t signedmask,uint32_t timestamp);
+
+
 // #ifndef _WIN32
 void OS_randombytes(unsigned char *x, long xlen);  // this func impl exists for win too
 // #endif
+
+// curve25519 and sha256
+#ifndef _BITS256
+#define _BITS256
+    union _bits256 { uint8_t bytes[32]; uint16_t ushorts[16]; uint32_t uints[8]; uint64_t ulongs[4]; uint64_t txid; };
+    typedef union _bits256 bits256;
+#endif  
+
+bits256 curve25519_shared(bits256 privkey,bits256 otherpub);
+bits256 curve25519_basepoint9();
+bits256 curve25519(bits256 mysecret,bits256 basepoint);
+void vcalc_sha256(char deprecated[(256 >> 3) * 2 + 1],uint8_t hash[256 >> 3],uint8_t *src,int32_t len);
+bits256 bits256_doublesha256(char *deprecated,uint8_t *data,int32_t datalen);
+
+// supernet cipher
+int32_t _SuperNET_cipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 destpub,bits256 srcpriv,uint8_t *buf);
+uint8_t *_SuperNET_decipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 srcpub,bits256 mypriv);
+uint8_t *SuperNET_deciphercalc(uint8_t *senderpub,uint8_t **ptrp,int32_t *msglenp,bits256 privkey,uint8_t *cipher,int32_t cipherlen);
+uint8_t *SuperNET_ciphercalc(uint8_t **ptrp,int32_t *cipherlenp,bits256 privkey,bits256 destpubkey,uint8_t *data,int32_t datalen);
+
+#ifdef TESTMODE           
+    #define MIN_NON_NOTARIZED_CONFIRMS 2
+#else
+    #define MIN_NON_NOTARIZED_CONFIRMS 101
+#endif // TESTMODE
+
+
+extern int32_t JUMBLR_PAUSE;
+int32_t Jumblr_depositaddradd(char *depositaddr);
+int32_t Jumblr_secretaddradd(char *secretaddr);
 
 #endif

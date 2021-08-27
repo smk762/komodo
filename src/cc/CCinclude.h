@@ -1038,16 +1038,6 @@ UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatl
 CScript GetCCDropAsOpret(const CScript &scriptPubKey);
 
 /*! \cond INTERNAL */
-// curve25519 and sha256
-bits256 curve25519_shared(bits256 privkey,bits256 otherpub);
-bits256 curve25519_basepoint9();
-bits256 curve25519(bits256 mysecret,bits256 basepoint);
-void vcalc_sha256(char deprecated[(256 >> 3) * 2 + 1],uint8_t hash[256 >> 3],uint8_t *src,int32_t len);
-bits256 bits256_doublesha256(char *deprecated,uint8_t *data,int32_t datalen);
-// UniValue ValueFromAmount(const CAmount& amount);  // defined in server.h
-/*! \endcond */
-
-/*! \cond INTERNAL */
 CAmount TotalPubkeyNormalInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey);
 CAmount TotalPubkeyCCInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }

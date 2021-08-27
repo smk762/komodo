@@ -13,14 +13,16 @@
  *                                                                            *
  ******************************************************************************/
 
+#include <openssl/sha.h>
 #include "cc/eval.h"
 #include "cc/utils.h"
+#include "komodo_defs.h"
 #include "importcoin.h"
 #include "crosschain.h"
 #include "primitives/transaction.h"
 #include "cc/CCinclude.h"
-#include <openssl/sha.h>
 #include "cc/CCtokens.h"
+#include "cc/CCImportGateway.h"
 
 #include "key_io.h"
 #define CODA_BURN_ADDRESS "KPrrRoPfHOnNpZZQ6laHXdQDkSQDkVHaN0V+LizLlHxz7NaA59sBAAAA"
@@ -33,8 +35,9 @@
  ##### 0xffffffff is a special CCid for single chain/dual daemon imports
  */
 
-extern std::string ASSETCHAINS_SELFIMPORT;
-extern uint16_t ASSETCHAINS_CODAPORT,ASSETCHAINS_BEAMPORT;
+/* todo remove*/
+
+/*
 extern uint8_t ASSETCHAINS_OVERRIDE_PUBKEY33[33];
 extern uint256 KOMODO_EARLYTXID;
 
@@ -47,7 +50,7 @@ int64_t ImportGatewayVerify(char *refburnaddr,uint256 oracletxid,int32_t claimvo
 char *nonportable_path(char *str);
 char *portable_path(char *str);
 void *loadfile(char *fname,uint8_t **bufp,long *lenp,long *allocsizep);
-void *filestr(long *allocsizep,char *_fname);
+void *filestr(long *allocsizep,char *_fname);*/
 
 cJSON* CodaRPC(char **retstr,char const *arg0,char const *arg1,char const *arg2,char const *arg3,char const *arg4,char const *arg5)
 {
