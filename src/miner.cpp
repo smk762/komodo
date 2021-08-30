@@ -1169,19 +1169,17 @@ void waitForPeers(const CChainParams &chainparams)
 }
 
 #ifdef ENABLE_WALLET
-CBlockIndex *get_chainactive(int32_t height)
+CBlockIndex* get_chainactive(int32_t height)
 {
-    if ( chainActive.LastTip() != 0 )
-    {
-        if ( height <= chainActive.LastTip()->GetHeight() )
-        {
-            LOCK(cs_main);
-            return(chainActive[height]);
+    LOCK(cs_main);  // moved lock at the begininng as getting the vector size is unsafe in the multithread env
+    if (chainActive.LastTip() != 0) {
+        if (height <= chainActive.LastTip()->GetHeight()) {
+            return (chainActive[height]);
         }
         // else fprintf(stderr,"get_chainactive height %d > active.%d\n",height,chainActive.Tip()->GetHeight());
     }
     //fprintf(stderr,"get_chainactive null chainActive.Tip() height %d\n",height);
-    return(0);
+    return (0);
 }
 
 /*
