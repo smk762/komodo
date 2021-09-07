@@ -502,17 +502,15 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp* ptr, char* coinaddr, bool is
     ptr->skipcount = skipcount;
     ptr->txids = nullptr;
 
-    if (txids.size() >= 0 && skipcount < ptr->numtxids) {
-        if (txids.size() - skipcount > 0) {
-            ptr->txids = (struct NSPV_txidresp*)calloc(txids.size() - skipcount, sizeof(ptr->txids[0]));
-            for (std::vector<std::pair<CAddressIndexKey, CAmount>>::const_iterator it = txids.begin() + skipcount; 
-                it != txids.end() && ind < maxrecords; it++) {
-                ptr->txids[ind].txid = it->first.txhash;
-                ptr->txids[ind].vout = (int32_t)it->first.index;
-                ptr->txids[ind].satoshis = (int64_t)it->second;
-                ptr->txids[ind].height = (int64_t)it->first.blockHeight;
-                ind++;
-            }
+    if (txids.size() >= 0 && skipcount < txids.size()) {
+        ptr->txids = (struct NSPV_txidresp*)calloc(txids.size() - skipcount, sizeof(ptr->txids[0]));
+        for (std::vector<std::pair<CAddressIndexKey, CAmount>>::const_iterator it = txids.begin() + skipcount; 
+            it != txids.end() && ind < maxrecords; it++) {
+            ptr->txids[ind].txid = it->first.txhash;
+            ptr->txids[ind].vout = (int32_t)it->first.index;
+            ptr->txids[ind].satoshis = (int64_t)it->second;
+            ptr->txids[ind].height = (int64_t)it->first.blockHeight;
+            ind++;
         }
     }
     // always return a result:
