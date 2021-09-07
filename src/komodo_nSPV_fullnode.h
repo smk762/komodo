@@ -202,42 +202,41 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
     // use maxrecords
     //maxlen = MAX_BLOCK_SIZE(tipheight) - 512;
     //maxlen /= sizeof(*ptr->utxos);
+    std::cerr << __func__ << " maxrecords in param=" << maxrecords << std::endl;
     if (maxrecords <= 0 || maxrecords >= std::numeric_limits<int16_t>::max())
-        maxrecords >= std::numeric_limits<int16_t>::max();  // prevent large requests
+        maxrecords = std::numeric_limits<int16_t>::max();  // prevent large requests
 
     strncpy(ptr->coinaddr, coinaddr, sizeof(ptr->coinaddr) - 1);
     ptr->CCflag = isCC;
     ptr->maxrecords = maxrecords;
     if (skipcount < 0)
         skipcount = 0;
-    if ((ptr->numutxos = (int32_t)unspentOutputs.size()) >= 0) {
+    ptr->skipcount = skipcount;
+    ptr->utxos = nullptr;
+
+    if (unspentOutputs.size() >= 0 && skipcount < unspentOutputs.size()) {
         ptr->nodeheight = tipheight;
-        if (skipcount >= ptr->numutxos)
-            skipcount = ptr->numutxos - 1;
-        ptr->skipcount = skipcount;
-        if (ptr->numutxos - skipcount > 0) {
-            ptr->utxos = (struct NSPV_utxoresp*)calloc(ptr->numutxos - skipcount, sizeof(*ptr->utxos));
-            for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
-                // if gettxout is != null to handle mempool
-                {
-                    if (n >= skipcount && myIsutxo_spentinmempool(ignoretxid, ignorevin, it->first.txhash, (int32_t)it->first.index) == 0) {
-                        ptr->utxos[ind].txid = it->first.txhash;
-                        ptr->utxos[ind].vout = (int32_t)it->first.index;
-                        ptr->utxos[ind].satoshis = it->second.satoshis;
-                        ptr->utxos[ind].height = it->second.blockHeight;
-                        if (IS_KMD_CHAIN() && it->second.satoshis >= 10 * COIN) {  // calc interest on the kmd chain
-                            ptr->utxos[n].extradata = komodo_accrued_interest(&txheight, &locktime, ptr->utxos[ind].txid, ptr->utxos[ind].vout, ptr->utxos[ind].height, ptr->utxos[ind].satoshis, tipheight);
-                            interest += ptr->utxos[ind].extradata;
-                        }
-                        ind++;
-                        total += it->second.satoshis;
+        ptr->utxos = (struct NSPV_utxoresp*)calloc(unspentOutputs.size() - skipcount, sizeof(*ptr->utxos));
+        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); 
+            it != unspentOutputs.end() && ind < maxrecords; it++) {
+            // if gettxout is != null to handle mempool
+            {
+                if (n >= skipcount && !myIsutxo_spentinmempool(ignoretxid, ignorevin, it->first.txhash, (int32_t)it->first.index)) {
+                    ptr->utxos[ind].txid = it->first.txhash;
+                    ptr->utxos[ind].vout = (int32_t)it->first.index;
+                    ptr->utxos[ind].satoshis = it->second.satoshis;
+                    ptr->utxos[ind].height = it->second.blockHeight;
+                    if (IS_KMD_CHAIN() && it->second.satoshis >= 10 * COIN) {  // calc interest on the kmd chain
+                        ptr->utxos[n].extradata = komodo_accrued_interest(&txheight, &locktime, ptr->utxos[ind].txid, ptr->utxos[ind].vout, ptr->utxos[ind].height, ptr->utxos[ind].satoshis, tipheight);
+                        interest += ptr->utxos[ind].extradata;
                     }
-                    n++;
-                    if (ind >= maxrecords)
-                        break;
+                    ind++;
+                    total += it->second.satoshis;
                 }
+                n++;
             }
         }
+        
         ptr->numutxos = ind;
         int32_t len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos) * ptr->numutxos - sizeof(ptr->utxos));
         //fprintf(stderr,"getaddressutxos for %s -> n.%d:%d total %.8f interest %.8f len.%d\n",coinaddr,n,ptr->numutxos,dstr(total),dstr(interest),len);
@@ -245,7 +244,7 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
         ptr->interest = interest;
         return (len);
     }
-    if (ptr->utxos != 0)
+    if (ptr->utxos != nullptr)
         free(ptr->utxos);
     memset(ptr, 0, sizeof(*ptr));
     return (0);
