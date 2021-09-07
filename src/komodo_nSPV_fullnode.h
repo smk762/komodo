@@ -216,12 +216,12 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
     ptr->nodeheight = tipheight;
 
     if (unspentOutputs.size() >= 0 && skipcount < unspentOutputs.size()) {    
-        ptr->utxos = (struct NSPV_utxoresp*)calloc(unspentOutputs.size() - skipcount, sizeof(*ptr->utxos));
-        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); 
+        ptr->utxos = (struct NSPV_utxoresp*)calloc(unspentOutputs.size() - skipcount, sizeof(ptr->utxos[0]));
+        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin() + skipcount; 
             it != unspentOutputs.end() && ind < maxrecords; it++) {
             // if gettxout is != null to handle mempool
             {
-                if (n >= skipcount && !myIsutxo_spentinmempool(ignoretxid, ignorevin, it->first.txhash, (int32_t)it->first.index)) {
+                if (!myIsutxo_spentinmempool(ignoretxid, ignorevin, it->first.txhash, (int32_t)it->first.index)) {
                     ptr->utxos[ind].txid = it->first.txhash;
                     ptr->utxos[ind].vout = (int32_t)it->first.index;
                     ptr->utxos[ind].satoshis = it->second.satoshis;
@@ -239,7 +239,7 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
     }
     // always return a result:
     ptr->numutxos = ind;
-    int32_t len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos) * ptr->numutxos - sizeof(ptr->utxos));
+    int32_t len = (int32_t)(sizeof(*ptr) + sizeof(ptr->utxos[0]) * ptr->numutxos - sizeof(ptr->utxos));
     //fprintf(stderr,"getaddressutxos for %s -> n.%d:%d total %.8f interest %.8f len.%d\n",coinaddr,n,ptr->numutxos,dstr(total),dstr(interest),len);
     ptr->total = total;
     ptr->interest = interest;
@@ -478,51 +478,51 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
 
 int32_t NSPV_getaddresstxids(struct NSPV_txidsresp* ptr, char* coinaddr, bool isCC, int32_t skipcount, int32_t maxrecords)
 {
-    int32_t txheight, ind = 0, n = 0, len = 0;
-    CTransaction tx;
-    uint256 hashBlock;
+    int32_t txheight, ind = 0, len = 0;
+    //CTransaction tx;
+    //uint256 hashBlock;
     std::vector<std::pair<CAddressIndexKey, CAmount>> txids;
     SetAddressIndexOutputs(txids, coinaddr, isCC);
-    ptr->nodeheight = chainActive.LastTip()->GetHeight();
+    {
+        LOCK(cs_main);
+        ptr->nodeheight = chainActive.LastTip()->GetHeight();
+    }
 
     // using maxrecords instead:
     //maxlen = MAX_BLOCK_SIZE(ptr->nodeheight) - 512;
     //maxlen /= sizeof(*ptr->txids);
     if (maxrecords <= 0 || maxrecords >= std::numeric_limits<int16_t>::max())
-        maxrecords >= std::numeric_limits<int16_t>::max();  // prevent large requests
+        maxrecords = std::numeric_limits<int16_t>::max();  // prevent large requests
 
     strncpy(ptr->coinaddr, coinaddr, sizeof(ptr->coinaddr) - 1);
     ptr->CCflag = isCC;
     ptr->maxrecords = maxrecords;
     if (skipcount < 0)
         skipcount = 0;
-    if ((ptr->numtxids = (int32_t)txids.size()) >= 0) {
-        if (skipcount >= ptr->numtxids)
-            skipcount = ptr->numtxids - 1;
-        ptr->skipcount = skipcount;
+    ptr->skipcount = skipcount;
+    ptr->txids = nullptr;
+
+    if (txids.size() >= 0 && skipcount < ptr->numtxids) {
         if (ptr->numtxids - skipcount > 0) {
-            ptr->txids = (struct NSPV_txidresp*)calloc(ptr->numtxids - skipcount, sizeof(*ptr->txids));
-            for (std::vector<std::pair<CAddressIndexKey, CAmount>>::const_iterator it = txids.begin(); it != txids.end(); it++) {
-                if (n >= skipcount) {
-                    ptr->txids[ind].txid = it->first.txhash;
-                    ptr->txids[ind].vout = (int32_t)it->first.index;
-                    ptr->txids[ind].satoshis = (int64_t)it->second;
-                    ptr->txids[ind].height = (int64_t)it->first.blockHeight;
-                    ind++;
-                }
-                n++;
-                if (ind >= maxrecords)
-                    break;
+            ptr->txids = (struct NSPV_txidresp*)calloc(txids.size() - skipcount, sizeof(ptr->txids[0]));
+            for (std::vector<std::pair<CAddressIndexKey, CAmount>>::const_iterator it = txids.begin() + skipcount; 
+                it != txids.end() && ind < maxrecords; it++) {
+                ptr->txids[ind].txid = it->first.txhash;
+                ptr->txids[ind].vout = (int32_t)it->first.index;
+                ptr->txids[ind].satoshis = (int64_t)it->second;
+                ptr->txids[ind].height = (int64_t)it->first.blockHeight;
+                ind++;
             }
         }
-        ptr->numtxids = ind;
-        len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->txids) * ptr->numtxids - sizeof(ptr->txids));
-        return (len);
     }
-    if (ptr->txids != nullptr)
+    // always return a result:
+    ptr->numtxids = ind;
+    len = (int32_t)(sizeof(*ptr) + sizeof(ptr->txids[0]) * ptr->numtxids - sizeof(ptr->txids));
+    return (len);
+    /*if (ptr->txids != nullptr)
         free(ptr->txids);
     memset(ptr, 0, sizeof(*ptr));
-    return (0);
+    return (0);*/
 }
 
 int32_t NSPV_mempoolfuncs(bits256 *satoshisp,int32_t *vindexp,std::vector<uint256> &txids,char *coinaddr,bool isCC,uint8_t funcid,uint256 txid,int32_t vout)
@@ -743,7 +743,7 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
         rpc_result = JSONRPCReplyObj(NullUniValue, objError, jreq.id);
         response=rpc_result.write();
     }
-    catch (const runtime_error& e)
+    catch (const std::runtime_error& e)
     {
         rpc_result = JSONRPCReplyObj(NullUniValue,JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
         response=rpc_result.write();
