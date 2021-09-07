@@ -503,7 +503,7 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp* ptr, char* coinaddr, bool is
     ptr->txids = nullptr;
 
     if (txids.size() >= 0 && skipcount < ptr->numtxids) {
-        if (ptr->numtxids - skipcount > 0) {
+        if (txids.size() - skipcount > 0) {
             ptr->txids = (struct NSPV_txidresp*)calloc(txids.size() - skipcount, sizeof(ptr->txids[0]));
             for (std::vector<std::pair<CAddressIndexKey, CAmount>>::const_iterator it = txids.begin() + skipcount; 
                 it != txids.end() && ind < maxrecords; it++) {
