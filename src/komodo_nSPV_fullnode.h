@@ -187,7 +187,7 @@ int32_t NSPV_getinfo(struct NSPV_inforesp *ptr,int32_t reqheight)
 
 int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool isCC, int32_t skipcount, int32_t maxrecords)
 {
-    CAmount total = 0, interest = 0;
+    CAmount total = 0LL, interest = 0LL;
     uint32_t locktime;
     int32_t ind = 0, tipheight, /*maxlen,*/ txheight, n = 0;
 
@@ -236,18 +236,18 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
                 n++;
             }
         }
-        
-        ptr->numutxos = ind;
-        int32_t len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos) * ptr->numutxos - sizeof(ptr->utxos));
-        //fprintf(stderr,"getaddressutxos for %s -> n.%d:%d total %.8f interest %.8f len.%d\n",coinaddr,n,ptr->numutxos,dstr(total),dstr(interest),len);
-        ptr->total = total;
-        ptr->interest = interest;
-        return (len);
     }
-    if (ptr->utxos != nullptr)
-        free(ptr->utxos);
-    memset(ptr, 0, sizeof(*ptr));
-    return (0);
+    // always return a result:
+    ptr->numutxos = ind;
+    int32_t len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos) * ptr->numutxos - sizeof(ptr->utxos));
+    //fprintf(stderr,"getaddressutxos for %s -> n.%d:%d total %.8f interest %.8f len.%d\n",coinaddr,n,ptr->numutxos,dstr(total),dstr(interest),len);
+    ptr->total = total;
+    ptr->interest = interest;
+    return (len);
+    //if (ptr->utxos != nullptr)
+    //    free(ptr->utxos);
+    //memset(ptr, 0, sizeof(*ptr));
+    //return (0);
 }
 
 class BaseCCChecker {
@@ -965,7 +965,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
     }
     else {
         pfrom->nspvdata[nData].nreqs = 0;
-        std::cerr << __func__ << " timestamp changed, reset nreqs=" << std::endl;
+        std::cerr << __func__ << " timestamp changed, reset nreqs to 0" << std::endl;
     }
 
     switch(request[0])    
@@ -1063,7 +1063,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 NSPV_utxosresp_purge(&U);
             }
             else
-                LogPrint("nspv", "NSPV_getaddressutxos error.%d\n", slen);
+                LogPrint("nspv", "NSPV_getaddressutxos error slen.%d\n", slen);
         }
         break;
 
