@@ -213,9 +213,9 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
         skipcount = 0;
     ptr->skipcount = skipcount;
     ptr->utxos = nullptr;
+    ptr->nodeheight = tipheight;
 
-    if (unspentOutputs.size() >= 0 && skipcount < unspentOutputs.size()) {
-        ptr->nodeheight = tipheight;
+    if (unspentOutputs.size() >= 0 && skipcount < unspentOutputs.size()) {    
         ptr->utxos = (struct NSPV_utxoresp*)calloc(unspentOutputs.size() - skipcount, sizeof(*ptr->utxos));
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); 
             it != unspentOutputs.end() && ind < maxrecords; it++) {
