@@ -2146,7 +2146,6 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     fPingQueued = false;
     nMinPingUsecTime = std::numeric_limits<int64_t>::max();
     memset(nspvdata, '\0', sizeof(nspvdata));
-    std::cerr << __func__ << " nspvdata cleared" << std::endl;
 
     {
         LOCK(cs_nLastNodeId);
