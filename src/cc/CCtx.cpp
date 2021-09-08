@@ -1191,7 +1191,7 @@ CAmount AddNormalinputsLocal(CMutableTransaction& mtx, CPubKey mypk, CAmount tot
                 {
                     LOCK(cs_main);
                     if (CoinbaseGetBlocksToMaturity(tx, hashBlock) > 0) {
-                        std::cerr << __func__ << " skipping immature coinbase tx=" << txid.GetHex() << " COINBASE_MATURITY=" << COINBASE_MATURITY << std::endl;
+                        //std::cerr << __func__ << " skipping immature coinbase tx=" << txid.GetHex() << " COINBASE_MATURITY=" << COINBASE_MATURITY << std::endl;
                         continue;
                     }
                 }
@@ -1301,7 +1301,7 @@ CAmount AddNormalinputsRemote(CMutableTransaction& mtx, CPubKey mypk, CAmount to
             {
                 LOCK(cs_main);
                 if (CoinbaseGetBlocksToMaturity(tx, hashBlock) > 0) {
-                    std::cerr << __func__ << " skipping immature coinbase tx=" << txid.GetHex() << " COINBASE_MATURITY=" << COINBASE_MATURITY << std::endl;
+                    //std::cerr << __func__ << " skipping immature coinbase tx=" << txid.GetHex() << " COINBASE_MATURITY=" << COINBASE_MATURITY << std::endl;
                     continue;
                 }
             }

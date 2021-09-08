@@ -202,7 +202,6 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
     // use maxrecords
     //maxlen = MAX_BLOCK_SIZE(tipheight) - 512;
     //maxlen /= sizeof(*ptr->utxos);
-    std::cerr << __func__ << " maxrecords in param=" << maxrecords << std::endl;
     if (maxrecords <= 0 || maxrecords >= std::numeric_limits<int16_t>::max())
         maxrecords = std::numeric_limits<int16_t>::max();  // prevent large requests
 
@@ -319,7 +318,7 @@ public:
                         isEof = ss.eof(); );
 
                     opretTxid = revuint256(opretTxid);
-                    std::cerr << __func__ << " " << "opretEvalcode=" << opretEvalcode << " opretFuncid=" << (char)opretFuncid << " isCreateTx=" << isCreateTx << " opretTxid=" << opretTxid.GetHex() << std::endl;
+                    //std::cerr << __func__ << " " << "opretEvalcode=" << opretEvalcode << " opretFuncid=" << (char)opretFuncid << " isCreateTx=" << isCreateTx << " opretTxid=" << opretTxid.GetHex() << std::endl;
                     if( parseOk /*parseOk=true if eof reached*/|| !isEof /*more data means okay*/)
                     {
                         if (evalcode == opretEvalcode && std::find(funcids.begin(), funcids.end(), (char)opretFuncid) != funcids.end() && 
@@ -1352,7 +1351,6 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 pfrom->PushMessage("nSPV", response);
                 pfrom->nspvdata[nData].prevtime = timestamp;
                 pfrom->nspvdata[nData].nreqs ++;
-                std::cerr << __func__ << " set pfrom->nspvdata[" << nData << "].prevtime=" << timestamp << std::endl;
                 LogPrint("nspv-details", "NSPV_REMOTERPCRESP response: method=%s json=%s to node=%d\n", R.method, R.json, pfrom->id);
                 NSPV_remoterpc_purge(&R);
             }
