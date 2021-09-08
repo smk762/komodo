@@ -948,7 +948,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
     int32_t nData = request[0] >> 1;
     if (nData >= sizeof(pfrom->nspvdata)/sizeof(pfrom->nspvdata[0]) )
         nData = (int32_t)(sizeof(pfrom->nspvdata)/sizeof(pfrom->nspvdata[0])) - 1;
-    std::cerr << __func__ << "pfrom=" << (uint64_t)pfrom << " request[0]=" << (int)request[0] << " nData=" << nData << " timestamp=" << timestamp << " pfrom->nspvdata[nData].prevtime=" << pfrom->nspvdata[nData].prevtime << " pfrom->nspvdata[nData].nreqs=" << pfrom->nspvdata[nData].nreqs << " timestamp-prevtime=" << timestamp-pfrom->nspvdata[nData].prevtime << std::endl;
+    std::cerr << __func__ << " pfrom=" << (uint64_t)pfrom << " request[0]=" << (int)request[0] << " nData=" << nData << " timestamp=" << timestamp << " pfrom->nspvdata[nData].prevtime=" << pfrom->nspvdata[nData].prevtime << " pfrom->nspvdata[nData].nreqs=" << pfrom->nspvdata[nData].nreqs << " timestamp-prevtime=" << timestamp-pfrom->nspvdata[nData].prevtime << std::endl;
     if (pfrom->nspvdata[nData].prevtime > timestamp) {
         pfrom->nspvdata[nData].prevtime = 0;
         pfrom->nspvdata[nData].nreqs = 0;
@@ -956,10 +956,9 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
     }
     else if (timestamp == pfrom->nspvdata[nData].prevtime)  {
         if (pfrom->nspvdata[nData].nreqs > NSPV_MAXREQSPERSEC)  {
-            LogPrint("nspv", "rate limit from peer %d\n", pfrom->id);
+            LogPrint("nspv", "rate limit reached from peer %d\n", pfrom->id);
             return;
         }
-        pfrom->nspvdata[nData].nreqs ++;
     }
     else {
         pfrom->nspvdata[nData].nreqs = 0;
