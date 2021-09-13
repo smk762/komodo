@@ -30,7 +30,7 @@
 #include "sync.h"
 #include "utilstrencodings.h"
 #include "utiltime.h"
-#include "komodo_defs.h"  // plz dont add this where it is not used, we have build errors for komodo-cli
+#include "komodo_defs.h"  // plz dont add this where it is not used, we have build errors for komodo-cli. Looks like it builds okay now
 
 #include <stdarg.h>
 #include <sstream>
