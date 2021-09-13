@@ -44,6 +44,8 @@
 #define ASSETCHAINS_STAKED_MIN_POW_DIFF 536900000 // 537000000 537300000
 #define _COINBASE_MATURITY 100
 
+#define _ASSETCHAINS_TIMELOCKOFF 0xffffffffffffffff
+
 #define IS_KMD_CHAIN() (ASSETCHAINS_SYMBOL[0] == '\0')
 
 #define KOMODO_ADDRESS_BUFSIZE 64
@@ -510,7 +512,10 @@ extern int32_t VERUS_MIN_STAKEAGE;
 extern uint32_t ASSETCHAINS_VERUSHASH, ASSETCHAINS_VERUSHASHV1_1, ASSETCHAINS_NONCESHIFT[], ASSETCHAINS_HASHESPERROUND[];
 extern std::string NOTARY_PUBKEY,ASSETCHAINS_OVERRIDE_PUBKEY,ASSETCHAINS_SCRIPTPUB;
 extern uint8_t NOTARY_PUBKEY33[33],ASSETCHAINS_OVERRIDE_PUBKEY33[33];
-//extern std::vector<std::string> ASSETCHAINS_PRICES,ASSETCHAINS_STOCKS;
+extern std::vector<std::string> ASSETCHAINS_PRICES, ASSETCHAINS_STOCKS;
+extern std::vector<uint8_t> Mineropret; // opreturn data set by the data gathering code
+extern uint64_t ASSETCHAINS_PEGSCCPARAMS[3];
+extern uint8_t ASSETCHAINS_OVERRIDE_PUBKEYHASH[];
 
 extern int32_t VERUS_BLOCK_POSUNITS, VERUS_CONSECUTIVE_POS_THRESHOLD, VERUS_NOPOS_THRESHHOLD;
 extern uint256 KOMODO_EARLYTXID;
@@ -634,6 +639,7 @@ int32_t komodo_connectblock(bool fJustCheck, CBlockIndex *pindex,CBlock& block);
 arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t height,int32_t goalperc,int32_t newStakerActive);
 int32_t komodo_baseid(char *origbase);
 int32_t komodo_eligiblenotary(uint8_t pubkeys[66][33],int32_t *mids,uint32_t *blocktimes,int32_t *nonzpkeysp,int32_t height);
+uint64_t komodo_current_supply(uint32_t nHeight);
 
 int32_t gettxout_scriptPubKey(uint8_t *scriptPubkey,int32_t maxsize,uint256 txid,int32_t n);
 bool Getscriptaddress(char *destaddr,const CScript &scriptPubKey);
@@ -647,14 +653,26 @@ extern uint64_t KOMODO_INTERESTSUM, KOMODO_WALLETBALANCE;
 extern int32_t KOMODO_INSYNC, KOMODO_LASTMINED, prevKOMODO_LASTMINED;
 extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
 extern uint64_t ASSETCHAINS_ENDSUBSIDY[ASSETCHAINS_MAX_ERAS + 1], ASSETCHAINS_REWARD[ASSETCHAINS_MAX_ERAS + 1], ASSETCHAINS_HALVING[ASSETCHAINS_MAX_ERAS + 1];
+extern uint64_t ASSETCHAINS_DECAY[ASSETCHAINS_MAX_ERAS + 1];
 extern uint32_t ASSETCHAINS_MAGIC;
 extern uint64_t ASSETCHAINS_LINEAR, ASSETCHAINS_COMMISSION, ASSETCHAINS_SUPPLY;
 extern uint8_t ASSETCHAINS_PUBLIC, ASSETCHAINS_PRIVATE;
 extern int32_t ASSETCHAINS_STAKED;
-extern uint64_t ASSETCHAINS_DECAY[];
 extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
 extern int32_t KOMODO_LOADINGBLOCKS;
 extern int32_t ASSETCHAINS_FOUNDERS;
+extern char ASSETCHAINS_USERPASS[];
+extern int32_t KOMODO_REWIND;
+extern uint32_t ASSETCHAINS_NUMALGOS;
+extern uint32_t STAKING_MIN_DIFF;
+extern uint32_t ASSETCHAINS_MINDIFF[];
+extern uint64_t ASSETCHAINS_TIMEUNLOCKFROM;
+extern uint64_t ASSETCHAINS_TIMEUNLOCKTO;
+extern uint32_t KOMODO_DPOWCONFS;
+extern uint16_t KMD_PORT, BITCOIND_RPCPORT, DEST_PORT;
+extern char KMDUSERPASS[], BTCUSERPASS[]; 
+extern uint32_t KOMODO_STOPAT;
+extern int32_t ASSETCHAINS_CBMATURITY;
 
 #ifndef KOMODO_NSPV_FULLNODE
 #define KOMODO_NSPV_FULLNODE (KOMODO_NSPV <= 0)

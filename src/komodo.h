@@ -64,7 +64,6 @@ void komodo_currentheight_set(int32_t height)
         sp->CURRENT_HEIGHT = height;
 }
 
-extern struct NSPV_inforesp NSPV_inforesult;
 int32_t komodo_currentheight()
 {
     char symbol[KOMODO_ASSETCHAIN_MAXLEN],dest[KOMODO_ASSETCHAIN_MAXLEN]; struct komodo_state *sp;

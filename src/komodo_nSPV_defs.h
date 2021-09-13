@@ -193,6 +193,7 @@ struct NSPV_remoterpcresp
     char *json;
 };
 
+extern struct NSPV_inforesp NSPV_inforesult;
 
 void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& unspentOutputs, char* coinaddr, bool ccflag);
 void NSPV_CCindexOutputs(std::vector<std::pair<CAddressIndexKey, CAmount>>& indexOutputs, char* coinaddr, bool ccflag);

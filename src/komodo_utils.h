@@ -17,6 +17,7 @@
 #include "util.h"
 #include "komodo_defs.h"
 #include "cc/CCinclude.h"
+#include "importcoin.h"
 #include <string.h>
 
 #ifdef _WIN32
@@ -2569,7 +2570,6 @@ int64_t komodo_get_blocktime(uint256 hashBlock)
     return 0;
 }
 
-extern struct NSPV_inforesp NSPV_inforesult;
 int32_t komodo_get_current_height()
 {
     if ( KOMODO_NSPV_SUPERLITE )
