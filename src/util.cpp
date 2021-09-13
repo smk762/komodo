@@ -414,36 +414,34 @@ void SplitStr(const std::string& strVal, std::vector<std::string> &outVals)
     }
 }
 
-void Split(const std::string& strVal, int32_t outsize, uint64_t *outVals, const uint64_t nDefault)
+void SplitIntoU64List(const std::string& strVal, int32_t outsize, uint64_t* outVals, const uint64_t nDefault)
 {
     stringstream ss(strVal);
     vector<uint64_t> vec;
 
-    uint64_t i, nLast, numVals = 0;
+    uint64_t val, nLast, numVals = 0;
 
-    while ( ss.peek() == ' ' )
+    while (ss.peek() == ' ')
         ss.ignore();
 
-    while ( ss >> i )
-    {
-        outVals[numVals] = i;
-        numVals += 1;
+    while (ss >> val && numVals < outsize) {
+        outVals[numVals] = val;
+        numVals++;
 
-        while ( ss.peek() == ' ' )
+        while (ss.peek() == ' ')
             ss.ignore();
-        if ( ss.peek() == ',' )
+        if (ss.peek() == ',')
             ss.ignore();
-        while ( ss.peek() == ' ' )
+        while (ss.peek() == ' ')
             ss.ignore();
     }
 
-    if ( numVals > 0 )
+    if (numVals > 0)
         nLast = outVals[numVals - 1];
     else
         nLast = nDefault;
 
-    for ( i = numVals; i < outsize; i++ )
-    {
+    for (int i = numVals; i < outsize; i++) {
         outVals[i] = nLast;
     }
 }
