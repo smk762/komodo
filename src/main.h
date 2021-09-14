@@ -122,8 +122,7 @@ static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 
 /** Default NSPV support enabled */
-#define DEFAULT_NSPV_TOKEL true
-static const bool DEFAULT_NSPV_PROCESSING = DEFAULT_NSPV_TOKEL;
+static const bool DEFAULT_NSPV_PROCESSING = false;
 
 //static const bool DEFAULT_ADDRESSINDEX = false;
 //static const bool DEFAULT_SPENTINDEX = false;

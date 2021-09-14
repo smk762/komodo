@@ -95,6 +95,17 @@ static int AppInitRPC(int argc, char* argv[])
     // Parameters
     //
     ParseParameters(argc, argv);
+
+#if defined(CUSTOM_CLIENT_ARGS)
+    // add custom chain parameters
+    try {
+        AddSettings(mapArgs, mapMultiArgs, CUSTOM_CLIENT_ARGS);
+    } catch (const std::exception& e) {
+        fprintf(stderr,"Error in custom parameters: %s\n", e.what());
+        return EXIT_FAILURE;
+    }
+#endif
+
     std:string name;
     name = GetArg("-ac_name","");
     if ( !name.empty() )
@@ -124,6 +135,7 @@ static int AppInitRPC(int argc, char* argv[])
         fprintf(stderr, "Error: Specified data directory \"%s\" does not exist.\n", mapArgs["-datadir"].c_str());
         return EXIT_FAILURE;
     }
+
     try {
         ReadConfigFile(mapArgs, mapMultiArgs);
     } catch (const std::exception& e) {

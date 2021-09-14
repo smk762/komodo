@@ -147,7 +147,14 @@ bool AppInit(int argc, char* argv[])
             fprintf(stderr, "Error: Invalid combination of -regtest and -testnet.\n");
             return false;
         }
+
+#if defined(CUSTOM_SERVER_ARGS)
+        // add custom chain parameters
+        AddSettings(mapArgs, mapMultiArgs, CUSTOM_SERVER_ARGS);
+#endif
+
         void komodo_args(char *argv0);
+
         komodo_args(argv[0]);
         void chainparams_commandline();
         chainparams_commandline();
