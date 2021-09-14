@@ -394,8 +394,8 @@ void ParseParameters(int argc, const char* const argv[])
     }
 }
 
-// split string using by space or comma as a delimiter char
-void SplitStr(const std::string& strVal, std::vector<std::string> &outVals)
+// split string using space, comma (default) or other char (param) as a delimiter
+void SplitStr(const std::string& strVal, std::vector<std::string> &outVals, const std::string &delims)
 {
     stringstream ss(strVal);
     
@@ -406,7 +406,7 @@ void SplitStr(const std::string& strVal, std::vector<std::string> &outVals)
         while (std::isspace(ss.peek()))
             ss.ignore();
 
-        while ((c = ss.get()) != EOF && !std::isspace(c) && c != ',')
+        while ((c = ss.get()) != EOF && !std::isspace(c) && delims.find(c) == std::string::npos)
             str += c;
 
         if (!str.empty())
@@ -1037,3 +1037,34 @@ int GetNumCores()
     return boost::thread::physical_concurrency();
 }
 
+// add settings to args maps (to add default opts for a specific chain defined outside)
+void AddSettings(std::map<std::string, std::string>& mapSettingsRet, 
+                    std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet, const std::string &strOpts)
+{
+    std::vector<std::string> vOpts;
+    SplitStr(strOpts, vOpts, " ");
+    for (auto const &opt : vOpts)
+    {
+        std::vector<std::string> namevalue;
+        SplitStr(opt, namevalue, "=");
+        if (namevalue.size() != 2)
+            throw std::runtime_error("Invalid option name-value format in override-settings variable");
+        std::string name = namevalue[0];
+        std::string value = namevalue[1];
+        if (name[0] != '-')
+            throw std::runtime_error("Invalid option format in override-settings variable");
+
+        // Interpret --foo as -foo.
+        // If both --foo and -foo are set, the last takes effect.
+        if (name.length() > 1 && name[1] == '-')
+            name = name.substr(1);
+
+        if (mapSettingsRet.count(name) == 0)
+        {
+            mapSettingsRet[name] = value;
+            // interpret nofoo=1 as foo=0 (and nofoo=0 as foo=1) as long as foo not set)
+            InterpretNegativeSetting(name, mapSettingsRet);
+        }
+        mapMultiSettingsRet[name].push_back(value);
+    }
+}

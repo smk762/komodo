@@ -288,7 +288,8 @@ template <typename Callable> void TraceThread(const char* name,  Callable func)
 }
 
 // split string using by space or comma as a delimiter char
-void SplitStr(const std::string& strVal, std::vector<std::string> &outVals);
+void SplitStr(const std::string& strVal, std::vector<std::string> &outVals, const std::string &delims = ",");
+void AddSettings(std::map<std::string, std::string>& mapSettingsRet, std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet, const std::string &strOpts);
 
 #define KOMODO_ASSETCHAIN_MAXLEN 65
 
