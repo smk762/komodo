@@ -106,18 +106,27 @@ static int AppInitRPC(int argc, char* argv[])
     }
 #endif
 
+        std::string cliname = "komodo-cli";
+        std::string brandname = "Komodo";
+#if defined(CUSTOM_BIN_NAME)
+        cliname = std::string(CUSTOM_BIN_NAME) + "-cli";
+#endif
+#if defined(CUSTOM_BRAND_NAME)
+        brandname = std::string("Komodo") + " " + std::string(CUSTOM_BRAND_NAME);
+#endif
+
     std:string name;
     name = GetArg("-ac_name","");
     if ( !name.empty() )
         strncpy(ASSETCHAINS_SYMBOL,name.c_str(),sizeof(ASSETCHAINS_SYMBOL)-1);
 
     if (argc<2 || mapArgs.count("-?") || mapArgs.count("-h") || mapArgs.count("-help") || mapArgs.count("-version")) {
-        std::string strUsage = _("Komodo RPC client version") + " " + FormatFullVersion() + "\n" + PrivacyInfo();
+        std::string strUsage = brandname + " " + _("RPC client version") + " " + FormatFullVersion() + "\n" + PrivacyInfo();
         if (!mapArgs.count("-version")) {
             strUsage += "\n" + _("Usage:") + "\n" +
-                  "  komodo-cli [options] <command> [params]  " + _("Send command to Komodo") + "\n" +
-                  "  komodo-cli [options] help                " + _("List commands") + "\n" +
-                  "  komodo-cli [options] help <command>      " + _("Get help for a command") + "\n";
+                  "  " + cliname + " [options] <command> [params]  " + _("Send command to ") + brandname + "\n" +
+                  "  " + cliname + " [options] help                " + _("List commands") + "\n" +
+                  "  " + cliname + " [options] help <command>      " + _("Get help for a command") + "\n";
 
             strUsage += "\n" + HelpMessageCli();
         } else {

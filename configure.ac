@@ -993,6 +993,13 @@ else
   AC_SUBST([CUSTOM_BIN_NAME], '')
 fi
 
+AC_ARG_VAR(CUSTOM_BRAND_NAME, [custom brand name])
+if test "x${CUSTOM_BRAND_NAME+set}" = "xset"; then
+  AC_SUBST([CUSTOM_BRAND_NAME], ${CUSTOM_BRAND_NAME})
+else
+  AC_SUBST([CUSTOM_BRAND_NAME], '')
+fi
+
 AC_ARG_VAR(CUSTOM_SERVER_ARGS, [custom daemon params])
 if test "x${CUSTOM_SERVER_ARGS+set}" = "xset"; then
   AC_SUBST([CUSTOM_SERVER_ARGS], ${CUSTOM_SERVER_ARGS})

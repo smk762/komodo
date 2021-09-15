@@ -876,7 +876,11 @@ std::string HelpExampleCli(const std::string& methodname, const std::string& arg
     } else if ((strncmp(ASSETCHAINS_SYMBOL, "HUSH3", 5) == 0) ) {
         return "> hush-cli " + methodname + " " + args + "\n";
     } else {
+#if !defined CUSTOM_BIN_NAME
         return "> komodo-cli -ac_name=" + strprintf("%s", ASSETCHAINS_SYMBOL) + " " + methodname + " " + args + "\n";
+#else
+        return "> " + std::string(CUSTOM_BIN_NAME) + "-cli" + " " + methodname + " " + args + "\n";
+#endif
     }
 }
 

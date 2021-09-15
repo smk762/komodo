@@ -803,7 +803,7 @@ if BUILD_CUSTOM_BIN
 
 # custom server lib compiled with -DCUSTOM_BIN_NAME -DCUSTOM_SERVER_ARGS
 LIBCUSTOM_SERVER=libcustom_server.a -lcurl
-libcustom_server_a_CPPFLAGS = $(libbitcoin_server_a_CPPFLAGS)
+libcustom_server_a_CPPFLAGS = $(libbitcoin_server_a_CPPFLAGS) -DCUSTOM_BIN_NAME=\"$(CUSTOM_BIN_NAME)\" -DCUSTOM_BRAND_NAME=\"$(CUSTOM_BRAND_NAME)\" -DCUSTOM_SERVER_ARGS=\"$(CUSTOM_SERVER_ARGS)\"
 libcustom_server_a_CXXFLAGS = $(libbitcoin_server_a_CXXFLAGS)
 libcustom_server_a_SOURCES = $(libbitcoin_server_a_SOURCES)
 
@@ -813,7 +813,7 @@ bin_PROGRAMS += customd
 
 # custom daemon binary #
 customd_SOURCES = $(komodod_SOURCES)
-customd_CPPFLAGS = $(komodod_CPPFLAGS) -DCUSTOM_BIN_NAME=\"$(CUSTOM_BIN_NAME)\" -DCUSTOM_SERVER_ARGS=\"$(CUSTOM_SERVER_ARGS)\"
+customd_CPPFLAGS = $(komodod_CPPFLAGS) -DCUSTOM_BIN_NAME=\"$(CUSTOM_BIN_NAME)\" -DCUSTOM_BRAND_NAME=\"$(CUSTOM_BRAND_NAME)\" -DCUSTOM_SERVER_ARGS=\"$(CUSTOM_SERVER_ARGS)\"
 customd_CXXFLAGS = $(komodod_CXXFLAGS)
 customd_LDFLAGS = $(komodod_LDFLAGS)
 customd_LDADD = \
@@ -866,7 +866,7 @@ bin_PROGRAMS += custom-cli
 
 # custom cli binary #
 custom_cli_SOURCES = $(komodo_cli_SOURCES)
-custom_cli_CPPFLAGS = $(komodo_cli_CPPFLAGS) -DCUSTOM_BIN_NAME=\"$(CUSTOM_BIN_NAME)\" -DCUSTOM_CLIENT_ARGS=\"$(CUSTOM_CLIENT_ARGS)\"
+custom_cli_CPPFLAGS = $(komodo_cli_CPPFLAGS) -DCUSTOM_BIN_NAME=\"$(CUSTOM_BIN_NAME)\" -DCUSTOM_BRAND_NAME=\"$(CUSTOM_BRAND_NAME)\" -DCUSTOM_CLIENT_ARGS=\"$(CUSTOM_CLIENT_ARGS)\"
 custom_cli_CXXFLAGS = $(komodo_cli_CXXFLAGS)
 custom_cli_LDFLAGS =  $(komodo_cli_LDFLAGS)
 custom_cli_LDADD = $(komodo_cli_LDADD)
