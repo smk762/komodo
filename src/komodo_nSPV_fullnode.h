@@ -46,7 +46,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "tokenv2ask", true }, { "tokenv2bid", true }, { "tokenv2fillask", true }, { "tokenv2fillbid", true }, { "tokenv2cancelask", true }, { "tokenv2cancelbid", true }, 
     { "tokenv2orders", true }, { "mytokenv2orders", true }, { "tokenv2transfer", true },{ "tokenv2create", true },
     // nspv helpers
-    { "createtxwithnormalinputs", true }, { "tokenv2addccinputs", true }, { "tokenv2infotokel", true }
+    { "createtxwithnormalinputs", true }, { "tokenv2addccinputs", true }, { "tokenv2infotokel", true }, { "gettransactionsmany", true },
 };
 
 struct NSPV_ntzargs
