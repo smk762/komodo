@@ -68,14 +68,7 @@ void WaitForShutdown(boost::thread_group* threadGroup)
         fprintf(stderr,"error: earlytx must be before block height %d or tx does not exist\n",KOMODO_EARLYTXID_HEIGHT);
         StartShutdown();
     }
-    /*if ( ASSETCHAINS_STAKED == 0 && ASSETCHAINS_ADAPTIVEPOW == 0 && (pindex= komodo_chainactive(1)) != 0 )
-    {
-        if ( pindex->nTime > ADAPTIVEPOW_CHANGETO_DEFAULTON )
-        {
-            ASSETCHAINS_ADAPTIVEPOW = 1;
-            fprintf(stderr,"default activate adaptivepow\n");
-        } else fprintf(stderr,"height1 time %u vs %u\n",pindex->nTime,ADAPTIVEPOW_CHANGETO_DEFAULTON);
-    } //else fprintf(stderr,"cant find height 1\n");*/
+
     if ( ASSETCHAINS_CBOPRET != 0 )
         komodo_pricesinit();
     /*
@@ -99,12 +92,6 @@ void WaitForShutdown(boost::thread_group* threadGroup)
 //
 // Start
 //
-/*
-extern int32_t IS_KOMODO_NOTARY,USE_EXTERNAL_PUBKEY;
-extern uint32_t ASSETCHAIN_INIT;
-extern std::string NOTARY_PUBKEY;
-int32_t komodo_is_issuer();
-*/
 
 bool AppInit(int argc, char* argv[])
 {

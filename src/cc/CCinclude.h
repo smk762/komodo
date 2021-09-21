@@ -370,11 +370,6 @@ void CCclearvars(struct CCcontract_info *cp);
 UniValue CClib(struct CCcontract_info *cp,char *method,char *jsonstr);
 UniValue CClib_info(struct CCcontract_info *cp);
 
-//CBlockIndex *komodo_blockindex(uint256 hash); //moved to komodo_def.h
-//CBlockIndex *komodo_chainactive(int32_t height); //moved to komodo_def.h
-//int32_t komodo_blockheight(uint256 hash); //moved to komodo_def.h
-//void StartShutdown();
-
 static const uint256 zeroid;  //!< null uint256 constant
 
 /// \cond INTERNAL

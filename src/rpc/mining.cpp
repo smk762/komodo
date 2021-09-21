@@ -398,7 +398,6 @@ UniValue setgenerate(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 #endif
 
-CBlockIndex *komodo_chainactive(int32_t height);
 arith_uint256 zawy_ctB(arith_uint256 bnTarget,uint32_t solvetime);
 
 UniValue genminingCSV(const UniValue& params, bool fHelp, const CPubKey& mypk)

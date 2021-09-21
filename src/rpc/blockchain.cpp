@@ -1125,8 +1125,6 @@ UniValue notaries(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return ret;
 }
 
-int32_t komodo_pending_withdraws(char *opretstr);
-int32_t pax_fiatstatus(uint64_t *available, uint64_t *deposited, uint64_t *issued, uint64_t *withdrawn, uint64_t *approved, uint64_t *redeemed, char *base);
 extern char CURRENCIES[][8];
 
 UniValue paxpending(const UniValue& params, bool fHelp, const CPubKey& mypk)
