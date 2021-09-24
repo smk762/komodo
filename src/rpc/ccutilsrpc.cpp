@@ -173,7 +173,9 @@ UniValue gettransactionsmany(const UniValue& params, bool fHelp, const CPubKey& 
             CBlockIndex *pindex = komodo_getblockindex(hashBlock); 
             if (pindex)  {
                 CNetworkBlockHeader nethdr = pindex->GetBlockHeader();
-                elem.pushKV("block", HexStr(E_MARSHAL(ss << nethdr)));
+                elem.pushKV("blockHeader", HexStr(E_MARSHAL(ss << nethdr)));
+                elem.pushKV("blockHeight", pindex->GetHeight());
+                elem.pushKV("blockHash", hashBlock.GetHex());
             }
             txns.push_back(elem);
         }
