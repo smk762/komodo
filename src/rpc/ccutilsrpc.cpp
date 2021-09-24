@@ -165,8 +165,18 @@ UniValue gettransactionsmany(const UniValue& params, bool fHelp, const CPubKey& 
         
         CTransaction tx;
         uint256 hashBlock;
-        if (myGetTransaction(txid, tx, hashBlock) && !hashBlock.IsNull())
-            txns.push_back(HexStr(E_MARSHAL(ss << tx)));
+        if (myGetTransaction(txid, tx, hashBlock) && !hashBlock.IsNull()) {
+            UniValue elem(UniValue::VOBJ);
+            elem.pushKV("tx", HexStr(E_MARSHAL(ss << tx)));
+
+            LOCK(cs_main);
+            CBlockIndex *pindex = komodo_getblockindex(hashBlock); 
+            if (pindex)  {
+                CNetworkBlockHeader nethdr = pindex->GetBlockHeader();
+                elem.pushKV("block", HexStr(E_MARSHAL(ss << nethdr)));
+            }
+            txns.push_back(elem);
+        }
         else
             notloaded.push_back(txid.GetHex());
     }
