@@ -230,6 +230,7 @@ public:
     bool operator()(const CKeyID& id) const { return addr->Set(id); }
     bool operator()(const CPubKey& key) const { return addr->Set(key); }
     bool operator()(const CScriptID& id) const { return addr->Set(id); }
+    bool operator()(const CCryptoConditionID& id) const { return addr->Set(id); }
     bool operator()(const CNoDestination& no) const { return false; }
 };
 
@@ -251,6 +252,12 @@ bool CBitcoinAddress::Set(const CPubKey& key)
 bool CBitcoinAddress::Set(const CScriptID& id)
 {
     SetData(Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS), &id, 20);
+    return true;
+}
+
+bool CBitcoinAddress::Set(const CCryptoConditionID& id)
+{
+    SetData(Params().Base58Prefix(CChainParams::CRYPTOCONDITION_ADDRESS), &id, 20);
     return true;
 }
 
@@ -352,6 +359,13 @@ bool CCustomBitcoinAddress::Set(const CPubKey& key)
 bool CCustomBitcoinAddress::Set(const CScriptID& id)
 {
     SetData(base58Prefixes[1], &id, 20);
+    return true;
+}
+
+bool CCustomBitcoinAddress::Set(const CCryptoConditionID& id)
+{
+    SetData(base58Prefixes[0], &id, 20);  // dimxy: CCryptoConditionID is actually CKeyID so we use base58Prefixes[0] as only two prefixes are supported in CCustomBitcoinAddress. 
+                                          // TODO: check how it would work in gateways and importgateways 
     return true;
 }
 

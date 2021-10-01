@@ -389,6 +389,8 @@ public:
         }
         return obj;
     }
+
+    UniValue operator()(const CCryptoConditionID &ccID) const { return UniValue(UniValue::VOBJ); }  // cryptoconditions are not recognised in the wallet yet
 };
 #endif
 

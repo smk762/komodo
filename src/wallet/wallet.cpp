@@ -4825,6 +4825,8 @@ public:
             Process(script);
     }
 
+    void operator()(const CCryptoConditionID &none) {}  // no cc in the wallet
+
     void operator()(const CNoDestination &none) {}
 };
 

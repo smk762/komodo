@@ -40,6 +40,14 @@ public:
     CScriptID(const uint160& in) : uint160(in) {}
 };
 
+class CCryptoConditionID : public uint160
+{
+public:
+    CCryptoConditionID() : uint160() {}
+    explicit CCryptoConditionID(const CCryptoConditionID& in) : uint160(Hash160(in.begin(), in.end())) {}
+    CCryptoConditionID(const uint160& in) : uint160(in) {}
+};
+
 static const unsigned int MAX_OP_RETURN_RELAY = 8192;      //! bytes
 extern unsigned nMaxDatacarrierBytes;
 
@@ -96,7 +104,7 @@ public:
  *  * CScriptID: TX_SCRIPTHASH destination
  *  A CTxDestination is the internal data type encoded in a bitcoin address
  */
-typedef boost::variant<CNoDestination, CPubKey, CKeyID, CScriptID> CTxDestination;
+typedef boost::variant<CNoDestination, CPubKey, CKeyID, CScriptID, CCryptoConditionID> CTxDestination;
 
 class COptCCParams
 {
