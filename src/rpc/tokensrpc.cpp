@@ -61,11 +61,33 @@ UniValue tokenaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return CCaddress(cp, "Tokens", pubkey, false);
 }
 
+UniValue tokenv2indexkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    struct CCcontract_info *cp,C; 
+    vuint8_t vpubkey;
+
+    cp = CCinit(&C, EVAL_TOKENSV2);
+    if (fHelp || params.size() != 1)
+        throw runtime_error("tokenv2address pubkey\n");
+    if (ensure_CCrequirements(cp->evalcode) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    vpubkey = ParseHex(params[0].get_str().c_str());
+    CPubKey pk = pubkey2pk(vpubkey);
+    if (!pk.IsValid())
+        throw runtime_error("invalid pubkey\n");
+
+    char address[KOMODO_ADDRESS_BUFSIZE];
+    GetCCaddress(cp, address, pk, true);
+
+    return address;  
+}
+
 UniValue tokenv2address(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     struct CCcontract_info *cp,C; 
     vuint8_t pubkey;
 
+    throw runtime_error("tokenv2address not supported, use tokenv2indexkey\n");
     cp = CCinit(&C, EVAL_TOKENSV2);
     if (fHelp || params.size() > 1)
         throw runtime_error("tokenv2address [pubkey]\n");
@@ -1121,6 +1143,7 @@ static const CRPCCommand commands[] =
     { "tokens v2",       "mytokenv2orders",    &mytokenv2orders,     true },
     { "tokens",       "tokenaddress",     &tokenaddress,      true },
     { "tokens v2",       "tokenv2address",   &tokenv2address,      true },
+    { "tokens v2",       "tokenv2indexkey",   &tokenv2indexkey,      true },
     { "tokens",       "tokenbalance",     &tokenbalance,      true },
     { "tokens v2",       "tokenv2balance",   &tokenv2balance,      true },
     { "tokens",       "tokencreate",      &tokencreate,       true },
