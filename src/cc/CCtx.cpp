@@ -850,7 +850,8 @@ void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIn
 
     if (address.GetIndexKey(hashBytes, type, true) == 0)
         return;
-    searchKeys.push_back(std::make_pair(hashBytes, creationId));
+    if (!creationId.IsNull())
+        searchKeys.push_back(std::make_pair(hashBytes, creationId));
     for (std::vector<std::pair<uint160, uint256> >::iterator it = searchKeys.begin(); it != searchKeys.end(); it++)
     {
         if (GetUnspentCCIndex((*it).first, (*it).second, unspentOutputs, -1, -1, 0) == 0)

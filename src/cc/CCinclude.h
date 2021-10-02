@@ -929,18 +929,13 @@ void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddress
 /// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
 /// @param coinaddr cc address where unspent outputs are searched
 /// @param creationid cc instance creationid for which outputs are searched
-void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
-
-/// SetCCunspents returns a vector of unspent outputs for a cc address
-/// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
-/// @param coinaddr cc address where unspent outputs are searched
-void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr);
+void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId = uint256());
 
 /// Adds mempool outputs to a vector of unspent outputs for a cc address
 /// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
 /// @param coinaddr cc address where unspent outputs are searched
-/// @param creationId txid of cc instance creation tx, might be empty to return all txns on coinaddr 
-void AddCCunspentsCCIndexMempool(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
+/// @param creationId txid of cc instance creation tx, can be empty to return all txns on coinaddr 
+void AddCCunspentsCCIndexMempool(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId = uint256());
 
 /// SetAddressIndexOutputs searches address index for a vector of outputs on an address
 /// @param[out] addressIndex vector of pairs of address index key and amount
