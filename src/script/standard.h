@@ -44,7 +44,6 @@ class CCryptoConditionID : public uint160
 {
 public:
     CCryptoConditionID() : uint160() {}
-    explicit CCryptoConditionID(const CCryptoConditionID& in) : uint160(Hash160(in.begin(), in.end())) {}
     CCryptoConditionID(const uint160& in) : uint160(in) {}
 };
 
