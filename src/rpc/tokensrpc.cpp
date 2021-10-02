@@ -309,6 +309,39 @@ UniValue tokenv2balance(const UniValue& params, bool fHelp, const CPubKey& remot
 }
 
 template <class V>
+static UniValue tokenallbalances(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(name + " [pubkey]\n");
+    if (ensure_CCrequirements(V::EvalCode()) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+
+    // LOCK(cs_main); 
+    // no need to lock cs_main as we use only indexes in this rpc
+    // but still use lock if you need to get chainActive.Height() or something like that
+
+    std::vector<unsigned char> vpubkey;
+    if (params.size() == 1)
+        vpubkey = ParseHex(params[0].get_str().c_str());
+    else
+        vpubkey = Mypubkey();
+
+    UniValue result = GetAllTokenBalances<V>(pubkey2pk(vpubkey), false);
+    return result;
+}
+
+UniValue tokenallbalances(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    return tokenallbalances<TokensV1>("tokenallbalances", params, fHelp, remotepk);
+}
+UniValue tokenv2allbalances(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    return tokenallbalances<TokensV2>("tokenv2allbalances", params, fHelp, remotepk);
+}
+
+
+
+template <class V>
 static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
@@ -1143,9 +1176,11 @@ static const CRPCCommand commands[] =
     { "tokens v2",       "mytokenv2orders",    &mytokenv2orders,     true },
     { "tokens",       "tokenaddress",     &tokenaddress,      true },
     { "tokens v2",       "tokenv2address",   &tokenv2address,      true },
-    { "tokens v2",       "tokenv2indexkey",   &tokenv2indexkey,      true },
+//    { "tokens v2",       "tokenv2indexkey",   &tokenv2indexkey,      true },
     { "tokens",       "tokenbalance",     &tokenbalance,      true },
     { "tokens v2",       "tokenv2balance",   &tokenv2balance,      true },
+    { "tokens",       "tokenallbalances",     &tokenallbalances,      true },
+    { "tokens v2",       "tokenv2allbalances",   &tokenv2allbalances,      true },
     { "tokens",       "tokencreate",      &tokencreate,       true },
     { "tokens v2",       "tokenv2create",    &tokenv2create,       true },
     { "tokens",       "tokentransfer",    &tokentransfer,     true },
