@@ -16,8 +16,8 @@ cd ../
 # build cryptoconditions
 cd ./src/cryptoconditions
 ./autogen.sh
-./configure
-make
+./configure  --host=x86_64-w64-mingw32 --enable-static --disable-shared
+CC="${CC} -g " CXX="${CXX} -g " make V=1
 cd ../..
 
 # note: cclib building now added to src/Makefile.am
