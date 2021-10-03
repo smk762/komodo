@@ -90,7 +90,7 @@ UniValue listccunspents(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 
-// a helper function for nspv clients: creates a tx and add normal inputs for the requested amouny  
+// a helper function for nspv clients: creates a tx and add normal inputs for the requested amount  
 UniValue createtxwithnormalinputs(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     if (fHelp || (params.size() < 1 || params.size() > 2))
@@ -141,6 +141,7 @@ UniValue createtxwithnormalinputs(const UniValue& params, bool fHelp, const CPub
     return result;
 }
 
+// helper for nspv clients, to load several txns by their txids
 UniValue gettransactionsmany(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     if (fHelp || params.size() < 1 || params.size() > 0x1000)
@@ -189,11 +190,50 @@ UniValue gettransactionsmany(const UniValue& params, bool fHelp, const CPubKey& 
     return result;
 }
 
+// helper for testing, returns index key for a cryptoconditon scriptPubKey
+UniValue getindexkeyforcc(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 2)
+    {
+        string msg = "getindexkeyforcc cc-as-json is-mixed\n"
+            "\nReturns indexing key (formely cc address) for scriptPubKey made from a cryptocondition\n"
+            "\nArguments:\n"
+            //"address which utxos are added from\n"
+            "cc-as-json cryptocondition in json\n"
+            "is-mixed is mixed mode, true or false"
+            "Result: indexing key\n\n"
+            "Sample:\n"
+            "getindexkeyforcc \'{ \"type\": \"threshold-sha-256\", \"threshold\": 2, \"subfulfillments\":"
+            "[{\"type\":\"eval-sha-256\",\"code\":\"9A\"}, {\"type\":\"threshold-sha-256\", \"threshold\":1,"
+            "subfulfillments\":[{ \"type\": \"secp256k1-sha-256\", \"publicKey\": \"03682b255c40d0cde8faee381a1a50bbb89980ff24539cb8518e294d3a63cefe12\" }] }] }\' true\n\n"
+        ;
+        throw std::runtime_error(msg);
+    }
+
+    char err[128];// = "";
+    CCwrapper cc = cc_conditionFromJSONString(params[0].get_str().c_str(), err);
+    if (cc == nullptr)
+        throw std::runtime_error(std::string("could not create cryptocondition: ") + err);
+    bool ismixed = false;
+    if (params[1].get_str() == "true")
+        ismixed = true;
+    else if (params[1].get_str() == "false")
+        ismixed = false;
+    else
+        throw std::runtime_error(std::string("is-mixed must be true or false"));
+
+    CScript spk = CCPubKey(cc.get(), ismixed);
+    char ccaddress[KOMODO_ADDRESS_BUFSIZE];
+    Getscriptaddress(ccaddress, spk);
+    return ccaddress;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
     // cc helpers
 	{ "ccutils",      "listccunspents",    &listccunspents,      true },
+	{ "ccutils",      "getindexkeyforcc",    &getindexkeyforcc,      true },
     { "nspv",       "createtxwithnormalinputs",      &createtxwithnormalinputs,         true },
     { "nspv",       "gettransactionsmany",      &gettransactionsmany,         true },
 };
