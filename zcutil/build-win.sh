@@ -13,6 +13,13 @@ cd "$(dirname "$(readlink -f "$0")")/.."
 cd depends/ && make HOST=$HOST V=1 NO_QT=1
 cd ../
 
+# build cryptoconditions
+cd ./src/cryptoconditions
+./autogen.sh
+./configure
+make
+cd ../..
+
 # note: cclib building now added to src/Makefile.am
 #BUILD CCLIB
 # WD=$PWD
