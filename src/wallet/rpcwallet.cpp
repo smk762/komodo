@@ -476,6 +476,8 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
 
     // Parse Zcash address
     CScript scriptPubKey = GetScriptForDestination(address);
+    if (scriptPubKey.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid destination");
 
     // Create and send the transaction
     CReserveKey reservekey(pwalletMain);
