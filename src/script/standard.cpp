@@ -385,7 +385,7 @@ bool ExtractDestination(const CScript& _scriptPubKey, CTxDestination& addressRet
 
     else if (IsCryptoConditionsEnabled() != 0 && whichType == TX_CRYPTOCONDITION)
     {
-        addressRet = CCryptoConditionID(uint160(vSolutions[0]));
+        addressRet = CKeyID(uint160(vSolutions[0]));
         return true;
     }
     // Multisig txns have more than one address...
@@ -499,10 +499,6 @@ public:
         script->clear();
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
         return true;
-    }
-    bool operator()(const CCryptoConditionID &dest) const {
-        script->clear();
-        return false;  // can't create a cc that simple
     }
 };
 }

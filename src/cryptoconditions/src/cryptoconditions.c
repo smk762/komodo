@@ -172,7 +172,6 @@ void asnCondition(const CC *cond, Condition_t *asn) {
             case Condition_PR_ed25519Sha256: choice = &asn->choice.ed25519Sha256; break;
             case Condition_PR_secp256k1Sha256: choice = &asn->choice.secp256k1Sha256; break;
             case Condition_PR_evalSha256: choice = &asn->choice.evalSha256; break;
-            default: return;
         };
         choice->cost = cc_getCost(cond);
         choice->fingerprint.buf = calloc(1, 32);
