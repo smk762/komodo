@@ -13,7 +13,6 @@
 #include "komodo_nk.h"
 
 #include <cstring>
-#include <stdexcept>
 #include <exception>
 #include <functional>
 #include <memory>

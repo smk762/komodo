@@ -284,11 +284,7 @@ public:
     int64_t nLastRecv;
     int64_t nTimeConnected;
     int64_t nTimeOffset;
-    struct {
-        uint32_t prevtime;
-        uint32_t nreqs;
-    } nspvdata[16];
-    uint32_t dexlastping;
+    uint32_t prevtimes[16],dexlastping;
     // Address of this peer
     CAddress addr;
     // Bind address of our side of the connection

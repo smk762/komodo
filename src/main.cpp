@@ -80,14 +80,14 @@ using namespace std;
 
 #define TMPFILE_START 100000000
 CCriticalSection cs_main;
-//extern uint8_t NOTARY_PUBKEY33[33];
-//extern int32_t KOMODO_LOADINGBLOCKS,KOMODO_LONGESTCHAIN,KOMODO_INSYNC,KOMODO_CONNECTING,KOMODO_EXTRASATOSHI;
+extern uint8_t NOTARY_PUBKEY33[33];
+extern int32_t KOMODO_LOADINGBLOCKS,KOMODO_LONGESTCHAIN,KOMODO_INSYNC,KOMODO_CONNECTING,KOMODO_EXTRASATOSHI;
 int32_t KOMODO_NEWBLOCKS;
-//int32_t komodo_block2pubkey33(uint8_t *pubkey33,CBlock *block);
+int32_t komodo_block2pubkey33(uint8_t *pubkey33,CBlock *block);
 //void komodo_broadcast(CBlock *pblock,int32_t limit);
-//bool Getscriptaddress(char *destaddr,const CScript &scriptPubKey);
-//void komodo_setactivation(int32_t height);
-//void komodo_pricesupdate(int32_t height,CBlock *pblock);
+bool Getscriptaddress(char *destaddr,const CScript &scriptPubKey);
+void komodo_setactivation(int32_t height);
+void komodo_pricesupdate(int32_t height,CBlock *pblock);
 
 BlockMap mapBlockIndex;
 CChain chainActive;
@@ -649,7 +649,6 @@ CBlockTreeDB *pblocktree = NULL;
 // Komodo globals
 
 #define KOMODO_ZCASH
-#include "komodo_defs.h"
 #include "komodo.h"
 
 UniValue komodo_snapshot(int top)
@@ -1454,7 +1453,7 @@ int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime) // from ac_private 
     return(0);
 }
 
-//int32_t komodo_acpublic(uint32_t tiptime);
+int32_t komodo_acpublic(uint32_t tiptime);
 
 bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransaction& tx, CValidationState &state)
 {
@@ -1815,7 +1814,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     if (limit > 0) {
         size_t n = tx.vin.size();
         if (n > limit) {
-            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n", tx.GetHash().ToString().c_str(), n, limit );
+            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n", tx.GetHash().ToString(), n, limit );
             return state.Error("AcceptToMemoryPool: too many inputs");
         }
     }
@@ -1823,13 +1822,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     auto verifier = libzcash::ProofVerifier::Strict();
     if ( ASSETCHAINS_SYMBOL[0] == 0 && komodo_validate_interest(tx,chainActive.LastTip()->GetHeight()+1,chainActive.LastTip()->GetMedianTimePast() + 777,0) < 0 )
     {
-        LogPrint("mempool-tx", "%s: komodo_validate_interest failed, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
+        fprintf(stderr,"AcceptToMemoryPool komodo_validate_interest failure\n");
         return state.Error("AcceptToMemoryPool: komodo_validate_interest failed");
     }
     
     if (!CheckTransaction(tiptime,tx, state, verifier, 0, 0))
     {
-        LogPrint("mempool", "%s: CheckTransaction failed, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
         return error("AcceptToMemoryPool: CheckTransaction failed");  // state must be already set
     }
     
@@ -1837,14 +1835,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
     if (!ContextualCheckTransaction(0,0,0,tx, state, nextBlockHeight, (dosLevel == -1) ? 10 : dosLevel))
     {
-        LogPrint("mempool-tx", "%s: ContextualCheckTransaction failed, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
         return error("AcceptToMemoryPool: ContextualCheckTransaction failed"); // state must be already set
     }
     //fprintf(stderr,"addmempool 2\n");
     // Coinbase is only valid in a block, not as a loose transaction
     if (tx.IsCoinBase())
     {
-        LogPrint("mempool-tx", "%s: coinbase as individual tx not supported, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
+        fprintf(stderr,"AcceptToMemoryPool coinbase as individual tx\n");
         return state.DoS(100, error("AcceptToMemoryPool: coinbase as individual tx"), REJECT_INVALID, "coinbase");
     }
     
@@ -1852,7 +1849,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     string reason;
     if (Params().RequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
     {
-        LogPrint("mempool-tx","%s reject nonstandard transaction: reason %s tx: %s\n", __func__, reason.c_str(), HexStr(E_MARSHAL(ss << tx)).c_str());
+        //fprintf(stderr,"AcceptToMemoryPool reject nonstandard transaction: %s\nscriptPubKey: %s\n",reason.c_str(),tx.vout[0].scriptPubKey.ToString().c_str());
         return state.DoS(0,error("AcceptToMemoryPool: nonstandard transaction: %s", reason), REJECT_NONSTANDARD, reason);
     }
     
@@ -1861,7 +1858,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // be mined yet.
     if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
     {
-        LogPrint("mempool-tx", "%s: reject non final, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
+        //fprintf(stderr,"AcceptToMemoryPool reject non-final\n");
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
     }
     //fprintf(stderr,"addmempool 3\n");
@@ -1869,7 +1866,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     uint256 hash = tx.GetHash();
     if (pool.exists(hash))
     {
-        LogPrint("mempool-tx", "%s: reject already in mempool, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
+        //fprintf(stderr,"already in mempool\n");
         return state.Invalid(false, REJECT_DUPLICATE, "already in mempool");
     }
 
@@ -1882,7 +1879,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             if (pool.mapNextTx.count(outpoint))
             {
                 // Disable replacement feature for now
-                LogPrint("mempool-tx", "%s: transaction replacement in mempool not allowed, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
                 return state.Error("AcceptToMemoryPool: transaction replacement in mempool not allowed");
             }
         }
@@ -1916,17 +1912,14 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             if (view.HaveCoins(hash))
             {
                 //fprintf(stderr,"view.HaveCoins(hash) error\n");
-                LogPrint("mempool-tx", "%s: already have coins, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
                 return state.Invalid(false, REJECT_DUPLICATE, "already have coins");
             }
 
             if (tx.IsCoinImport() || tx.IsPegsImport())
             {
                 // Inverse of normal case; if input exists, it's been spent
-                if (ExistsImportTombstone(tx, view))  {
-                    LogPrint("mempool-tx", "%s: import tombstone exists, tx: %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());
+                if (ExistsImportTombstone(tx, view))
                     return state.Invalid(false, REJECT_DUPLICATE, "import tombstone exists");
-                }
             }
             else
             {
@@ -1939,7 +1932,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                     {
                         if (pfMissingInputs)
                             *pfMissingInputs = true;
-                        LogPrint("mempool-tx", "%s missing inputs for tx %s prevout.hash=%s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str(), txin.prevout.hash.GetHex().c_str());  
+                        fprintf(stderr,"%s missing inputs for tx %s prevout.hash=%s\n", __func__, tx.GetHash().GetHex().c_str(), txin.prevout.hash.GetHex().c_str());  //TODO: remove
                         return false; 
                         /*
                             https://github.com/zcash/zcash/blob/master/src/main.cpp#L1490
@@ -1951,7 +1944,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 if (!view.HaveInputs(tx))
                 {
                     //fprintf(stderr,"accept failure.1\n");
-                    LogPrint("mempool-tx", "%s inputs already spent for tx %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());  
                     return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),REJECT_DUPLICATE, "bad-txns-inputs-spent");
                 }
             }
@@ -1973,10 +1965,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             view.SetBackend(dummy);
         }
         // Check for non-standard pay-to-script-hash in inputs
-        if (Params().RequireStandard() && !AreInputsStandard(tx, view, consensusBranchId))   {
-            LogPrint("mempool-tx", "%s reject nonstandard transaction input for tx %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());  
+        if (Params().RequireStandard() && !AreInputsStandard(tx, view, consensusBranchId))
             return state.Error("AcceptToMemoryPool: reject nonstandard transaction input");
-        }
         
         // Check that the transaction doesn't have an excessive number of
         // sigops, making it impossible to mine. Since the coinbase transaction
@@ -1994,10 +1984,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         CAmount nValueOut = tx.GetValueOut();
         CAmount nFees = nValueIn-nValueOut;
         double dPriority = view.GetPriority(tx, chainActive.Height());
-        if ( nValueOut > 777777*COIN && KOMODO_VALUETOOBIG(nValueOut - 777777*COIN) != 0 )  { // some room for blockreward and txfees
-            LogPrint("mempool-tx", "%s GetValueOut too big for tx %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());  
+        if ( nValueOut > 777777*COIN && KOMODO_VALUETOOBIG(nValueOut - 777777*COIN) != 0 ) // some room for blockreward and txfees
             return state.DoS(100, error("AcceptToMemoryPool: GetValueOut too big"),REJECT_INVALID,"tx valueout is too big");
-        }
   
         // Keep track of transactions that spend a coinbase, which we re-scan
         // during reorgs to ensure COINBASE_MATURITY is still met.
@@ -2029,8 +2017,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             if (fLimitFree && nFees < txMinFee)
             {
                 //fprintf(stderr,"accept failure.5\n");
-                LogPrint("mempool-tx", "%s not enough fees for tx %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());  
-                return state.DoS(0, error("AcceptToMemoryPool: not enough fees %s, %d < %d", hash.ToString(), nFees, txMinFee),REJECT_INSUFFICIENTFEE, "insufficient fee");
+                return state.DoS(0, error("AcceptToMemoryPool: not enough fees %s, %d < %d",hash.ToString(), nFees, txMinFee),REJECT_INSUFFICIENTFEE, "insufficient fee");
             }
         }
         
@@ -2060,7 +2047,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             if (dFreeCount >= GetArg("-limitfreerelay", 15)*10*1000)
             {
                 //fprintf(stderr,"accept failure.7\n");
-                LogPrint("mempool-tx", "%s free transaction rejected by rate limiter for tx %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());  
                 return state.DoS(0, error("AcceptToMemoryPool: free transaction rejected by rate limiter"), REJECT_INSUFFICIENTFEE, "rate limited free transaction");
             }
             LogPrint("mempool", "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount+nSize);
@@ -2073,7 +2059,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                                       hash.ToString(),
                                       nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
             LogPrint("mempool", errmsg.c_str());
-            LogPrint("mempool-tx", "%s rejected %s for tx %s\n", __func__, errmsg.c_str(), HexStr(E_MARSHAL(ss << tx)).c_str());  
             return state.Error("AcceptToMemoryPool: " + errmsg);
         }
         //fprintf(stderr,"addmempool 6\n");
@@ -2085,8 +2070,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         if (!ContextualCheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId, evalcodeChecker))
         {
             //fprintf(stderr,"accept failure.9\n");
-            LogPrint("mempool-tx", "%s ConnectInputs failed for tx %s\n", __func__, HexStr(E_MARSHAL(ss << tx)).c_str());  
-            return error("AcceptToMemoryPool: ConnectInputs failed %s", hash.ToString().c_str());
+            return error("AcceptToMemoryPool: ConnectInputs failed %s", hash.ToString());
         }
         
         // Check again against just the consensus-critical mandatory script
@@ -2114,7 +2098,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         if (!ContextualCheckOutputs(tx, state, true, txdata, evalcodeChecker))
-            return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ContextualCheckOutputs failed %s", hash.ToString());
+            return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ContextualCheckOutputs failed %s", hash.ToString());;
         if (flag != 0)
             KOMODO_CONNECTING = -1;
 
@@ -2483,6 +2467,12 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex,bool checkPOW)
 }
 
 //uint64_t komodo_moneysupply(int32_t height);
+extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
+extern uint64_t ASSETCHAINS_ENDSUBSIDY[ASSETCHAINS_MAX_ERAS+1], ASSETCHAINS_REWARD[ASSETCHAINS_MAX_ERAS+1], ASSETCHAINS_HALVING[ASSETCHAINS_MAX_ERAS+1];
+extern uint32_t ASSETCHAINS_MAGIC;
+extern uint64_t ASSETCHAINS_LINEAR,ASSETCHAINS_COMMISSION,ASSETCHAINS_SUPPLY;
+extern uint8_t ASSETCHAINS_PUBLIC,ASSETCHAINS_PRIVATE;
+extern int32_t ASSETCHAINS_STAKED;
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
@@ -6929,7 +6919,7 @@ bool InitBlockIndex() {
         pblocktree->WriteFlag("spentindex", fSpentIndex);
         fprintf(stderr,"fAddressIndex.%d/%d fSpentIndex.%d/%d\n",fAddressIndex,DEFAULT_ADDRESSINDEX,fSpentIndex,DEFAULT_SPENTINDEX);
 
-        fUnspentCCIndex = GetBoolArg("-unspentccindex", DEFAULT_UNSPENTCCINDEX);
+        fUnspentCCIndex = GetBoolArg("-unspentccindex", false);
         pblocktree->WriteFlag("unspentccindex", fUnspentCCIndex);
         fprintf(stderr, "fUnspentCCIndex.%d\n", fUnspentCCIndex);
 
@@ -7461,18 +7451,10 @@ void static ProcessGetData(CNode* pfrom)
                 // Send stream from relay memory
                 bool pushed = false;
                 {
-                    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-                    bool found = false;
-                    {
-                        LOCK(cs_mapRelay);
-                        map<CInv, CDataStream>::iterator mi = mapRelay.find(inv);
-                        if (mi != mapRelay.end())  {
-                            ss = ((*mi).second);
-                            found = true;
-                        }
-                    }
-                    if (found) {
-                        pfrom->PushMessage(inv.GetCommand(), ss);
+                    LOCK(cs_mapRelay);
+                    map<CInv, CDataStream>::iterator mi = mapRelay.find(inv);
+                    if (mi != mapRelay.end()) {
+                        pfrom->PushMessage(inv.GetCommand(), (*mi).second);
                         pushed = true;
                     }
                 }

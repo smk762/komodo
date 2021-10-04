@@ -17,8 +17,6 @@
 #ifndef KOMODO_NSPV_DEFSH
 #define KOMODO_NSPV_DEFSH
 
-#include <stdlib.h>
-
 #define NSPV_PROTOCOL_VERSION 0x00000004
 #define NSPV_POLLITERS 200
 #define NSPV_POLLMICROS 50000
@@ -57,8 +55,6 @@
 #define NSPV_REMOTERPC 0x14
 #define NSPV_REMOTERPCRESP 0x15
 
-#define NSPV_MAXREQSPERSEC 15
-
 int32_t NSPV_gettransaction(int32_t skipvalidation,int32_t vout,uint256 txid,int32_t height,CTransaction &tx,uint256 &hashblock,int32_t &txheight,int32_t &currentheight,int64_t extradata,uint32_t tiptime,int64_t &rewardsum);
 UniValue NSPV_spend(char *srcaddr,char *destaddr,int64_t satoshis);
 extern uint256 SIG_TXHASH;
@@ -88,7 +84,7 @@ struct NSPV_utxosresp
     struct NSPV_utxoresp *utxos;
     char coinaddr[64];
     int64_t total,interest;
-    int32_t nodeheight,skipcount,maxrecords;
+    int32_t nodeheight,skipcount,filter;
     uint16_t numutxos,CCflag;
 };
 
@@ -103,8 +99,8 @@ struct NSPV_txidsresp
 {
     struct NSPV_txidresp *txids;
     char coinaddr[64];
-    int32_t nodeheight, skipcount, maxrecords;
-    uint16_t numtxids, CCflag;
+    int32_t nodeheight,skipcount,filter;
+    uint16_t numtxids,CCflag;
 };
 
 struct NSPV_mempoolresp
@@ -193,7 +189,6 @@ struct NSPV_remoterpcresp
     char *json;
 };
 
-extern struct NSPV_inforesp NSPV_inforesult;
 
 void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& unspentOutputs, char* coinaddr, bool ccflag);
 void NSPV_CCindexOutputs(std::vector<std::pair<CAddressIndexKey, CAmount>>& indexOutputs, char* coinaddr, bool ccflag);
