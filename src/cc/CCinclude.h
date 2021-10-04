@@ -291,7 +291,7 @@ struct CCcontract_info
 	std::vector< struct CCVintxProbe > CCvintxprobes;  //<! list of conds for signing cc vin with specific privkeys and eval codes
 
     /// @private
-    void init_to_zeros() {
+    void clear() {
         // init to zeros:
         evalcode = 0;
         // evalcodeAdd = 0;
@@ -369,11 +369,6 @@ int32_t CCgetspenttxid(uint256 &spenttxid,int32_t &vini,int32_t &height,uint256 
 void CCclearvars(struct CCcontract_info *cp);
 UniValue CClib(struct CCcontract_info *cp,char *method,char *jsonstr);
 UniValue CClib_info(struct CCcontract_info *cp);
-
-//CBlockIndex *komodo_blockindex(uint256 hash); //moved to komodo_def.h
-//CBlockIndex *komodo_chainactive(int32_t height); //moved to komodo_def.h
-//int32_t komodo_blockheight(uint256 hash); //moved to komodo_def.h
-//void StartShutdown();
 
 static const uint256 zeroid;  //!< null uint256 constant
 
@@ -934,18 +929,13 @@ void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddress
 /// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
 /// @param coinaddr cc address where unspent outputs are searched
 /// @param creationid cc instance creationid for which outputs are searched
-void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
-
-/// SetCCunspents returns a vector of unspent outputs for a cc address
-/// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
-/// @param coinaddr cc address where unspent outputs are searched
-void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr);
+void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId = uint256());
 
 /// Adds mempool outputs to a vector of unspent outputs for a cc address
 /// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
 /// @param coinaddr cc address where unspent outputs are searched
-/// @param creationId txid of cc instance creation tx, might be empty to return all txns on coinaddr 
-void AddCCunspentsCCIndexMempool(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
+/// @param creationId txid of cc instance creation tx, can be empty to return all txns on coinaddr 
+void AddCCunspentsCCIndexMempool(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId = uint256());
 
 /// SetAddressIndexOutputs searches address index for a vector of outputs on an address
 /// @param[out] addressIndex vector of pairs of address index key and amount
@@ -1036,16 +1026,6 @@ UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatl
 
 /// @private
 CScript GetCCDropAsOpret(const CScript &scriptPubKey);
-
-/*! \cond INTERNAL */
-// curve25519 and sha256
-bits256 curve25519_shared(bits256 privkey,bits256 otherpub);
-bits256 curve25519_basepoint9();
-bits256 curve25519(bits256 mysecret,bits256 basepoint);
-void vcalc_sha256(char deprecated[(256 >> 3) * 2 + 1],uint8_t hash[256 >> 3],uint8_t *src,int32_t len);
-bits256 bits256_doublesha256(char *deprecated,uint8_t *data,int32_t datalen);
-// UniValue ValueFromAmount(const CAmount& amount);  // defined in server.h
-/*! \endcond */
 
 /*! \cond INTERNAL */
 CAmount TotalPubkeyNormalInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey);

@@ -61,11 +61,33 @@ UniValue tokenaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return CCaddress(cp, "Tokens", pubkey, false);
 }
 
+UniValue tokenv2indexkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    struct CCcontract_info *cp,C; 
+    vuint8_t vpubkey;
+
+    cp = CCinit(&C, EVAL_TOKENSV2);
+    if (fHelp || params.size() != 1)
+        throw runtime_error("tokenv2address pubkey\n");
+    if (ensure_CCrequirements(cp->evalcode) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    vpubkey = ParseHex(params[0].get_str().c_str());
+    CPubKey pk = pubkey2pk(vpubkey);
+    if (!pk.IsValid())
+        throw runtime_error("invalid pubkey\n");
+
+    char address[KOMODO_ADDRESS_BUFSIZE];
+    GetCCaddress(cp, address, pk, true);
+
+    return address;  
+}
+
 UniValue tokenv2address(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     struct CCcontract_info *cp,C; 
     vuint8_t pubkey;
 
+    throw runtime_error("tokenv2address not supported, use tokenv2indexkey\n");
     cp = CCinit(&C, EVAL_TOKENSV2);
     if (fHelp || params.size() > 1)
         throw runtime_error("tokenv2address [pubkey]\n");
@@ -285,6 +307,39 @@ UniValue tokenv2balance(const UniValue& params, bool fHelp, const CPubKey& remot
 {
     return tokenbalance<TokensV2>("tokenv2balance", params, fHelp, remotepk);
 }
+
+template <class V>
+static UniValue tokenallbalances(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(name + " [pubkey]\n");
+    if (ensure_CCrequirements(V::EvalCode()) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+
+    // LOCK(cs_main); 
+    // no need to lock cs_main as we use only indexes in this rpc
+    // but still use lock if you need to get chainActive.Height() or something like that
+
+    std::vector<unsigned char> vpubkey;
+    if (params.size() == 1)
+        vpubkey = ParseHex(params[0].get_str().c_str());
+    else
+        vpubkey = Mypubkey();
+
+    UniValue result = GetAllTokenBalances<V>(pubkey2pk(vpubkey), false);
+    return result;
+}
+
+UniValue tokenallbalances(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    return tokenallbalances<TokensV1>("tokenallbalances", params, fHelp, remotepk);
+}
+UniValue tokenv2allbalances(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    return tokenallbalances<TokensV2>("tokenv2allbalances", params, fHelp, remotepk);
+}
+
+
 
 template <class V>
 static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, bool fHelp, const CPubKey& remotepk)
@@ -1063,6 +1118,47 @@ UniValue addccv2signature(const UniValue& params, bool fHelp, const CPubKey& rem
 }
 
 
+UniValue tokenv2addccinputs(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 3)
+    {
+        string msg = "tokenv2addccinputs tokenid pubkey amount\n"
+            "\nReturns a new tx with added token inputs and the matching previous txns. Note that the caller must add the change output\n"
+            "\nArguments:\n"
+            //"address which utxos are added from\n"
+            "amount (in satoshi) which will be added as normal inputs (equal or more)\n"
+            "Result: json object with created tx and added vin txns\n\n";
+        throw runtime_error(msg);
+    }
+
+    uint256 tokenid = Parseuint256(params[0].get_str().c_str());
+    CPubKey pk = pubkey2pk( ParseHex(params[1].get_str().c_str()) );
+    CAmount amount = atoll(params[2].get_str().c_str());
+    if (amount <= 0)
+        throw runtime_error("amount invalid");
+
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_TOKENSV2);
+
+    CAmount added = AddTokenCCInputs<TokensV2>(cp, mtx, pk, tokenid, amount, CC_MAXVINS, false);
+    if (added < amount)
+        throw runtime_error("could not find token cc inputs");
+
+    UniValue result (UniValue::VOBJ);
+    UniValue array (UniValue::VARR);
+
+    result.pushKV("txhex", HexStr(E_MARSHAL(ss << mtx)));
+    for (auto const &vin : mtx.vin)     {
+        CTransaction vintx;
+        uint256 hashBlock;
+        if (myGetTransaction(vin.prevout.hash, vintx, hashBlock))
+            array.push_back(HexStr(E_MARSHAL(ss << vintx)));
+    }
+    result.pushKV("previousTxns", array);
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -1080,8 +1176,11 @@ static const CRPCCommand commands[] =
     { "tokens v2",       "mytokenv2orders",    &mytokenv2orders,     true },
     { "tokens",       "tokenaddress",     &tokenaddress,      true },
     { "tokens v2",       "tokenv2address",   &tokenv2address,      true },
+//    { "tokens v2",       "tokenv2indexkey",   &tokenv2indexkey,      true },
     { "tokens",       "tokenbalance",     &tokenbalance,      true },
     { "tokens v2",       "tokenv2balance",   &tokenv2balance,      true },
+    { "tokens",       "tokenallbalances",     &tokenallbalances,      true },
+    { "tokens v2",       "tokenv2allbalances",   &tokenv2allbalances,      true },
     { "tokens",       "tokencreate",      &tokencreate,       true },
     { "tokens v2",       "tokenv2create",    &tokenv2create,       true },
     { "tokens",       "tokentransfer",    &tokentransfer,     true },
@@ -1109,6 +1208,7 @@ static const CRPCCommand commands[] =
     { "tokens v2",       "tokenv2createtokel",    &tokenv2createtokel,       true },
     { "tokens",       "tokeninfotokel",        &tokeninfotokel,         true },
     { "tokens v2",       "tokenv2infotokel",      &tokenv2infotokel,         true },
+    { "nspv",       "tokenv2addccinputs",      &tokenv2addccinputs,         true },
 };
 
 void RegisterTokensRPCCommands(CRPCTable &tableRPC)
