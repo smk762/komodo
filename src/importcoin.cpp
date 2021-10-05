@@ -28,9 +28,6 @@
 #include "cc/CCtokens.h"
 #include "cc/CCtokens_impl.h"
 
-
-//int32_t komodo_nextheight();
-
 // makes import tx for either coins or tokens
 CTransaction MakeImportCoinTransaction(const ImportProof proof, const CTransaction burnTx, const std::vector<CTxOut> payouts, uint32_t nExpiryHeightOverride)
 {

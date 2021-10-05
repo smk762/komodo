@@ -163,7 +163,6 @@ static bool UnmarshalTokelVData(const vuint8_t &vdata, std::map<tklPropId, UniVa
             propMapOut = propMap;
             return true;
         } catch(std::system_error se) {
-            std::cerr << __func__ << " system_error=" << se.what() << std::endl;
             sError = std::string("could not parse tokel token data: ") + se.what();
             return false;
         } catch(...) {
