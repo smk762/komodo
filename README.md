@@ -5,8 +5,11 @@
 
 This is the `tokel` branch of Komodo's sourcecode repository. This branch is required to run and use the main Tokel blockchain and hosts Tokel specific developments.
 
-To run Tokel's test chain, please use the repository below instead.
-- https://github.com/TokelPlatform/komodo/
+Instructions to run komodo based chains are to be found at
+- https://github.com/KomodoPlatform/komodo#getting-started
+
+To run Tokel's test chain, please use the tkltest branch of this repository.
+- https://github.com/TokelPlatform/komodo/tree/tkltest
 
 
 ## What is the Tokel Platform?
