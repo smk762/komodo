@@ -856,51 +856,56 @@ int32_t NSPV_gettxproof(struct NSPV_txproof* ptr, int32_t vout, uint256 txid /*,
     return (sizeof(*ptr) - sizeof(ptr->tx) - sizeof(ptr->txproof) + ptr->txlen + ptr->txprooflen);
 }
 
-int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp *ptr,uint256 prevntztxid,uint256 nextntztxid)
+// get notarisation bracket txns and headers between them
+int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp* ptr, uint256 prevntztxid, uint256 nextntztxid)
 {
-    int32_t i; uint256 hashBlock,bhash0,bhash1,desttxid0,desttxid1; CTransaction tx;
+    int32_t i;
+    uint256 prevHashBlock, nextHashBlock, bhash0, bhash1, desttxid0, desttxid1;
+    CTransaction tx;
 
     LOCK(cs_main);
 
     ptr->prevtxid = prevntztxid;
-    ptr->prevntz = NSPV_getrawtx(tx,hashBlock,&ptr->prevtxlen,ptr->prevtxid);
-    ptr->prevtxidht = komodo_blockheight(hashBlock);
-    if ( NSPV_notarizationextract(0,&ptr->common.prevht,&bhash0,&desttxid0,tx) < 0 )
-        return(-2);
-    else if ( komodo_blockheight(bhash0) != ptr->common.prevht )
-        return(-3);
-    
-    ptr->nexttxid = nextntztxid;
-    ptr->nextntz = NSPV_getrawtx(tx,hashBlock,&ptr->nexttxlen,ptr->nexttxid);
-    ptr->nexttxidht = ptr->prevtxidht;  // komodo_blockheight(hashBlock);
-    if ( NSPV_notarizationextract(0,&ptr->common.nextht,&bhash1,&desttxid1,tx) < 0 )
-        return(-5);
-    else if ( komodo_blockheight(bhash1) != ptr->common.nextht )
-        return(-6);
-
-    else if ( ptr->common.prevht > ptr->common.nextht || (ptr->common.nextht - ptr->common.prevht) > 1440 )
-    {
-        fprintf(stderr,"illegal prevht.%d nextht.%d\n",ptr->common.prevht,ptr->common.nextht);
-        return(-7);
+    ptr->prevntz = NSPV_getrawtx(tx, prevHashBlock, &ptr->prevtxlen, ptr->prevtxid);
+    ptr->prevtxidht = komodo_blockheight(prevHashBlock);
+    if (NSPV_notarizationextract(0, &ptr->common.prevht, &bhash0, &desttxid0, tx) < 0) {
+        LogPrintf("%s error: cant decode notarization opreturn ptr->common.prevht.%d bhash0 %s\n", __func__, ptr->common.prevht, bhash0.ToString());
+        return (-2);
+    } else if (komodo_blockheight(bhash0) != ptr->common.prevht) {
+        LogPrintf("%s error: bhash0 ht.%d not equal to prevht.%d\n", __func__, komodo_blockheight(bhash0), ptr->common.prevht);
+        return (-3);
     }
-    //fprintf(stderr,"%s -> prevht.%d, %s -> nexht.%d\n",ptr->prevtxid.GetHex().c_str(),ptr->common.prevht,ptr->nexttxid.GetHex().c_str(),ptr->common.nextht);
+
+    ptr->nexttxid = nextntztxid;
+    ptr->nextntz = NSPV_getrawtx(tx, nextHashBlock, &ptr->nexttxlen, ptr->nexttxid);
+    ptr->nexttxidht = komodo_blockheight(nextHashBlock);
+    if (NSPV_notarizationextract(0, &ptr->common.nextht, &bhash1, &desttxid1, tx) < 0) {
+        LogPrintf("%s error: cant decode notarization opreturn ptr->common.nextht.%d bhash1 %s\n", __func__, ptr->common.nextht, bhash1.ToString());
+        return (-5);
+    } else if (komodo_blockheight(bhash1) != ptr->common.nextht) {
+        LogPrintf("%s error: bhash1 ht.%d not equal to nextht.%d\n", __func__, komodo_blockheight(bhash1), ptr->common.nextht);
+        return (-6);
+    }
+    else if (ptr->common.prevht > ptr->common.nextht || (ptr->common.nextht - ptr->common.prevht) > 1440) {
+        LogPrintf("%s error illegal prevht.%d nextht.%d\n", __func__, ptr->common.prevht, ptr->common.nextht);
+        return (-7);
+    }
+    //fprintf(stderr, "%s -> prevht.%d, %s -> nexht.%d\n", ptr->prevtxid.GetHex().c_str(), ptr->common.prevht, ptr->nexttxid.GetHex().c_str(), ptr->common.nextht);
     ptr->common.numhdrs = (ptr->common.nextht - ptr->common.prevht + 1);
-    ptr->common.hdrs = (struct NSPV_equihdr *)calloc(ptr->common.numhdrs,sizeof(*ptr->common.hdrs));
-    //fprintf(stderr,"prev.%d next.%d allocate numhdrs.%d\n",prevht,nextht,ptr->common.numhdrs);
-    for (i=0; i<ptr->common.numhdrs; i++)
-    {
+    ptr->common.hdrs = (struct NSPV_equihdr*)calloc(ptr->common.numhdrs, sizeof(*ptr->common.hdrs));
+    //fprintf(stderr, "prev.%d next.%d allocate numhdrs.%d\n", ptr->common.prevht, ptr->common.nextht, ptr->common.numhdrs);
+    for (i = 0; i < ptr->common.numhdrs; i++) {
         //hashBlock = NSPV_hdrhash(&ptr->common.hdrs[i]);
         //fprintf(stderr,"hdr[%d] %s\n",prevht+i,hashBlock.GetHex().c_str());
-        if ( NSPV_setequihdr(&ptr->common.hdrs[i],ptr->common.prevht+i) < 0 )
-        {
-            fprintf(stderr,"error setting hdr.%d\n",ptr->common.prevht+i);
+        if (NSPV_setequihdr(&ptr->common.hdrs[i], ptr->common.prevht + i) < 0) {
+            LogPrintf("%s error setting hdr.%d\n", __func__, ptr->common.prevht + i);
             free(ptr->common.hdrs);
             ptr->common.hdrs = 0;
-            return(-1);
+            return (-1);
         }
     }
-    //fprintf(stderr,"sizeof ptr %ld, common.%ld lens.%d %d\n",sizeof(*ptr),sizeof(ptr->common),ptr->prevtxlen,ptr->nexttxlen);
-    return(sizeof(*ptr) + sizeof(*ptr->common.hdrs)*ptr->common.numhdrs - sizeof(ptr->common.hdrs) - sizeof(ptr->prevntz) - sizeof(ptr->nextntz) + ptr->prevtxlen + ptr->nexttxlen);
+    //fprintf(stderr, "sizeof ptr %ld, common.%ld lens.%d %d\n", sizeof(*ptr), sizeof(ptr->common), ptr->prevtxlen, ptr->nexttxlen);
+    return (sizeof(*ptr) + sizeof(*ptr->common.hdrs) * ptr->common.numhdrs - sizeof(ptr->common.hdrs) - sizeof(ptr->prevntz) - sizeof(ptr->nextntz) + ptr->prevtxlen + ptr->nexttxlen);
 }
 
 int32_t NSPV_getspentinfo(struct NSPV_spentinfo* ptr, uint256 txid, int32_t vout)
