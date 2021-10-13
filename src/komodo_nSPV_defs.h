@@ -25,6 +25,7 @@
 #define NSPV_MAXVINS 64
 #define NSPV_AUTOLOGOUT 777
 #define NSPV_BRANCHID 0x76b809bb
+#define NSPV_MAXJSONREQUESTSIZE 65536
 
 // nSPV defines and struct definitions with serialization and purge functions
 
