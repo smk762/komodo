@@ -34,13 +34,71 @@
 
 int32_t iguana_rwbuf(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *buf)
 {
-    if ( rwflag != 0 )
-        memcpy(serialized,buf,len);
-    else memcpy(buf,serialized,len);
-    return(len);
+    if (rwflag != 0)
+        memcpy(serialized, buf, len);
+    else
+        memcpy(buf, serialized, len);
+    return (len);
 }
 
-int32_t NSPV_rwequihdr(int32_t rwflag,uint8_t *serialized,struct NSPV_equihdr *ptr)
+int32_t iguana_varint_size(uint64_t varint64)
+{
+    if (varint64 < 253)    
+        return 1;
+    else if (varint64 <= 0xFFFFu)    
+        return 3;
+    else if (varint64 <= 0xFFFFFFFFu)    
+        return 5;
+    else 
+        return 9;
+}
+
+int32_t iguana_rwvarint(int32_t rwflag, uint8_t* serialized, uint64_t* varint64p)
+{
+    if (rwflag != IGUANA_READ) {
+        if (*varint64p < 253) {
+            serialized[0]= *varint64p; // this byte contains length 1..252
+            return 1;
+        } else if (*varint64p <= 0xFFFFu) {
+            uint16_t os_var = htole16(*varint64p);
+            serialized[0] = 253; // next two bytes contain var length
+            memcpy(serialized+1, (uint8_t*)&os_var, 2);
+            return 3;
+        } else if (*varint64p <= 0xFFFFFFFFu) {
+            uint32_t os_var = htole32(*varint64p);
+            serialized[0] = 254; // next four bytes contain var length
+            memcpy(serialized+1, (uint8_t*)&os_var, 4);
+            return 5;
+        } else {
+            uint64_t os_var = htole64(*varint64p);
+            serialized[0] = 255; // next eight bytes contain var length
+            memcpy(serialized+1, (uint8_t*)&os_var, 8);
+            return 9;
+        }
+    } else {
+        if (serialized[0] < 253) {
+            *varint64p = serialized[0]; // this byte contains length 1..253
+            return 1;
+        } else if (serialized[0] == 253) {
+            uint16_t net_var;
+            memcpy((uint8_t*)&net_var, serialized+1, 2);
+            *varint64p = le16toh(net_var);
+            return 3;
+        } else if (serialized[0] == 254) {
+            uint32_t net_var;
+            memcpy((uint8_t*)&net_var, serialized+1, 4);
+            *varint64p = le32toh(net_var);
+            return 5;
+        } else {
+            uint64_t net_var;
+            memcpy((uint8_t*)&net_var, serialized+1, 8);
+            *varint64p = le64toh(net_var);
+            return 9;
+        }
+    }
+}
+
+int32_t NSPV_rwequihdr(int32_t rwflag, uint8_t *serialized, struct NSPV_equihdr *ptr)
 {
     int32_t len = 0;
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->nVersion),&ptr->nVersion);
@@ -50,7 +108,9 @@ int32_t NSPV_rwequihdr(int32_t rwflag,uint8_t *serialized,struct NSPV_equihdr *p
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->nTime),&ptr->nTime);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->nBits),&ptr->nBits);
     len += iguana_rwbignum(rwflag,&serialized[len],sizeof(ptr->nNonce),(uint8_t *)&ptr->nNonce);
-    len += iguana_rwbuf(rwflag,&serialized[len],sizeof(ptr->nSolution),ptr->nSolution);
+    uint64_t nSolutionSize = sizeof(ptr->nSolution);
+    len += iguana_rwvarint(rwflag, &serialized[len], &nSolutionSize);
+    len += iguana_rwbuf(rwflag, &serialized[len], nSolutionSize, ptr->nSolution);
     return(len);
 }
 

@@ -735,7 +735,15 @@ int32_t komodo_opreturnscript(uint8_t *script,uint8_t type,uint8_t *opret,int32_
 #define CRYPTO777_KMDADDR "RXL3YXG2ceaB6C5hfJcN4fvmLH2C34knhA"
 extern int32_t KOMODO_PAX;
 int32_t komodo_is_issuer();
+
+// script tools analogue
+#define IGUANA_READ 0
+#define IGUANA_WRITE 1
 int32_t iguana_rwnum(int32_t rwflag,uint8_t *serialized,int32_t len,void *endianedp);
+int32_t iguana_rwbignum(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *endianedp);
+int32_t iguana_rwvarint(int32_t rwflag, uint8_t* serialized, uint64_t* varint64p);
+int32_t iguana_rwbuf(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *buf);
+
 int32_t pax_fiatstatus(uint64_t *available,uint64_t *deposited,uint64_t *issued,uint64_t *withdrawn,uint64_t *approved,uint64_t *redeemed,char *base);
 
 int32_t komodo_pending_withdraws(char *opretstr);
