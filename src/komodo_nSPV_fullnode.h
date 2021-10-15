@@ -1001,14 +1001,14 @@ void komodo_nSPVreq(CNode* pfrom, std::vector<uint8_t> request) // received a re
 
             //fprintf(stderr,"check info %u vs %u, ind.%d\n", timestamp, pfrom->nspvdata[ind].prevtime, ind);
             if (requestDataLen != sizeof(version) + sizeof(reqheight)) {
-                LogPrint("nspv-details", "NSPV_INFO invalid request from node=%d\n", pfrom->id);
+                LogPrint("nspv", "NSPV_INFO invalid request from node=%d\n", pfrom->id);
                 NSPV_senderror(pfrom, requestId, NSPV_ERROR_INVALID_REQUEST_DATA);
                 return;
             }
             int32_t offset = 0;
             offset += iguana_rwnum(IGUANA_READ, &requestData[offset], sizeof(version), &version);
             if (version != NSPV_PROTOCOL_VERSION)  {
-                LogPrint("nspv", "nspv version %d not supported from node=%d\n", version, pfrom->id);
+                LogPrint("nspv", "NSPV_INFO nspv version %d not supported from node=%d\n", version, pfrom->id);
                 NSPV_senderror(pfrom, requestId, NSPV_ERROR_INVALID_VERSION);
                 return;
             }
@@ -1027,7 +1027,7 @@ void komodo_nSPVreq(CNode* pfrom, std::vector<uint8_t> request) // received a re
                     pfrom->PushMessage("nSPV", response);
                     pfrom->nspvdata[idata].prevtime = timestamp;
                     pfrom->nspvdata[idata].nreqs++;
-                    LogPrint("nspv-details", "NSPV_INFO response: version %d to node=%d\n", I.version, pfrom->id);
+                    LogPrint("nspv-details", "NSPV_INFO sent response: version %d to node=%d\n", I.version, pfrom->id);
                     pfrom->fNspvConnected = true; // allow to do nspv requests
                 } else {
                     LogPrint("nspv", "NSPV_rwinforesp incorrect response len.%d\n", respLen);
