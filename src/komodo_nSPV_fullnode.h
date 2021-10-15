@@ -1001,7 +1001,7 @@ void komodo_nSPVreq(CNode* pfrom, std::vector<uint8_t> request) // received a re
 
             //fprintf(stderr,"check info %u vs %u, ind.%d\n", timestamp, pfrom->nspvdata[ind].prevtime, ind);
             if (requestDataLen != sizeof(version) + sizeof(reqheight)) {
-                LogPrint("nspv", "NSPV_INFO invalid request from node=%d\n", pfrom->id);
+                LogPrint("nspv", "NSPV_INFO invalid request size %d from node=%d\n", requestDataLen, pfrom->id);
                 NSPV_senderror(pfrom, requestId, NSPV_ERROR_INVALID_REQUEST_DATA);
                 return;
             }
