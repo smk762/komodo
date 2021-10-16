@@ -223,6 +223,8 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
     ptr->utxos = nullptr;
     ptr->nodeheight = tipheight;
 
+    int32_t script_len_total = 0;
+
     if (unspentOutputs.size() >= 0 && skipcount < unspentOutputs.size()) {    
         ptr->utxos = (struct NSPV_utxoresp*)calloc(unspentOutputs.size() - skipcount, sizeof(ptr->utxos[0]));
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin() + skipcount; 
@@ -238,6 +240,10 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
                         ptr->utxos[n].extradata = komodo_accrued_interest(&txheight, &locktime, ptr->utxos[ind].txid, ptr->utxos[ind].vout, ptr->utxos[ind].height, ptr->utxos[ind].satoshis, tipheight);
                         interest += ptr->utxos[ind].extradata;
                     }
+                    ptr->utxos[ind].script = (uint8_t*)malloc(it->second.script.size());
+                    memcpy(ptr->utxos[ind].script, &it->second.script[0], it->second.script.size());
+                    ptr->utxos[ind].script_size = it->second.script.size();
+                    script_len_total += it->second.script.size() + 9; // add 9 for max varint script size
                     ind++;
                     total += it->second.satoshis;
                 }
@@ -247,7 +253,7 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp* ptr, char* coinaddr, bool is
     }
     // always return a result:
     ptr->numutxos = ind;
-    int32_t len = (int32_t)(sizeof(*ptr) + sizeof(ptr->utxos[0]) * ptr->numutxos - sizeof(ptr->utxos));
+    int32_t len = (int32_t)(sizeof(*ptr) + sizeof(ptr->utxos[0]) * ptr->numutxos - sizeof(ptr->utxos)) + script_len_total;
     //fprintf(stderr,"getaddressutxos for %s -> n.%d:%d total %.8f interest %.8f len.%d\n",coinaddr,n,ptr->numutxos,dstr(total),dstr(interest),len);
     ptr->total = total;
     ptr->interest = interest;
@@ -518,6 +524,7 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp* ptr, char* coinaddr, bool is
             ptr->txids[ind].vout = (int32_t)it->first.index;
             ptr->txids[ind].satoshis = (int64_t)it->second;
             ptr->txids[ind].height = (int64_t)it->first.blockHeight;
+
             ind++;
         }
     }

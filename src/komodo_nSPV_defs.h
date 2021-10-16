@@ -95,6 +95,7 @@ struct NSPV_utxoresp
     uint256 txid;
     int64_t satoshis,extradata;
     int32_t vout,height;
+    uint8_t *script; uint64_t script_size;
 };
 
 struct NSPV_utxosresp
@@ -103,14 +104,14 @@ struct NSPV_utxosresp
     char coinaddr[64];
     int64_t total,interest;
     int32_t nodeheight,skipcount,maxrecords;
-    uint16_t numutxos,CCflag;
+    uint16_t numutxos, CCflag;
 };
 
 struct NSPV_txidresp
 {
     uint256 txid;
     int64_t satoshis;
-    int32_t vout,height;
+    int32_t vout, height;
 };
 
 struct NSPV_txidsresp

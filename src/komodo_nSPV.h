@@ -142,64 +142,73 @@ int32_t iguana_rwuint8vec(int32_t rwflag,uint8_t *serialized,int32_t *biglenp,ui
     return(len);
 }
 
-int32_t NSPV_rwutxoresp(int32_t rwflag,uint8_t *serialized,struct NSPV_utxoresp *ptr)
+int32_t NSPV_rwutxoresp(int32_t rwflag, uint8_t* serialized, struct NSPV_utxoresp* ptr)
 {
     int32_t len = 0;
-    len += iguana_rwbignum(rwflag,&serialized[len],sizeof(ptr->txid),(uint8_t *)&ptr->txid);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->satoshis),&ptr->satoshis);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->extradata),&ptr->extradata);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->vout),&ptr->vout);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->height),&ptr->height);
-    return(len);
+    len += iguana_rwbignum(rwflag, &serialized[len], sizeof(ptr->txid), (uint8_t*)&ptr->txid);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->satoshis), &ptr->satoshis);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->extradata), &ptr->extradata);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->vout), &ptr->vout);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->height), &ptr->height);
+    len += iguana_rwvarint(rwflag, &serialized[len], &ptr->script_size);
+    len += iguana_rwbuf(rwflag, &serialized[len], ptr->script_size, ptr->script);
+    return (len);
 }
 
-int32_t NSPV_rwutxosresp(int32_t rwflag,uint8_t *serialized,struct NSPV_utxosresp *ptr) // check mempool
+int32_t NSPV_rwutxosresp(int32_t rwflag, uint8_t* serialized, struct NSPV_utxosresp* ptr) // check mempool
 {
-    int32_t i,len = 0;
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->numutxos),&ptr->numutxos);
-    if ( ptr->numutxos != 0 )
-    {
-        if ( ptr->utxos == 0 )
-            ptr->utxos = (struct NSPV_utxoresp *)calloc(sizeof(*ptr->utxos),ptr->numutxos); // relies on uint16_t being "small" to prevent mem exhaustion
-        for (i=0; i<ptr->numutxos; i++)
-            len += NSPV_rwutxoresp(rwflag,&serialized[len],&ptr->utxos[i]);
+    int32_t i, len = 0;
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->numutxos), &ptr->numutxos);
+    if (ptr->numutxos != 0) {
+        if (ptr->utxos == 0)
+            ptr->utxos = (struct NSPV_utxoresp*)calloc(sizeof(*ptr->utxos), ptr->numutxos); // relies on uint16_t being "small" to prevent mem exhaustion
+        for (i = 0; i < ptr->numutxos; i++)
+            len += NSPV_rwutxoresp(rwflag, &serialized[len], &ptr->utxos[i]);
     }
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->total),&ptr->total);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->interest),&ptr->interest);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->nodeheight),&ptr->nodeheight);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->maxrecords),&ptr->maxrecords);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->CCflag),&ptr->CCflag);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->skipcount),&ptr->skipcount);
-    if ( rwflag != 0 )
-    {
-        memcpy(&serialized[len],ptr->coinaddr,sizeof(ptr->coinaddr));
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->total), &ptr->total);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->interest), &ptr->interest);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->nodeheight), &ptr->nodeheight);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->maxrecords), &ptr->maxrecords);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->CCflag), &ptr->CCflag);
+    len += iguana_rwnum(rwflag, &serialized[len], sizeof(ptr->skipcount), &ptr->skipcount);
+    if (rwflag != 0) {
+        memcpy(&serialized[len], ptr->coinaddr, sizeof(ptr->coinaddr));
+        len += sizeof(ptr->coinaddr);
+    } else {
+        memcpy(ptr->coinaddr, &serialized[len], sizeof(ptr->coinaddr));
         len += sizeof(ptr->coinaddr);
     }
-    else
-    {
-        memcpy(ptr->coinaddr,&serialized[len],sizeof(ptr->coinaddr));
-        len += sizeof(ptr->coinaddr);
-    }
-    return(len);
+    return (len);
 }
 
 void NSPV_utxosresp_purge(struct NSPV_utxosresp *ptr)
 {
-    if ( ptr != 0 )
-    {
-        if ( ptr->utxos != 0 )
+    if (ptr != 0) {
+        if (ptr->utxos != NULL)  {
+            for(size_t i = 0; i < ptr->numutxos; i ++)
+                if (ptr->utxos[i].script)
+                    free(ptr->utxos[i].script);
             free(ptr->utxos);
-        memset(ptr,0,sizeof(*ptr));
+        }
+        memset(ptr, 0, sizeof(*ptr));
     }
 }
 
 void NSPV_utxosresp_copy(struct NSPV_utxosresp *dest,struct NSPV_utxosresp *ptr)
 {
     *dest = *ptr;
-    if ( ptr->utxos != 0 )
-    {
-        dest->utxos = (struct NSPV_utxoresp *)malloc(ptr->numutxos * sizeof(*ptr->utxos));
-        memcpy(dest->utxos,ptr->utxos,ptr->numutxos * sizeof(*ptr->utxos));
+    if (ptr->utxos != 0) {
+        dest->utxos = (struct NSPV_utxoresp*)malloc(ptr->numutxos * sizeof(*ptr->utxos));
+        memcpy(dest->utxos, ptr->utxos, ptr->numutxos * sizeof(*ptr->utxos));
+        for (size_t i = 0; i < ptr->numutxos; i++) {
+            dest->utxos[i].script = NULL;
+            dest->utxos[i].script_size = 0;
+            if (ptr->utxos[i].script) {
+                dest->utxos->script = (uint8_t*)malloc(ptr->utxos[i].script_size);
+                memcpy(dest->utxos[i].script, ptr->utxos[i].script, ptr->utxos[i].script_size);
+                dest->utxos[i].script_size = ptr->utxos[i].script_size;
+            }
+        }
     }
 }
 
@@ -244,21 +253,20 @@ int32_t NSPV_rwtxidsresp(int32_t rwflag,uint8_t *serialized,struct NSPV_txidsres
 
 void NSPV_txidsresp_purge(struct NSPV_txidsresp *ptr)
 {
-    if ( ptr != 0 )
-    {
-        if ( ptr->txids != 0 )
+    if (ptr != 0) {
+        if (ptr->txids != NULL) {
             free(ptr->txids);
-        memset(ptr,0,sizeof(*ptr));
+        }
+        memset(ptr, 0, sizeof(*ptr));
     }
 }
 
 void NSPV_txidsresp_copy(struct NSPV_txidsresp *dest,struct NSPV_txidsresp *ptr)
 {
     *dest = *ptr;
-    if ( ptr->txids != 0 )
-    {
-        dest->txids = (struct NSPV_txidresp *)malloc(ptr->numtxids * sizeof(*ptr->txids));
-        memcpy(dest->txids,ptr->txids,ptr->numtxids * sizeof(*ptr->txids));
+    if (ptr->txids != 0) {
+        dest->txids = (struct NSPV_txidresp*)malloc(ptr->numtxids * sizeof(*ptr->txids));
+        memcpy(dest->txids, ptr->txids, ptr->numtxids * sizeof(*ptr->txids));
     }
 }
 
