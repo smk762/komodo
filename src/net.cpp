@@ -2130,6 +2130,7 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     fInbound = fInboundIn;
     fNetworkNode = false;
     fSuccessfullyConnected = false;
+    fNspvConnected = false;
     fDisconnect = false;
     nRefCount = 0;
     nSendSize = 0;

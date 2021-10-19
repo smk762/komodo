@@ -18,6 +18,10 @@
 #define KOMODO_NSPVWALLET_H
 
 #include "rpc/server.h"
+#include "komodo_nSPV_defs.h"
+#include "komodo_nSPV.h"
+#include "komodo_nSPV_superlite.h"
+
 
 // nSPV wallet uses superlite functions (and some komodod built in functions) to implement nSPV_spend
 //extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);

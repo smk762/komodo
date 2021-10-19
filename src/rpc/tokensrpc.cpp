@@ -345,8 +345,10 @@ template <class V>
 static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
-    std::string name, description, hextx; 
+    std::string name, description; 
     CAmount supply; // changed from uin64_t to int64_t for this 'if ( supply <= 0 )' to work as expected
+    const CPubKey nullpk;
+    const CAmount txfee = 0;
 
     CCerror.clear();
 
@@ -373,13 +375,19 @@ static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, 
             return MakeResultError("Token description must be <= " + std::to_string(TOKENS_MAX_DESC_LENGTH));  // allowed > MAX_SCRIPT_ELEMENT_SIZE
     }
 
-    hextx = CreateTokenLocal<V>(0, supply, name, description, vtokenData);
+    //hextx = CreateTokenLocal<V>(0, supply, name, description, vtokenData);
+    UniValue rcreate = CreateTokenExt<V>(remotepk.IsValid() ? remotepk : nullpk, txfee, supply, name, description, vtokenData, 0, false); 
     RETURN_IF_ERROR(CCerror);
 
-    if( hextx.size() > 0 )     
-        return MakeResultSuccess(hextx);
-    else
-        return MakeResultError("could not create token");
+    if (remotepk.IsValid())
+        return rcreate;
+    else {
+        std::string  hextx = ResultGetTx(rcreate);
+        if( hextx.size() > 0 )     
+            return MakeResultSuccess(hextx);
+        else
+            return MakeResultError("could not create token");
+    }
 }
 
 UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& remotepk)

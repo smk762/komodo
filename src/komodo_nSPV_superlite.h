@@ -404,6 +404,8 @@ UniValue NSPV_utxoresp_json(struct NSPV_utxoresp *utxos,int32_t numutxos)
         item.push_back(Pair("value",(double)utxos[i].satoshis/COIN));
         if ( ASSETCHAINS_SYMBOL[0] == 0 )
             item.push_back(Pair("interest",(double)utxos[i].extradata/COIN));
+        if (utxos[i].script)
+            item.push_back(Pair("script", HexStr(utxos[i].script, utxos[i].script+utxos[i].script_size)));
         array.push_back(item);
     }
     return(array);
@@ -435,9 +437,10 @@ UniValue NSPV_txidresp_json(struct NSPV_txidresp *utxos,int32_t numutxos)
         item.push_back(Pair("height",(int64_t)utxos[i].height));
         item.push_back(Pair("txid",utxos[i].txid.GetHex()));
         item.push_back(Pair("value",(double)utxos[i].satoshis/COIN));
-        if ( utxos[i].satoshis > 0 )
-            item.push_back(Pair("vout",(int64_t)utxos[i].vout));
-        else item.push_back(Pair("vin",(int64_t)utxos[i].vout));
+        if (utxos[i].satoshis > 0)
+            item.push_back(Pair("vout", (int64_t)utxos[i].vout));
+        else
+            item.push_back(Pair("vin", (int64_t)utxos[i].vout));
         array.push_back(item);
     }
     return(array);

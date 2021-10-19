@@ -19,12 +19,14 @@
 
 #include <stdlib.h>
 
-#define NSPV_PROTOCOL_VERSION 0x00000004
+#define NSPV_PROTOCOL_VERSION 0x00000005
 #define NSPV_POLLITERS 200
 #define NSPV_POLLMICROS 50000
 #define NSPV_MAXVINS 64
 #define NSPV_AUTOLOGOUT 777
 #define NSPV_BRANCHID 0x76b809bb
+#define NSPV_MAXJSONREQUESTSIZE 65536
+#define NSPV_REQUESTIDSIZE 4
 
 // nSPV defines and struct definitions with serialization and purge functions
 
@@ -56,8 +58,20 @@
 #define NSPV_CC_TXIDS 16
 #define NSPV_REMOTERPC 0x14
 #define NSPV_REMOTERPCRESP 0x15
+#define NSPV_ERRORRESP 0xff
+
+#define NSPV_ERROR_INVALID_REQUEST_TYPE     (-10)
+#define NSPV_ERROR_INVALID_REQUEST_DATA     (-11)
+#define NSPV_ERROR_GETINFO_FIRST            (-12)
+#define NSPV_ERROR_INVALID_VERSION          (-13)
+#define NSPV_ERROR_READ_DATA                (-14)
+#define NSPV_ERROR_INVALID_RESPONSE         (-15)
+#define NSPV_ERROR_BROADCAST                (-16)
+#define NSPV_ERROR_REMOTE_RPC               (-17)
 
 #define NSPV_MAXREQSPERSEC 15
+
+#define NSPV_MAX_VARINT_SIZE 9
 
 int32_t NSPV_gettransaction(int32_t skipvalidation,int32_t vout,uint256 txid,int32_t height,CTransaction &tx,uint256 &hashblock,int32_t &txheight,int32_t &currentheight,int64_t extradata,uint32_t tiptime,int64_t &rewardsum);
 UniValue NSPV_spend(char *srcaddr,char *destaddr,int64_t satoshis);
@@ -81,6 +95,7 @@ struct NSPV_utxoresp
     uint256 txid;
     int64_t satoshis,extradata;
     int32_t vout,height;
+    uint8_t *script; uint64_t script_size;
 };
 
 struct NSPV_utxosresp
@@ -89,14 +104,14 @@ struct NSPV_utxosresp
     char coinaddr[64];
     int64_t total,interest;
     int32_t nodeheight,skipcount,maxrecords;
-    uint16_t numutxos,CCflag;
+    uint16_t numutxos, CCflag;
 };
 
 struct NSPV_txidresp
 {
     uint256 txid;
     int64_t satoshis;
-    int32_t vout,height;
+    int32_t vout, height;
 };
 
 struct NSPV_txidsresp
@@ -198,5 +213,7 @@ extern struct NSPV_inforesp NSPV_inforesult;
 void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& unspentOutputs, char* coinaddr, bool ccflag);
 void NSPV_CCindexOutputs(std::vector<std::pair<CAddressIndexKey, CAmount>>& indexOutputs, char* coinaddr, bool ccflag);
 void NSPV_CCtxids(std::vector<uint256>& txids, char* coinaddr, bool ccflag, uint8_t evalcode, uint256 filtertxid, uint8_t func);
+
+extern std::map<int32_t, std::string> nspvErrors;
 
 #endif // KOMODO_NSPV_DEFSH
