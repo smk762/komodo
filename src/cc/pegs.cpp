@@ -100,6 +100,8 @@ pegs CC is able to create a coin backed (by any supported coin with gateways CC 
 #endif // PEGS_THRESHOLDS
 #define CC_MARKER_VALUE 10000
 
+extern uint64_t ASSETCHAINS_PEGSCCPARAMS[3];
+
 extern uint8_t DecodeGatewaysBindOpRet(char *depositaddr,const CScript &scriptPubKey,uint256 &tokenid,std::string &coin,int64_t &totalsupply,uint256 &oracletxid,uint8_t &M,uint8_t &N,std::vector<CPubKey> &gatewaypubkeys,uint8_t &taddr,uint8_t &prefix,uint8_t &prefix2,uint8_t &wiftype);
 //extern int64_t GetTokenBalance(CPubKey pk, uint256 tokenid);
 extern int32_t komodo_currentheight();

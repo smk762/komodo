@@ -799,8 +799,7 @@ void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIn
 
     if (address.GetIndexKey(hashBytes, type, true) == 0)
         return;
-    if (!creationId.IsNull())
-        searchKeys.push_back(std::make_pair(hashBytes, creationId));
+    searchKeys.push_back(std::make_pair(hashBytes, creationId));
     for (std::vector<std::pair<uint160, uint256> >::iterator it = searchKeys.begin(); it != searchKeys.end(); it++)
     {
         if (GetUnspentCCIndex((*it).first, (*it).second, unspentOutputs, -1, -1, 0) == 0)
@@ -1147,7 +1146,7 @@ CAmount AddNormalinputsLocal(CMutableTransaction& mtx, CPubKey mypk, CAmount tot
                 {
                     LOCK(cs_main);
                     if (CoinbaseGetBlocksToMaturity(tx, hashBlock) > 0) {
-                        //std::cerr << __func__ << " skipping immature coinbase tx=" << txid.GetHex() << " COINBASE_MATURITY=" << COINBASE_MATURITY << std::endl;
+                        std::cerr << __func__ << " skipping immature coinbase tx=" << txid.GetHex() << " COINBASE_MATURITY=" << COINBASE_MATURITY << std::endl;
                         continue;
                     }
                 }
@@ -1265,7 +1264,7 @@ CAmount AddNormalinputsRemote(CMutableTransaction& mtx, CPubKey mypk, CAmount to
             {
                 LOCK(cs_main);
                 if (CoinbaseGetBlocksToMaturity(tx, hashBlock) > 0) {
-                    //std::cerr << __func__ << " skipping immature coinbase tx=" << txid.GetHex() << " COINBASE_MATURITY=" << COINBASE_MATURITY << std::endl;
+                    std::cerr << __func__ << " skipping immature coinbase tx=" << txid.GetHex() << " COINBASE_MATURITY=" << COINBASE_MATURITY << std::endl;
                     continue;
                 }
             }

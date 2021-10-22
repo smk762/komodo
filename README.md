@@ -1,12 +1,18 @@
 ![Tokel Header](https://github.com/TokelPlatform/tokel_app/blob/development/assets/tokel-header.png "Tokel Header")
 
 
-## Komodo's 'Tokel' Branch
+## The Tokel blockchain repository
 
-This is the `tokel` branch of Komodo's sourcecode repository. This branch is required to run and use the main Tokel blockchain and hosts Tokel specific developments.
+This is the official repository of the Tokel Platform's blockchain source code. Tokel uses the komodo daemon to run our independent blockchain.
 
-To run Tokel's test chain, please use the repository below instead.
-- https://github.com/TokelPlatform/komodo/
+The 'tokel' branch is required to run and use the main Tokel blockchain and hosts numerous Tokel specific developments you will not find in the master Komodo repository.
+
+Instructions to run the Tokel blockchain can be found at:
+- https://docs.tokel.io/guides/LaunchTheChain/
+
+To run Tokel's test chain (TKLTEST), please use the 'tkltest' branch of this repository. You can find instructions here:
+- https://docs.tokel.io/guides/LaunchTKLTESTchain/
+- https://github.com/TokelPlatform/komodo/tree/tkltest
 
 
 ## What is the Tokel Platform?
@@ -39,7 +45,7 @@ Tokel is a dedicated token platform. This platform will provide a solid foundati
 The all-in-one Tokel application is an open-sourced application that will be the one stop shop for all Tokel related features. This application is built using nSPV superlite wallet technology that has been developed by the Komodo platform, for an incredibly fast and reliable experience. This application accesses all of the features offered on the Tokel blockchain whilst keeping users funds in their own wallets (completely non-custodial).
 
 This application is in development. You can keep up with progress on the github, or find out more by having a chat in our discord.
-https://github.com/TokelPlatform/tokel_app
+https://github.com/TokelPlatform/tokel_dapp
 
 #### Application features include:
 - A TKL coin wallet

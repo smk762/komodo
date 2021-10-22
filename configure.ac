@@ -975,46 +975,6 @@ PKG_CONFIG_LIBDIR="$PKGCONFIG_LIBDIR_TEMP"
 ac_configure_args="${ac_configure_args} --disable-shared --with-pic --with-bignum=no --enable-module-recovery"
 AC_CONFIG_SUBDIRS([src/secp256k1 src/snark src/univalue src/cryptoconditions])
 
-# build custom executable with customised args:
-
-AC_ARG_WITH([custom-bin],
-  [AS_HELP_STRING([--with-custom-bin],
-  [build custom named daemon cli (default=no)])],
-  [build_custom_bin=$withval],
-  [build_custom_bin=no])
-
-# build custom executable added with an Makefile.nnn.include
-AM_CONDITIONAL([BUILD_CUSTOM_BIN], [test "x$build_custom_bin" = "xyes"])
-
-AC_ARG_VAR(CUSTOM_BIN_NAME, [custom executable prefix])
-if test "x${CUSTOM_BIN_NAME+set}" = "xset"; then
-  AC_SUBST([CUSTOM_BIN_NAME], ${CUSTOM_BIN_NAME})
-else
-  AC_SUBST([CUSTOM_BIN_NAME], '')
-fi
-
-AC_ARG_VAR(CUSTOM_BRAND_NAME, [custom brand name])
-if test "x${CUSTOM_BRAND_NAME+set}" = "xset"; then
-  AC_SUBST([CUSTOM_BRAND_NAME], ${CUSTOM_BRAND_NAME})
-else
-  AC_SUBST([CUSTOM_BRAND_NAME], '')
-fi
-
-AC_ARG_VAR(CUSTOM_SERVER_ARGS, [custom daemon params])
-if test "x${CUSTOM_SERVER_ARGS+set}" = "xset"; then
-  AC_SUBST([CUSTOM_SERVER_ARGS], ${CUSTOM_SERVER_ARGS})
-else
-  AC_SUBST([CUSTOM_SERVER_ARGS], '')
-fi
-
-AC_ARG_VAR(CUSTOM_CLIENT_ARGS, [custom cli params])
-if test "x${CUSTOM_CLIENT_ARGS+set}" = "xset"; then
-  AC_SUBST([CUSTOM_CLIENT_ARGS], ${CUSTOM_CLIENT_ARGS})
-else
-  AC_SUBST([CUSTOM_CLIENT_ARGS], '')
-fi
-
-
 AC_OUTPUT
 
 dnl Taken from https://wiki.debian.org/RpathIssue

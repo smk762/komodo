@@ -157,8 +157,7 @@ static void push_lock(void* c, const CLockLocation& locklocation, bool fTry)
 static void pop_lock()
 {
     dd_mutex.lock();
-    if (lockstack.get() != NULL)
-        (*lockstack).pop_back();
+    (*lockstack).pop_back();
     dd_mutex.unlock();
 }
 

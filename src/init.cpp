@@ -23,7 +23,6 @@
 #endif
 
 #include "init.h"
-#include "alert.h"
 #include "crypto/common.h"
 #include "primitives/block.h"
 #include "addrman.h"
@@ -94,6 +93,14 @@
 using namespace std;
 
 #include "komodo_defs.h"
+extern void ThreadSendAlert();
+extern bool komodo_dailysnapshot(int32_t height);
+extern int32_t KOMODO_LOADINGBLOCKS;
+extern bool VERUS_MINTBLOCKS;
+extern char ASSETCHAINS_SYMBOL[];
+extern int32_t KOMODO_SNAPSHOT_INTERVAL;
+
+extern void komodo_init(int32_t height);
 
 ZCJoinSplit* pzcashParams = NULL;
 
@@ -747,6 +754,10 @@ void ThreadNotifyRecentlyAdded()
     }
 }
 
+/* declarations needed for ThreadUpdateKomodoInternals */
+void komodo_passport_iteration();
+void komodo_cbopretupdate(int32_t forceflag);
+
 void ThreadUpdateKomodoInternals() {
     RenameThread("int-updater");
 
@@ -912,6 +923,8 @@ bool AppInitServers(boost::thread_group& threadGroup)
 /** Initialize bitcoin.
  *  @pre Parameters should be parsed and config file should be read.
  */
+extern int32_t KOMODO_REWIND;
+
 bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 {
     // ********************************************************* Step 1: setup

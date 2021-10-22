@@ -40,13 +40,6 @@ public:
     CScriptID(const uint160& in) : uint160(in) {}
 };
 
-class CCryptoConditionID : public uint160
-{
-public:
-    CCryptoConditionID() : uint160() {}
-    CCryptoConditionID(const uint160& in) : uint160(in) {}
-};
-
 static const unsigned int MAX_OP_RETURN_RELAY = 8192;      //! bytes
 extern unsigned nMaxDatacarrierBytes;
 

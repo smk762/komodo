@@ -118,8 +118,8 @@ struct NSPV_txidsresp
 {
     struct NSPV_txidresp *txids;
     char coinaddr[64];
-    int32_t nodeheight, skipcount, maxrecords;
-    uint16_t numtxids, CCflag;
+    int32_t nodeheight,skipcount,filter;
+    uint16_t numtxids,CCflag;
 };
 
 struct NSPV_mempoolresp
@@ -208,7 +208,6 @@ struct NSPV_remoterpcresp
     char *json;
 };
 
-extern struct NSPV_inforesp NSPV_inforesult;
 
 void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& unspentOutputs, char* coinaddr, bool ccflag);
 void NSPV_CCindexOutputs(std::vector<std::pair<CAddressIndexKey, CAmount>>& indexOutputs, char* coinaddr, bool ccflag);
