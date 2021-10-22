@@ -17,8 +17,14 @@
 #ifndef KOMODO_NSPVWALLET_H
 #define KOMODO_NSPVWALLET_H
 
+#include "rpc/server.h"
+#include "komodo_nSPV_defs.h"
+#include "komodo_nSPV.h"
+#include "komodo_nSPV_superlite.h"
+
+
 // nSPV wallet uses superlite functions (and some komodod built in functions) to implement nSPV_spend
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
+//extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
 
 int32_t NSPV_validatehdrs(struct NSPV_ntzsproofresp *ptr)
 {
@@ -389,6 +395,7 @@ UniValue NSPV_spend(char *srcaddr,char *destaddr,int64_t satoshis) // what its a
     mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
     mtx.nVersion = SAPLING_TX_VERSION;
     if ( ASSETCHAINS_SYMBOL[0] == 0 ) {
+        LOCK(cs_main);
         if ( !komodo_hardfork_active((uint32_t)chainActive.LastTip()->nTime) )
             mtx.nLockTime = (uint32_t)time(NULL) - 777;
         else
