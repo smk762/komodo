@@ -538,7 +538,6 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
             "5. subtractfeefromamount  (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
             "                             The recipient will receive less " + strprintf("%s",komodo_chainname()) + " than you enter in the amount field.\n"
             "6. oprethexstr\n"
-            "7. unlocktime (numeric, optional) timestamp or blockheight when the sent funds will be unlocked by CLTV opcode\n"
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
