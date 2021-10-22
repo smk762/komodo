@@ -38,6 +38,8 @@
 #include "crypter.h"
 #include "coins.h"
 #include "zcash/zip32.h"
+
+#include "komodo_defs.h"
 #include "cc/CCinclude.h"
 
 #include <assert.h>
@@ -58,12 +60,7 @@ unsigned int nTxConfirmTarget = DEFAULT_TX_CONFIRM_TARGET;
 bool bSpendZeroConfChange = true;
 bool fSendFreeTransactions = false;
 bool fPayAtLeastCustomFee = true;
-#include "komodo_defs.h"
 
-CBlockIndex *komodo_chainactive(int32_t height);
-extern std::string DONATION_PUBKEY;
-int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
-int tx_height( const uint256 &hash );
 
 /**
  * Fees smaller than this (in satoshi) are considered zero fee (for transaction creation)
@@ -4233,7 +4230,7 @@ CAmount CWallet::GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarge
 }
 
 
-void komodo_prefetch(FILE *fp);
+//void komodo_prefetch(FILE *fp);
 
 DBErrors CWallet::LoadWallet(bool& fFirstRunRet)
 {

@@ -831,12 +831,13 @@ UniValue TokenList()
     };
 
 	SetCCtxids(txids, cp->normaladdr, false, cp->evalcode, 0, zeroid, 'c');                      // find by old normal addr marker
+    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "cp->normaladdr=" << cp->normaladdr << " SetCCtxids txids.size()=" << txids.size() << std::endl);
    	for (std::vector<uint256>::const_iterator it = txids.begin(); it != txids.end(); it++) 	{
         addTokenId(*it);
 	}
 
     SetCCunspents(unspentOutputs, cp->unspendableCCaddr, true);    // find by burnable validated cc addr marker
-    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
+    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "cp->unspendableCCaddr=" << cp->unspendableCCaddr << " SetCCunspents unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
         addTokenId(it->first.txhash);
     }
@@ -929,7 +930,7 @@ UniValue TokenV2List(const UniValue &params)
             std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
             SetCCunspentsCCIndex(unspentOutputs, cp->unspendableCCaddr, zeroid);    // find by burnable validated cc addr marker
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetCCunspentsCCIndex unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " cp->unspendableCCaddr=" << cp->unspendableCCaddr << " SetCCunspentsCCIndex unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
             for (const auto &it : unspentOutputs) {
                 LOCK(cs_main);
                 if (IsTxidInActiveChain(it.first.creationid))
@@ -941,7 +942,7 @@ UniValue TokenV2List(const UniValue &params)
             std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 
             SetCCunspents(unspentOutputs, cp->unspendableCCaddr, CC_OUTPUTS_TRUE);
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetCCunspents unspentOutputs.size()=" << unspentOutputs.size() << std::endl);    
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " cp->unspendableCCaddr=" << cp->unspendableCCaddr << " SetCCunspents unspentOutputs.size()=" << unspentOutputs.size() << std::endl);    
             for (const auto &it : unspentOutputs) {
                 CTransaction creationtx;
                 uint256 hashBlock;

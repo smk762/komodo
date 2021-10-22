@@ -16,24 +16,13 @@
 /*
  CCutils has low level functions that are universally useful for all contracts.
  */
-
+#include "key_io.h"
+#include "komodo_defs.h"
+#include "komodo_structs.h"
 #include "CCinclude.h"
 #include "CCtokens.h"
-#include "komodo_structs.h"
-#include "komodo_defs.h"
-#include "key_io.h"
-
 
 thread_local CCERROR CCerror = "";
-
-#ifdef TESTMODE           
-    #define MIN_NON_NOTARIZED_CONFIRMS 2
-#else
-    #define MIN_NON_NOTARIZED_CONFIRMS 101
-#endif // TESTMODE
-int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
-struct komodo_state *komodo_stateptr(char *symbol,char *dest);
-extern uint32_t KOMODO_DPOWCONFS;
 
 void endiancpy(uint8_t *dest,uint8_t *src,int32_t len)
 {
@@ -846,94 +835,6 @@ uint256 BitcoinGetProofMerkleRoot(const std::vector<uint8_t> &proofData, std::ve
     return merkleBlock.txn.ExtractMatches(txids);
 }
 
-int64_t komodo_get_blocktime(uint256 hashBlock)
-{
-    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
-    if (mi != mapBlockIndex.end() && (*mi).second)
-    {
-        CBlockIndex* pindex = (*mi).second;
-        if (chainActive.Contains(pindex))
-            return pindex->GetBlockTime();
-    }
-    return 0;
-}
-
-extern struct NSPV_inforesp NSPV_inforesult;
-int32_t komodo_get_current_height()
-{
-    if ( KOMODO_NSPV_SUPERLITE )
-    {
-        return (NSPV_inforesult.height);
-    }
-    else return chainActive.LastTip()->GetHeight();
-}
-
-bool komodo_txnotarizedconfirmed(uint256 txid, int32_t minconfirms)
-{
-    char str[65];
-    int32_t confirms,minimumconfirms,notarized=0,txheight=0,currentheight=0;;
-    CTransaction tx;
-    uint256 hashBlock;
-    CBlockIndex *pindex;    
-    char symbol[KOMODO_ASSETCHAIN_MAXLEN],dest[KOMODO_ASSETCHAIN_MAXLEN]; struct komodo_state *sp;
-
-    if (minconfirms==0) return (true);
-    if ( KOMODO_NSPV_SUPERLITE )
-    {
-        if ( NSPV_myGetTransaction(txid,tx,hashBlock,txheight,currentheight) == 0 )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed cant find txid %s\n",txid.ToString().c_str());
-            return(0);
-        }
-        else if (txheight<=0)
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed no txheight.%d for txid %s\n",txheight,txid.ToString().c_str());
-            return(0);
-        }
-        else if (txheight>currentheight)
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed backwards heights for txid %s hts.(%d %d)\n",txid.ToString().c_str(),txheight,currentheight);
-            return(0);
-        }
-        confirms=1 + currentheight - txheight;
-    }
-    else
-    {
-        if ( myGetTransaction(txid,tx,hashBlock) == 0 )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed cant find txid %s\n",txid.ToString().c_str());
-            return(0);
-        }
-        else if ( hashBlock == zeroid )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed no hashBlock for txid %s\n",txid.ToString().c_str());
-            return(0);
-        }
-        else if ( (pindex= komodo_blockindex(hashBlock)) == 0 || (txheight= pindex->GetHeight()) <= 0 )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed no txheight.%d %p for txid %s\n",txheight,pindex,txid.ToString().c_str());
-            return(0);
-        }
-        else if ( (pindex= chainActive.LastTip()) == 0 || pindex->GetHeight() < txheight )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed backwards heights for txid %s hts.(%d %d)\n",txid.ToString().c_str(),txheight,(int32_t)pindex->GetHeight());
-            return(0);
-        }    
-        confirms=1 + pindex->GetHeight() - txheight;
-    }
-    if (minconfirms>1) minimumconfirms=minconfirms;
-    else minimumconfirms=MIN_NON_NOTARIZED_CONFIRMS;
-    if ((sp= komodo_stateptr(symbol,dest)) != 0 && (notarized=sp->NOTARIZED_HEIGHT) > 0 && txheight > sp->NOTARIZED_HEIGHT)  notarized=0;            
-#ifdef TESTMODE           
-    notarized=0;
-#endif //TESTMODE
-    if (notarized>0 && confirms > 1)
-        return (true);
-    else if (notarized==0 && confirms >= minimumconfirms)
-        return (true);
-    return (false);
-}
-
 CPubKey check_signing_pubkey(CScript scriptSig)
 {
 	bool found = false;
@@ -1235,54 +1136,6 @@ uint8_t *SuperNET_ciphercalc(uint8_t **ptrp,int32_t *cipherlenp,bits256 privkey,
     return(origptr);
 }
 
-uint8_t *komodo_DEX_encrypt(uint8_t **allocatedp,uint8_t *data,int32_t *datalenp,bits256 destpubkey,bits256 privkey)
-{
-     int32_t cipherlen; uint8_t *cipher;
-    cipher = SuperNET_ciphercalc(allocatedp,&cipherlen,privkey,destpubkey,data,*datalenp);
-    *datalenp = cipherlen;
-    return(cipher);
-}
-
-uint8_t *komodo_DEX_decrypt(uint8_t *senderpub,uint8_t **allocatedp,uint8_t *data,int32_t *datalenp,bits256 privkey)
-{
-    int32_t msglen;
-    *allocatedp = 0;
-    if ( (msglen= *datalenp) <= crypto_box_NONCEBYTES + crypto_box_ZEROBYTES + sizeof(bits256) )
-    {
-        *datalenp = 0;
-        return(0);
-    }
-    if ( (data= SuperNET_deciphercalc(senderpub,allocatedp,&msglen,privkey,data,*datalenp)) == 0 )
-    {
-        //printf("komodo_DEX_decrypt decrytion error\n");
-        *datalenp = 0;
-        return(0);
-    } else *datalenp = msglen;
-    return(data);
-}
-
-void komodo_DEX_privkey(bits256 &privkey)
-{
-    bits256 priv,hash;
-    Myprivkey(priv.bytes);
-    vcalc_sha256(0,hash.bytes,priv.bytes,32);
-    vcalc_sha256(0,privkey.bytes,hash.bytes,32);
-    memset(priv.bytes,0,sizeof(priv));
-    memset(hash.bytes,0,sizeof(hash));
-}
-
-void komodo_DEX_pubkey(bits256 &pubkey)
-{
-    bits256 privkey;
-    komodo_DEX_privkey(privkey);
-    /*{
-        char *bits256_str(char hexstr[65],bits256 x);
-        char str[65];
-        fprintf(stderr,"new DEX_privkey %s\n",bits256_str(str,privkey));
-    }*/
-    pubkey = curve25519(privkey,curve25519_basepoint9());
-    memset(privkey.bytes,0,sizeof(privkey));
-}
 
 // add probe vintx conditions for making CCSig in FinalizeCCTx
 void CCAddVintxCond(struct CCcontract_info *cp, const CCwrapper &condWrapped, const uint8_t *priv)

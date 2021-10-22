@@ -12,9 +12,12 @@
  * Removal or modification of this copyright notice is prohibited.            *
  *                                                                            *
  ******************************************************************************/
-#include "komodo_defs.h"
 #include "key_io.h"
+#include "net.h"
+#include "util.h"
+#include "komodo_defs.h"
 #include "cc/CCinclude.h"
+#include "importcoin.h"
 #include <string.h>
 
 #ifdef _WIN32
@@ -1669,10 +1672,6 @@ uint64_t komodo_ac_block_subsidy(int nHeight)
     return(subsidy);
 }
 
-extern int64_t MAX_MONEY;
-void komodo_cbopretupdate(int32_t forceflag);
-void SplitStr(const std::string& strVal, std::vector<std::string> &outVals);
-
 int8_t equihash_params_possible(uint64_t n, uint64_t k)
 {
     /* To add more of these you also need to edit:
@@ -1772,10 +1771,10 @@ void komodo_args(char *argv0)
     ASSETCHAINS_PUBLIC = GetArg("-ac_public",0);
     ASSETCHAINS_PRIVATE = GetArg("-ac_private",0);
     KOMODO_SNAPSHOT_INTERVAL = GetArg("-ac_snapshot",0);
-    Split(GetArg("-ac_nk",""), sizeof(ASSETCHAINS_NK)/sizeof(*ASSETCHAINS_NK), ASSETCHAINS_NK, 0);
+    SplitIntoU64List(GetArg("-ac_nk",""), sizeof(ASSETCHAINS_NK)/sizeof(*ASSETCHAINS_NK), ASSETCHAINS_NK, 0);
     
     // -ac_ccactivateht=evalcode,height,evalcode,height,evalcode,height....
-    Split(GetArg("-ac_ccactivateht",""), sizeof(ccEnablesHeight)/sizeof(*ccEnablesHeight), ccEnablesHeight, 0);
+    SplitIntoU64List(GetArg("-ac_ccactivateht",""), sizeof(ccEnablesHeight)/sizeof(*ccEnablesHeight), ccEnablesHeight, 0);
     // fill map with all eval codes and activation height of 0.
     for ( int i = 0; i < 256; i++ )
         mapHeightEvalActivate[i] = 0;
@@ -1849,11 +1848,11 @@ void komodo_args(char *argv0)
             ASSETCHAINS_TIMEUNLOCKFROM = ASSETCHAINS_TIMEUNLOCKTO = 0;
         }
 
-        Split(GetArg("-ac_end",""), sizeof(ASSETCHAINS_ENDSUBSIDY)/sizeof(*ASSETCHAINS_ENDSUBSIDY),  ASSETCHAINS_ENDSUBSIDY, 0);
-        Split(GetArg("-ac_reward",""), sizeof(ASSETCHAINS_REWARD)/sizeof(*ASSETCHAINS_REWARD),  ASSETCHAINS_REWARD, 0);
-        Split(GetArg("-ac_halving",""), sizeof(ASSETCHAINS_HALVING)/sizeof(*ASSETCHAINS_HALVING),  ASSETCHAINS_HALVING, 0);
-        Split(GetArg("-ac_decay",""), sizeof(ASSETCHAINS_DECAY)/sizeof(*ASSETCHAINS_DECAY),  ASSETCHAINS_DECAY, 0);
-        Split(GetArg("-ac_notarypay",""), sizeof(ASSETCHAINS_NOTARY_PAY)/sizeof(*ASSETCHAINS_NOTARY_PAY),  ASSETCHAINS_NOTARY_PAY, 0);
+        SplitIntoU64List(GetArg("-ac_end",""), sizeof(ASSETCHAINS_ENDSUBSIDY)/sizeof(*ASSETCHAINS_ENDSUBSIDY),  ASSETCHAINS_ENDSUBSIDY, 0);
+        SplitIntoU64List(GetArg("-ac_reward",""), sizeof(ASSETCHAINS_REWARD)/sizeof(*ASSETCHAINS_REWARD),  ASSETCHAINS_REWARD, 0);
+        SplitIntoU64List(GetArg("-ac_halving",""), sizeof(ASSETCHAINS_HALVING)/sizeof(*ASSETCHAINS_HALVING),  ASSETCHAINS_HALVING, 0);
+        SplitIntoU64List(GetArg("-ac_decay",""), sizeof(ASSETCHAINS_DECAY)/sizeof(*ASSETCHAINS_DECAY),  ASSETCHAINS_DECAY, 0);
+        SplitIntoU64List(GetArg("-ac_notarypay",""), sizeof(ASSETCHAINS_NOTARY_PAY)/sizeof(*ASSETCHAINS_NOTARY_PAY),  ASSETCHAINS_NOTARY_PAY, 0);
 
         for ( int i = 0; i < ASSETCHAINS_MAX_ERAS; i++ )
         {
@@ -1923,7 +1922,7 @@ void komodo_args(char *argv0)
         {
             uint8_t prevCCi = 0;
             ASSETCHAINS_CCLIB = GetArg("-ac_cclib","");
-            Split(GetArg("-ac_ccenable",""), sizeof(ccenables)/sizeof(*ccenables),  ccenables, 0);
+            SplitIntoU64List(GetArg("-ac_ccenable",""), sizeof(ccenables)/sizeof(*ccenables),  ccenables, 0);
             for (i=nonz=0; i<0x100; i++)
             {
                 if ( ccenables[i] != prevCCi && ccenables[i] != 0 )
@@ -1989,7 +1988,7 @@ void komodo_args(char *argv0)
         }
         else if ( ASSETCHAINS_SELFIMPORT == "PEGSCC")
         {
-            Split(GetArg("-ac_pegsccparams",""), sizeof(ASSETCHAINS_PEGSCCPARAMS)/sizeof(*ASSETCHAINS_PEGSCCPARAMS), ASSETCHAINS_PEGSCCPARAMS, 0);
+            SplitIntoU64List(GetArg("-ac_pegsccparams",""), sizeof(ASSETCHAINS_PEGSCCPARAMS)/sizeof(*ASSETCHAINS_PEGSCCPARAMS), ASSETCHAINS_PEGSCCPARAMS, 0);
             if (ASSETCHAINS_ENDSUBSIDY[0]!=1 || ASSETCHAINS_COMMISSION!=0)
             {
                 fprintf(stderr,"when using import for pegsCC these must be set: -ac_end=1 -ac_perc=0\n");
@@ -2655,4 +2654,3 @@ uint32_t komodo_next_tx_locktime()
     else
         return (uint32_t)chainActive.Tip()->GetMedianTimePast();
 }
-

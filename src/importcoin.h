@@ -122,4 +122,7 @@ bool CheckVinPubKey(const CTransaction &sourcetx, int32_t i, uint8_t pubkey33[33
 CMutableTransaction MakeSelfImportSourceTx(CTxDestination &dest, int64_t amount);
 int32_t GetSelfimportProof(const CMutableTransaction sourceMtx, CMutableTransaction &templateMtx, ImportProof &proofNull);
 
+extern std::string ASSETCHAINS_SELFIMPORT;
+extern uint16_t ASSETCHAINS_CODAPORT, ASSETCHAINS_BEAMPORT;
+
 #endif /* IMPORTCOIN_H */

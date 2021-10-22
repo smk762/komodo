@@ -26,6 +26,12 @@
 #ifndef KOMODO_NSPV_H
 #define KOMODO_NSPV_H
 
+#include <stdlib.h>
+#include "main.h"
+#include "komodo_defs.h"
+#include "cc/CCinclude.h"
+#include "komodo_nSPV_defs.h"
+
 int32_t iguana_rwbuf(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *buf)
 {
     if (rwflag != 0)
@@ -228,7 +234,7 @@ int32_t NSPV_rwtxidsresp(int32_t rwflag,uint8_t *serialized,struct NSPV_txidsres
             len += NSPV_rwtxidresp(rwflag,&serialized[len],&ptr->txids[i]);
     }
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->nodeheight),&ptr->nodeheight);
-    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->filter),&ptr->filter);
+    len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->maxrecords),&ptr->maxrecords);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->CCflag),&ptr->CCflag);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->skipcount),&ptr->skipcount);
     if ( rwflag != 0 )
