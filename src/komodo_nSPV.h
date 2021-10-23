@@ -651,7 +651,7 @@ uint256 NSPV_opretextract(int32_t *heightp,uint256 *blockhashp,char *symbol,std:
 
 int32_t NSPV_notarizationextract(int32_t verifyntz,int32_t *ntzheightp,uint256 *blockhashp,uint256 *desttxidp,CTransaction tx)
 {
-    int32_t numsigs=0; uint8_t elected[64][33]; char *symbol; std::vector<uint8_t> opret; uint32_t nTime;
+    char *symbol; std::vector<uint8_t> opret;
     AssertLockHeld(cs_main);
 
     if ( tx.vout.size() >= 2 )
@@ -662,13 +662,19 @@ int32_t NSPV_notarizationextract(int32_t verifyntz,int32_t *ntzheightp,uint256 *
         {
             //sleep(1); // needed to avoid no pnodes error
             *desttxidp = NSPV_opretextract(ntzheightp,blockhashp,symbol,opret,tx.GetHash());
-            nTime = NSPV_blocktime(*ntzheightp);
-            komodo_notaries(elected,*ntzheightp,nTime);
-            if ( verifyntz != 0 && (numsigs= NSPV_fastnotariescount(tx,elected,nTime)) < 12 )
+            if (verifyntz != 0)   
             {
-                LogPrintf("%s error numsigs.%d less than 12\n", __func__, numsigs);
-                return(-3);
-            } 
+                uint32_t nTime = NSPV_blocktime(*ntzheightp);
+                int32_t numsigs=0; 
+                uint8_t elected[64][33]; 
+
+                komodo_notaries(elected,*ntzheightp,nTime);
+                if ((numsigs= NSPV_fastnotariescount(tx,elected,nTime)) < 12 )
+                {
+                    LogPrintf("%s error notaries numsigs.%d less than required min 12\n", __func__, numsigs);
+                    return(-3);
+                } 
+            }
             return(0);
         }
         else
