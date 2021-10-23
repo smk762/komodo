@@ -1184,7 +1184,7 @@ static const CRPCCommand commands[] =
     { "tokens v2",       "mytokenv2orders",    &mytokenv2orders,     true },
     { "tokens",       "tokenaddress",     &tokenaddress,      true },
     { "tokens v2",       "tokenv2address",   &tokenv2address,      true },
-//    { "tokens v2",       "tokenv2indexkey",   &tokenv2indexkey,      true },
+    { "tokens v2",       "tokenv2indexkey",   &tokenv2indexkey,      true },
     { "tokens",       "tokenbalance",     &tokenbalance,      true },
     { "tokens v2",       "tokenv2balance",   &tokenv2balance,      true },
     { "tokens",       "tokenallbalances",     &tokenallbalances,      true },
