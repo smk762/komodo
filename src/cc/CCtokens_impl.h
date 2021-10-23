@@ -575,16 +575,16 @@ UniValue GetAllTokenBalances(CPubKey pk, bool useMempool)
             LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << funcname << "()" << " checking tx vout destaddress=" << destaddr << " amount=" << tx.vout[index].nValue << std::endl);
 
             uint8_t funcId = 0;
-            uint256 tokenIdInOpret;
+            uint256 tokenIdOut;
             CScript opret;
             std::string errorStr;
 
-            CAmount retAmount = V::CheckTokensvout(cp, NULL, tx, index, opret, tokenIdInOpret, funcId, errorStr);
+            CAmount retAmount = V::CheckTokensvout(cp, NULL, tx, index, opret, tokenIdOut, funcId, errorStr);
 
 			if (retAmount > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, txhash, index))
-			{                
-                CAmount prevAmount = result[tokenIdInOpret.GetHex()].get_int64();                
-                mapBalances[tokenIdInOpret] += retAmount;
+			{           
+                CAmount prevAmount = mapBalances[tokenIdOut]; 
+                mapBalances[tokenIdOut] = prevAmount + retAmount;
 			}
 		}
     }; // auto add_token_amount
@@ -615,8 +615,11 @@ UniValue GetAllTokenBalances(CPubKey pk, bool useMempool)
             add_token_amount(it->first.txhash, it->first.index, it->second.satoshis);
     }
 
-    for(auto const &m : mapBalances)
-        result.pushKV(m.first.GetHex(), m.second);
+    for(auto const &m : mapBalances)  {
+        UniValue elem(UniValue::VOBJ);
+        elem.pushKV(m.first.GetHex(), m.second);
+        result.push_back(elem);
+     }
 
 	return result;
 }
