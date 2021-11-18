@@ -63,6 +63,8 @@
 #include "komodo_defs.h"
 #include <string.h>
 
+#include "rpcwallet.h"
+
 #include "../cc/CCfaucet.h"
 #include "../cc/CCrewards.h"
 #include "../cc/CCdice.h"
@@ -81,16 +83,8 @@ using namespace std;
 
 using namespace libzcash;
 
-extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
-extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
 const std::string ADDR_TYPE_SPROUT = "sprout";
 const std::string ADDR_TYPE_SAPLING = "sapling";
-extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
-extern int32_t KOMODO_INSYNC;
-uint32_t komodo_segid32(char *coinaddr);
-int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
-int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime); // from ac_private chains only
-CBlockIndex *komodo_getblockindex(uint256 hash);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
@@ -101,8 +95,6 @@ UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
 #define PLAN_NAME_MAX   8
 #define VALID_PLAN_NAME(x)  (strlen(x) <= PLAN_NAME_MAX)
 #define THROW_IF_SYNCING(INSYNC)  if (INSYNC == 0) { throw runtime_error(strprintf("%s: Chain still syncing at height %d, aborting to prevent linkability analysis!",__FUNCTION__,chainActive.Tip()->GetHeight())); }
-
-int tx_height( const uint256 &hash );
 
 std::string HelpRequiringPassphrase()
 {
@@ -471,7 +463,7 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp, const CPubKey
     return ret;
 }
 
-static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, CWalletTx& wtxNew,uint8_t *opretbuf,int32_t opretlen,long int opretValue)
+static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, CWalletTx& wtxNew,uint8_t *opretbuf,int32_t opretlen,long int opretValue, int64_t unlockTime = 0LL)
 {
     CAmount curBalance = pwalletMain->GetBalance();
 
@@ -482,8 +474,17 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
     if (nValue > curBalance)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
-    // Parse Zcash address
-    CScript scriptPubKey = GetScriptForDestination(address);
+    // make scriptPubKey for destination
+    CScriptExt scriptPubKey;
+    if (unlockTime == 0) 
+        scriptPubKey = GetScriptForDestination(address);
+    else  {
+        CKeyID keyid; 
+        if (CBitcoinAddress(address).GetKeyID(keyid))
+            scriptPubKey.TimeLockSpend(keyid, unlockTime);
+    }
+    if (scriptPubKey.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid destination");
 
     // Create and send the transaction
     CReserveKey reservekey(pwalletMain);
@@ -515,21 +516,19 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of wallet.dat and coins were spent in the copy but not marked as spent here.");
 }
 
-int32_t komodo_opreturnscript(uint8_t *script,uint8_t type,uint8_t *opret,int32_t opretlen);
-
 UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
-    uint8_t opretbuf[IGUANA_MAXSCRIPTSIZE],opretscript[IGUANA_MAXSCRIPTSIZE],*opret=0; char *oprethexstr; int32_t len,opretlen = 0;
+    uint8_t opretbuf[IGUANA_MAXSCRIPTSIZE],opretscript[IGUANA_MAXSCRIPTSIZE],*opret=0; char *oprethexstr; int32_t len, opretlen = 0;
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || params.size() < 2 || params.size() > 6)
         throw runtime_error(
-            "sendtoaddress \"" + strprintf("%s",komodo_chainname()) + "_address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
+            "sendtoaddress \"" + strprintf("%s",komodo_chainname()) + "_address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount unlocktime )\n"
             "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
-            "1. \"" + strprintf("%s",komodo_chainname()) + "_address\"  (string, required) The " + strprintf("%s",komodo_chainname()) + " address to send to.\n"
+            "1. \"" + strprintf("%s", komodo_chainname()) + "_address\"  (string, required) The " + strprintf("%s",komodo_chainname()) + " address to send to.\n"
             "2. \"amount\"      (numeric, required) The amount in " + strprintf("%s",komodo_chainname()) + " to send. eg 0.1\n"
             "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
             "                             This is not part of the transaction, just kept in your wallet.\n"
@@ -537,13 +536,15 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
             "                             to which you're sending the transaction. This is not part of the \n"
             "                             transaction, just kept in your wallet.\n"
             "5. subtractfeefromamount  (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
-            "                             The recipient will receive less " + strprintf("%s",komodo_chainname()) + " than you enter in the amount field.\n6. oprethexstr"
+            "                             The recipient will receive less " + strprintf("%s",komodo_chainname()) + " than you enter in the amount field.\n"
+            "6. oprethexstr\n"
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
             + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1")
             + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1 \"donation\" \"seans outpost\"")
             + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1 \"\" \"\" true")
+// test cltv: + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1 \"donation\" \"seans outpost\" false \"\" 1634663625")
             + HelpExampleRpc("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\", 0.1, \"donation\", \"seans outpost\"")
         );
 
@@ -576,46 +577,31 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     bool fSubtractFeeFromAmount = false;
     if (params.size() > 4)
         fSubtractFeeFromAmount = params[4].get_bool();
-    if (params.size() > 5)
-    {
-        oprethexstr = (char *)params[5].get_str().c_str();
-        if ( (len= is_hexstr(oprethexstr,0)) > 1 && len <= sizeof(opretbuf)*2 )
-        {
+    if (params.size() > 5) {
+        oprethexstr = (char*)params[5].get_str().c_str();
+        if ((len = is_hexstr(oprethexstr, 0)) > 1 && len <= sizeof(opretbuf) * 2) {
             len >>= 1;
-            decode_hex(opretbuf,len,oprethexstr);
-            opretlen = komodo_opreturnscript(opretscript,0x00,opretbuf,len);
+            decode_hex(opretbuf, len, oprethexstr);
+            opretlen = komodo_opreturnscript(opretscript, 0x00, opretbuf, len);
             opret = opretscript;
-        } else opretlen = 0;
+        } else
+            opretlen = 0;
     }
+
+    /* test cltv coins:
+    int64_t unlockTime = 0LL;
+    if (params.size() > 6)  {
+        unlockTime = atoll(params[6].get_str().c_str());
+        if (unlockTime < 0LL)
+            throw JSONRPCError(RPC_TYPE_ERROR, "invalid unlock time");
+    } */
+
     EnsureWalletIsUnlocked();
 
-    SendMoney(dest, nAmount, fSubtractFeeFromAmount, wtx,opret,opretlen,0);
+    SendMoney(dest, nAmount, fSubtractFeeFromAmount, wtx, opret, opretlen, 0, 0LL);
 
     return wtx.GetHash().GetHex();
 }
-
-#include "komodo_defs.h"
-
-#define KOMODO_KVPROTECTED 1
-#define KOMODO_KVBINARY 2
-#define KOMODO_KVDURATION 1440
-#define IGUANA_MAXSCRIPTSIZE 10001
-uint64_t PAX_fiatdest(uint64_t *seedp,int32_t tokomodo,char *destaddr,uint8_t pubkey37[37],char *coinaddr,int32_t height,char *base,int64_t fiatoshis);
-int32_t komodo_opreturnscript(uint8_t *script,uint8_t type,uint8_t *opret,int32_t opretlen);
-#define CRYPTO777_KMDADDR "RXL3YXG2ceaB6C5hfJcN4fvmLH2C34knhA"
-extern int32_t KOMODO_PAX;
-extern uint64_t KOMODO_INTERESTSUM,KOMODO_WALLETBALANCE;
-int32_t komodo_is_issuer();
-int32_t iguana_rwnum(int32_t rwflag,uint8_t *serialized,int32_t len,void *endianedp);
-int32_t komodo_isrealtime(int32_t *kmdheightp);
-int32_t pax_fiatstatus(uint64_t *available,uint64_t *deposited,uint64_t *issued,uint64_t *withdrawn,uint64_t *approved,uint64_t *redeemed,char *base);
-int32_t komodo_kvsearch(uint256 *refpubkeyp,int32_t current_height,uint32_t *flagsp,int32_t *heightp,uint8_t value[IGUANA_MAXSCRIPTSIZE],uint8_t *key,int32_t keylen);
-int32_t komodo_kvcmp(uint8_t *refvalue,uint16_t refvaluesize,uint8_t *value,uint16_t valuesize);
-uint64_t komodo_kvfee(uint32_t flags,int32_t opretlen,int32_t keylen);
-uint256 komodo_kvsig(uint8_t *buf,int32_t len,uint256 privkey);
-int32_t komodo_kvduration(uint32_t flags);
-uint256 komodo_kvprivkey(uint256 *pubkeyp,char *passphrase);
-int32_t komodo_kvsigverify(uint8_t *buf,int32_t len,uint256 _pubkey,uint256 sig);
 
 UniValue kvupdate(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
@@ -870,14 +856,27 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp, const CPubKey&
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    int64_t txLockTime = komodo_next_tx_locktime();
     UniValue jsonGroupings(UniValue::VARR);
-    std::map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
-    for (const std::set<CTxDestination>& grouping : pwalletMain->GetAddressGroupings()) {
+    std::map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances(txLockTime);
+    for (const std::set<CTxDestination>& grouping : pwalletMain->GetAddressGroupings(txLockTime)) {
         UniValue jsonGrouping(UniValue::VARR);
         for (const CTxDestination& address : grouping)
         {
             UniValue addressInfo(UniValue::VARR);
             addressInfo.push_back(EncodeDestination(address));
+            if (address.which() == TX_CLTV)   {
+                const CCLTVID &cltv = boost::get<CCLTVID>(address);
+                if (cltv.IsUnlocked())
+                    addressInfo.push_back("CLTV-spendable");
+                else {
+                    addressInfo.push_back("CLTV-locked");
+                    if (cltv.GetUnlockTime() > LOCKTIME_THRESHOLD)
+                        addressInfo.push_back( strprintf("%lld (%s)", cltv.GetUnlockTime(), DateTimeStrFormat("%Y-%m-%d %H:%M:%S UTC", cltv.GetUnlockTime())) );
+                    else 
+                        addressInfo.push_back( strprintf("%lld", cltv.GetUnlockTime()) );
+                }
+            }
             addressInfo.push_back(ValueFromAmount(balances[address]));
             {
                 if (pwalletMain->mapAddressBook.find(address) != pwalletMain->mapAddressBook.end()) {
@@ -5514,9 +5513,9 @@ UniValue z_listoperationids(const UniValue& params, bool fHelp, const CPubKey& m
 }
 
 
-#include "script/sign.h"
-int32_t decode_hex(uint8_t *bytes,int32_t n,char *hex);
-extern std::string NOTARY_PUBKEY;
+//#include "script/sign.h"
+//int32_t decode_hex(uint8_t *bytes,int32_t n,char *hex);
+//extern std::string NOTARY_PUBKEY;
 
 int32_t komodo_notaryvin(CMutableTransaction &txNew,uint8_t *notarypub33, void *pTr)
 {

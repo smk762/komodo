@@ -17,6 +17,15 @@
 #ifndef KOMODO_NSPVSUPERLITE_H
 #define KOMODO_NSPVSUPERLITE_H
 
+#include <string>
+
+#include "main.h"
+#include "komodo_defs.h"
+#include "notarisationdb.h"
+#include "rpc/server.h"
+#include "cc/CCinclude.h"
+#include "komodo_nSPV_defs.h"
+#include "komodo_nSPV.h"
 #include "komodo_DEX.h"
 
 // nSPV client. VERY simplistic "single threaded" networking model. for production GUI best to multithread, etc.
@@ -231,17 +240,17 @@ CNode *NSPV_req(CNode *pnode,uint8_t *msg,int32_t len,uint64_t mask,int32_t ind)
         n = 0;
         BOOST_FOREACH(CNode *ptr,vNodes)
         {
-            if ( ptr->prevtimes[ind] > timestamp )
-                ptr->prevtimes[ind] = 0;
+            if ( ptr->nspvdata[ind].prevtime > timestamp )
+                ptr->nspvdata[ind].prevtime = 0;
             if ( ptr->hSocket == INVALID_SOCKET )
                 continue;
-            if ( (ptr->nServices & mask) == mask && timestamp > ptr->prevtimes[ind] )
+            if ( (ptr->nServices & mask) == mask && timestamp > ptr->nspvdata[ind].prevtime )
             {
                 flag = 1;
                 pnodes[n++] = ptr;
                 if ( n == sizeof(pnodes)/sizeof(*pnodes) )
                     break;
-            } // else fprintf(stderr,"nServices %llx vs mask %llx, t%u vs %u, ind.%d\n",(long long)ptr->nServices,(long long)mask,timestamp,ptr->prevtimes[ind],ind);
+            } // else fprintf(stderr,"nServices %llx vs mask %llx, t%u vs %u, ind.%d\n",(long long)ptr->nServices,(long long)mask,timestamp,ptr->nspvdata[ind].prevtime,ind);
         }
         if ( n > 0 )
             pnode = pnodes[rand() % n];
@@ -254,7 +263,7 @@ CNode *NSPV_req(CNode *pnode,uint8_t *msg,int32_t len,uint64_t mask,int32_t ind)
         if ( (0) && KOMODO_NSPV_SUPERLITE )
             fprintf(stderr,"pushmessage [%d] len.%d\n",msg[0],len);
         pnode->PushMessage("getnSPV",request);
-        pnode->prevtimes[ind] = timestamp;
+        pnode->nspvdata[ind].prevtime = timestamp;
         return(pnode);
     } else fprintf(stderr,"no pnodes\n");
     return(0);
@@ -285,11 +294,11 @@ void komodo_nSPV(CNode *pto) // polling loop from SendMessages
         NSPV_logout();
     if ( (pto->nServices & NODE_NSPV) == 0 )
         return;
-    if ( pto->prevtimes[NSPV_INFO>>1] > timestamp )
-        pto->prevtimes[NSPV_INFO>>1] = 0;
+    if ( pto->nspvdata[NSPV_INFO>>1].prevtime > timestamp )
+        pto->nspvdata[NSPV_INFO>>1].prevtime = 0;
     if ( KOMODO_NSPV_SUPERLITE )
     {
-        if ( timestamp > NSPV_lastinfo + ASSETCHAINS_BLOCKTIME/2 && timestamp > pto->prevtimes[NSPV_INFO>>1] + 2*ASSETCHAINS_BLOCKTIME/3 )
+        if ( timestamp > NSPV_lastinfo + ASSETCHAINS_BLOCKTIME/2 && timestamp > pto->nspvdata[NSPV_INFO>>1].prevtime + 2*ASSETCHAINS_BLOCKTIME/3 )
         {
             int32_t reqht;
             reqht = 0;
@@ -395,6 +404,8 @@ UniValue NSPV_utxoresp_json(struct NSPV_utxoresp *utxos,int32_t numutxos)
         item.push_back(Pair("value",(double)utxos[i].satoshis/COIN));
         if ( ASSETCHAINS_SYMBOL[0] == 0 )
             item.push_back(Pair("interest",(double)utxos[i].extradata/COIN));
+        if (utxos[i].script)
+            item.push_back(Pair("script", HexStr(utxos[i].script, utxos[i].script+utxos[i].script_size)));
         array.push_back(item);
     }
     return(array);
@@ -412,7 +423,7 @@ UniValue NSPV_utxosresp_json(struct NSPV_utxosresp *ptr)
     result.push_back(Pair("balance",(double)ptr->total/COIN));
     if ( ASSETCHAINS_SYMBOL[0] == 0 )
         result.push_back(Pair("interest",(double)ptr->interest/COIN));
-    result.push_back(Pair("filter",(int64_t)ptr->filter));
+    result.push_back(Pair("maxrecords",(int64_t)ptr->maxrecords));
     result.push_back(Pair("lastpeer",NSPV_lastpeer));
     return(result);
 }
@@ -426,9 +437,10 @@ UniValue NSPV_txidresp_json(struct NSPV_txidresp *utxos,int32_t numutxos)
         item.push_back(Pair("height",(int64_t)utxos[i].height));
         item.push_back(Pair("txid",utxos[i].txid.GetHex()));
         item.push_back(Pair("value",(double)utxos[i].satoshis/COIN));
-        if ( utxos[i].satoshis > 0 )
-            item.push_back(Pair("vout",(int64_t)utxos[i].vout));
-        else item.push_back(Pair("vin",(int64_t)utxos[i].vout));
+        if (utxos[i].satoshis > 0)
+            item.push_back(Pair("vout", (int64_t)utxos[i].vout));
+        else
+            item.push_back(Pair("vin", (int64_t)utxos[i].vout));
         array.push_back(item);
     }
     return(array);
@@ -443,7 +455,7 @@ UniValue NSPV_txidsresp_json(struct NSPV_txidsresp *ptr)
     result.push_back(Pair("isCC",ptr->CCflag));
     result.push_back(Pair("height",(int64_t)ptr->nodeheight));
     result.push_back(Pair("numtxids",(int64_t)ptr->numtxids));
-    result.push_back(Pair("filter",(int64_t)ptr->filter));
+    result.push_back(Pair("maxrecords",(int64_t)ptr->maxrecords));
     result.push_back(Pair("lastpeer",NSPV_lastpeer));
     return(result);
 }

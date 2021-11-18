@@ -281,7 +281,7 @@ obj/build.h: FORCE
 	$(abs_top_srcdir)
 libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
 
-# server: zcashd
+# server: komodod
 libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
 libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_server_a_SOURCES = \
@@ -795,4 +795,84 @@ include Makefile.ktest.include
 include Makefile.kcctest.include
 #include Makefile.test.include
 #include Makefile.gtest.include
+endif
+
+# build custom executables with customised params
+if BUILD_CUSTOM_BIN
+# include Makefile.tokel.include
+
+# custom server lib compiled with -DCUSTOM_BIN_NAME -DCUSTOM_SERVER_ARGS
+LIBCUSTOM_SERVER=libcustom_server.a -lcurl
+libcustom_server_a_CPPFLAGS = $(libbitcoin_server_a_CPPFLAGS) -DCUSTOM_BIN_NAME=\"$(CUSTOM_BIN_NAME)\" -DCUSTOM_BRAND_NAME=\"$(CUSTOM_BRAND_NAME)\" -DCUSTOM_SERVER_ARGS=\"$(CUSTOM_SERVER_ARGS)\"
+libcustom_server_a_CXXFLAGS = $(libbitcoin_server_a_CXXFLAGS)
+libcustom_server_a_SOURCES = $(libbitcoin_server_a_SOURCES)
+
+EXTRA_LIBRARIES += $(LIBCUSTOM_SERVER)
+
+bin_PROGRAMS += customd
+
+# custom daemon binary #
+customd_SOURCES = $(komodod_SOURCES)
+customd_CPPFLAGS = $(komodod_CPPFLAGS) -DCUSTOM_BIN_NAME=\"$(CUSTOM_BIN_NAME)\" -DCUSTOM_BRAND_NAME=\"$(CUSTOM_BRAND_NAME)\" -DCUSTOM_SERVER_ARGS=\"$(CUSTOM_SERVER_ARGS)\"
+customd_CXXFLAGS = $(komodod_CXXFLAGS)
+customd_LDFLAGS = $(komodod_LDFLAGS)
+customd_LDADD = \
+  $(LIBCUSTOM_SERVER) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBUNIVALUE) \
+  $(LIBBITCOIN_UTIL) \
+  $(LIBBITCOIN_ZMQ) \
+  $(LIBBITCOIN_PROTON) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBVERUS_CRYPTO) \
+  $(LIBVERUS_PORTABLE_CRYPTO) \
+  $(LIBZCASH) \
+  $(LIBSNARK) \
+  $(LIBLEVELDB) \
+  $(LIBMEMENV) \
+  $(LIBSECP256K1) \
+  $(LIBCRYPTOCONDITIONS)
+
+if ENABLE_WALLET
+customd_LDADD += $(LIBBITCOIN_WALLET)
+endif
+
+customd_LDADD += \
+  $(BOOST_LIBS) \
+  $(BDB_LIBS) \
+  $(SSL_LIBS) \
+  $(CRYPTO_LIBS) \
+  $(EVENT_PTHREADS_LIBS) \
+  $(EVENT_LIBS) \
+  $(ZMQ_LIBS) \
+  $(PROTON_LIBS) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBVERUS_CRYPTO) \
+  $(LIBVERUS_PORTABLE_CRYPTO) \
+  $(LIBZCASH_LIBS)
+
+customd_LDADD += $(LIBDYNCUSTOMCONSENSUS) $(LIBSECP256K1)
+
+if ENABLE_PROTON
+customd_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
+endif
+
+customd_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(customd_CXXFLAGS) \
+	$(CXXFLAGS) $(customd_LDFLAGS) $(LDFLAGS) -o $(CUSTOM_BIN_NAME)d$(EXEEXT)
+
+
+bin_PROGRAMS += custom-cli
+
+# custom cli binary #
+custom_cli_SOURCES = $(komodo_cli_SOURCES)
+custom_cli_CPPFLAGS = $(komodo_cli_CPPFLAGS) -DCUSTOM_BIN_NAME=\"$(CUSTOM_BIN_NAME)\" -DCUSTOM_BRAND_NAME=\"$(CUSTOM_BRAND_NAME)\" -DCUSTOM_CLIENT_ARGS=\"$(CUSTOM_CLIENT_ARGS)\"
+custom_cli_CXXFLAGS = $(komodo_cli_CXXFLAGS)
+custom_cli_LDFLAGS =  $(komodo_cli_LDFLAGS)
+custom_cli_LDADD = $(komodo_cli_LDADD)
+
+custom_cli_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(custom_cli_CXXFLAGS) \
+	$(CXXFLAGS) $(custom_cli_LDFLAGS) $(LDFLAGS) -o $(CUSTOM_BIN_NAME)-cli$(EXEEXT)
+
 endif

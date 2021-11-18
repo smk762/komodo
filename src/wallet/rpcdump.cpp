@@ -37,10 +37,9 @@
 
 #include <univalue.h>
 
-using namespace std;
+#include "rpcwallet.h"
 
-void EnsureWalletIsUnlocked();
-bool EnsureWalletIsAvailable(bool avoidException);
+using namespace std;
 
 UniValue dumpwallet_impl(const UniValue& params, bool fHelp, bool fDumpZKeys);
 UniValue importwallet_impl(const UniValue& params, bool fHelp, bool fImportZKeys);
