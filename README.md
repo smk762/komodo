@@ -39,7 +39,7 @@ Tokel is a dedicated token platform. This platform will provide a solid foundati
 The all-in-one Tokel application is an open-sourced application that will be the one stop shop for all Tokel related features. This application is built using nSPV superlite wallet technology that has been developed by the Komodo platform, for an incredibly fast and reliable experience. This application accesses all of the features offered on the Tokel blockchain whilst keeping users funds in their own wallets (completely non-custodial).
 
 This application is in development. You can keep up with progress on the github, or find out more by having a chat in our discord.
-https://github.com/TokelPlatform/tokel_app
+https://github.com/TokelPlatform/tokel_dapp
 
 #### Application features include:
 - A TKL coin wallet
