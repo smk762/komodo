@@ -18,7 +18,7 @@
 
 #include "CCassets.h"
 #include "CCtokens.h"
-
+#include "CCupgrades.h"
 
 /*
  The SetAssetFillamounts() and ValidateAssetRemainder() work in tandem to calculate the vouts for a fill and to validate the vouts, respectively.
@@ -303,6 +303,15 @@ bool AssetsValidateTokenId(Eval *eval, struct CCcontract_info *cp, const CTransa
 }
 
 template<class T>
+bool AssetsValidateTokenId_Activated(Eval *eval, struct CCcontract_info *cpTokens, const CTransaction &tx, int32_t v, uint256 assetid)
+{
+    if (CCUpgrades::IsUpgradeActive(eval->GetCurrentHeight(), CCUpgrades::GetUpgrades(), CCUpgrades::CCASSETS_OPDROP_VALIDATE_FIX))
+        return AssetsValidateTokenId<T>(eval, cpTokens, tx, v, assetid);
+    else
+        return true;
+}
+
+template<class T>
 CAmount AssetsGetTxTokenInputs(Eval *eval, struct CCcontract_info *cpTokens, uint256 tokenid, const CTransaction &tx)
 {
 	CTransaction vinTx; 
@@ -315,7 +324,7 @@ CAmount AssetsGetTxTokenInputs(Eval *eval, struct CCcontract_info *cpTokens, uin
 		{
 			if (eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock))
 			{
-                if (AssetsValidateTokenId<T>(eval, cpTokens, vinTx, tx.vin[i].prevout.n, tokenid))  {
+                if (AssetsValidateTokenId_Activated<T>(eval, cpTokens, vinTx, tx.vin[i].prevout.n, tokenid))  {
                     //std::cerr << __func__ << " adding amount=" << vinTx.vout[tx.vin[i].prevout.n].nValue << " for vin i=" << i << " eval=" << std::hex << (int)cp->evalcode << std::resetiosflags(std::ios::hex) << std::endl;
                     inputs += vinTx.vout[tx.vin[i].prevout.n].nValue;
                 }
