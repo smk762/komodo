@@ -206,7 +206,7 @@ def call_token_rpc_send_tx(rpc, rpcname, stop_error, *args) :
     assert False, 'sendrawtransaction no more retries'
 
 def call_rpc_retry(rpc, rpcname, stop_error, *args) :
-    retries = 24
+    retries = 36
     delay = 10
     rpcfunc = getattr(rpc, rpcname)
     for i in range(retries):
