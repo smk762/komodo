@@ -267,15 +267,15 @@ bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp, uint8_
                 if (strcmp(destaddr, globaladdr) == 0) {
                     privkey = cp->CCpriv;
                     cond.reset(MakeCCcond1(cp->evalcode, globalpk));
-                    std::cerr << __func__ << " vini." << i << " found globaladdress=" << globaladdr << " destaddr=" << destaddr << " strlen=" << strlen(globaladdr) << " evalcode=" << (int)cp->evalcode << std::endl;
+                    //std::cerr << __func__ << " vini." << i << " found globaladdress=" << globaladdr << " destaddr=" << destaddr << " strlen=" << strlen(globaladdr) << " evalcode=" << (int)cp->evalcode << std::endl;
                 } else if (strcmp(destaddr, myccaddr) == 0) {
                     privkey = myprivkey;
                     cond.reset(MakeCCcond1(cp->evalcode, mypk));
-                    std::cerr << __func__ << " vini." << i << " found myccaddr=" << myccaddr << std::endl;
+                    //std::cerr << __func__ << " vini." << i << " found myccaddr=" << myccaddr << std::endl;
                 } else if (strcmp(destaddr, mytokenaddr) == 0) {
                     privkey = myprivkey;
                     cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
-                    std::cerr << __func__ << " vini." << i << " found mytokenaddr=" << mytokenaddr << " evalcode=" << (int)cp->evalcode << std::endl;
+                    //std::cerr << __func__ << " vini." << i << " found mytokenaddr=" << mytokenaddr << " evalcode=" << (int)cp->evalcode << std::endl;
                 } else {
                     const uint8_t nullpriv[32] = {'\0'};
                     // use vector of dest addresses and conds to probe vintxconds
@@ -286,7 +286,7 @@ bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp, uint8_
                             CCtoAnon(anonCond.get());
                             Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), true));
                             if (strcmp(destaddr, coinaddr) == 0) {
-                                std::cerr << __func__ << " vini." << i << " found vintxprobe=" << coinaddr  << " privkey=" << (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0) << std::endl;
+                                //std::cerr << __func__ << " vini." << i << " found vintxprobe=" << coinaddr  << " privkey=" << (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0) << std::endl;
                                 if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
                                     privkey = t.CCpriv;
                                 else
@@ -369,7 +369,7 @@ protected:
                     std::cerr << __func__ << " cc_verify error D" << std::endl;
                     return false;
                 }
-                std::cerr << __func__ << " cc_verify okay for vin.hash=" << vin.prevout.hash.GetHex() << std::endl;
+                //std::cerr << __func__ << " cc_verify okay for vin.hash=" << vin.prevout.hash.GetHex() << std::endl;
                 break;
             }
         }
@@ -383,7 +383,7 @@ protected:
                     std::cerr << __func__ << " CheckCryptoCondition error=" << ScriptErrorString(error) << " eval=" << eval.state.GetRejectReason() << std::endl;
                     return false;
                 }
-                std::cerr << __func__ << " cc_verify okay for vout.nValue=" << vout.nValue << std::endl;
+                //std::cerr << __func__ << " cc_verify okay for vout.nValue=" << vout.nValue << std::endl;
             }
         }
         return true;
@@ -535,7 +535,7 @@ protected:
         if(!TestFinalizeTx(mtx, cpTokens, testKeys[mypk], txfee,
             TokensV2::EncodeTokenOpRet(tokenid, { unspendableAssetsPubkey },     
                 { AssetsV2::EncodeAssetOpRet('s', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) }))) {
-            std::cerr << __func__ << " cant finalise tx" << std::endl;
+            std::cerr << __func__ << " cant finalize tx" << std::endl;
             return CTransaction();
         }
         return mtx;
@@ -565,7 +565,7 @@ protected:
         if (!TestFinalizeTx(mtx, cpAssets, testKeys[mypk], txfee,
             TokensV2::EncodeTokenOpRet(tokenid, {},     
                 { AssetsV2::EncodeAssetOpRet('b', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) }))) {
-            std::cerr << __func__ << " cant finalise tx" << std::endl;
+            std::cerr << __func__ << " cant finalize tx" << std::endl;
             return CTransaction(); 
         }  
         return mtx;
@@ -650,7 +650,7 @@ protected:
         if (!TestFinalizeTx(mtx, cpAssets, testKeys[mypk], txfee,
             TokensV2::EncodeTokenOpRet(tokenid, { mypk }, 
                 { AssetsV2::EncodeAssetOpRet('S', unit_price, origpubkey, expiryHeight) } ))) {
-            std::cerr << __func__ << " cant finalise tx" << std::endl;
+            std::cerr << __func__ << " cant finalize tx" << std::endl;
             return CTransaction(); 
         }
         data.pushKV("ownerpubkey", HexStr(ownerpubkey));      
@@ -733,7 +733,7 @@ protected:
         }
         vuint8_t ownerpubkey = std::get<0>(tokenData);
 
-        std::cerr << __func__ << " bidtx=" << bidtx.GetHash().GetHex() << " " << HexStr(E_MARSHAL(ss << bidtx)) << " vouts=" << bidtx.vout.size() << std::endl;
+        //std::cerr << __func__ << " bidtx=" << bidtx.GetHash().GetHex() << " " << HexStr(E_MARSHAL(ss << bidtx)) << " vouts=" << bidtx.vout.size() << std::endl;
 
         CAmount bid_amount = bidtx.vout[bidvout].nValue;
         vuint8_t origpubkey;
@@ -1354,7 +1354,7 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
 
             std::cerr << __func__ << " test: tokenfillask with different tokenid in opdrop, fillUnuts=" << fillUnits << std::endl;
             EXPECT_FALSE(assetidOpret == tokenid3);
-            EXPECT_TRUE(!TestRunCCEval(mtx2) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // must fail: can't fill with another tokenid3 in opdrop
+            EXPECT_TRUE(!TestRunCCEval(mtx2) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // must fail: can't fill with another tokenid in opdrop
         }
     }
 
