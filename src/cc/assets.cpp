@@ -381,7 +381,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                         return eval->Invalid("vout0 should be originator normal address with remainder for fillbid");
                 }
 
-                vin_tokens = AssetsGetTxTokenInputs<T>(eval, cpTokens, assetid, tx);
+                vin_tokens = AssetsGetTxTokenInputs(eval, cpTokens, tx);
                 int32_t myNormalVout = 1;
                 int32_t myTokenVout = 2+r;
                 int32_t tokenRemainderVout; 

@@ -103,7 +103,6 @@ CAmount IsAssetvout(struct CCcontract_info *cp, CAmount &remaining_units_out, st
 template<class A>
 uint8_t GetOrderParams(std::vector<uint8_t> &origpubkey_out, CAmount &unit_price, uint256 &assetid, int32_t &expiryHeightOut, const CTransaction &tx)
 {
-    uint256 assetid2;
     uint8_t evalCode, funcid;
 
     if (tx.vout.size() > 0 && (funcid = A::DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetid, unit_price, origpubkey_out, expiryHeightOut)) != 0)
@@ -221,8 +220,8 @@ CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
             return eval->Invalid("no assets cc vins in previous fillbuy or fillsell tx"), 0LL;
     }
 
-    // check no more other vins spending from global addr:
-    if (AssetsGetTxCCInputs(eval, cpAssets, unspendableAddr, tx) != vinTx.vout[ASSETS_GLOBALADDR_VOUT].nValue)
+    // check no more other vins spending from global addr (must be only vintx.vout[0]):
+    if (AssetsGetTxCCInputs(eval, cpAssets, unspendableAddr, tx) != vinTx.vout[ASSETS_GLOBALADDR_VOUT].nValue) // gets either cc coins from global or tokens from dual eval global address
         return eval->Invalid("invalid assets cc vins found"), 0LL;
 
     if (vinTx.vout[ASSETS_GLOBALADDR_VOUT].nValue == 0)
@@ -278,7 +277,7 @@ CAmount AssetValidateSellvin(struct CCcontract_info *cpAssets, Eval* eval, CAmou
     if (ccvin == tx.vin.end())
         return eval->Invalid("cc vin not found"), 0LL;
     if ((nValue = AssetValidateCCvin<A>(cpAssets, eval, origCCaddr_out, origaddr_out, expiryHeightOut, tx, ccvin-tx.vin.begin(), vinTxOut)) == 0)
-        return 0LL; // eval is set already in AssetValidateCCvin
+        return 0LL; // eval->Invalid is set already in AssetValidateCCvin
     
     if ((assetoshis = IsAssetvout<A>(cpAssets, unit_price, origpubkey_out, vinTxOut, ASSETS_GLOBALADDR_VOUT, assetid)) == 0)
         return eval->Invalid("invalid missing CC vout0 for sellvin"), 0LL;
@@ -310,29 +309,5 @@ bool AssetsValidateTokenId_Activated(Eval *eval, struct CCcontract_info *cpToken
     else
         return true;
 }
-
-template<class T>
-CAmount AssetsGetTxTokenInputs(Eval *eval, struct CCcontract_info *cpTokens, uint256 tokenid, const CTransaction &tx)
-{
-	CTransaction vinTx; 
-    uint256 hashBlock; 
-	CAmount inputs = 0LL;
-
-	for (int32_t i = 0; i < tx.vin.size(); i++)
-	{												    
-		if (cpTokens->ismyvin(tx.vin[i].scriptSig))
-		{
-			if (eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock))
-			{
-                if (AssetsValidateTokenId_Activated<T>(eval, cpTokens, vinTx, tx.vin[i].prevout.n, tokenid))  {
-                    //std::cerr << __func__ << " adding amount=" << vinTx.vout[tx.vin[i].prevout.n].nValue << " for vin i=" << i << " eval=" << std::hex << (int)cp->evalcode << std::resetiosflags(std::ios::hex) << std::endl;
-                    inputs += vinTx.vout[tx.vin[i].prevout.n].nValue;
-                }
-			}
-		}
-	}
-	return inputs;
-}
-
 
 #endif // #ifndef CC_ASSETS_CORE_IMPL_H

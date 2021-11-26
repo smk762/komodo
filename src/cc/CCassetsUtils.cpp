@@ -457,15 +457,12 @@ bool ValidateSwapRemainder(int64_t remaining_price, int64_t remaining_nValue, in
     return(true);
 }
 
-// get tx's vin inputs for cp->evalcode and addr. If addr is null then all inputs are added
+// get tx's vin inputs for cp->evalcode and addr
 CAmount AssetsGetTxCCInputs(Eval *eval, struct CCcontract_info *cp, const char *addr, const CTransaction &tx)
 {
 	CTransaction vinTx; 
     uint256 hashBlock; 
 	CAmount inputs = 0LL;
-
-	//struct CCcontract_info *cpTokens, C;
-	//cpTokens = CCinit(&C, EVAL_TOKENS);
 
 	for (int32_t i = 0; i < tx.vin.size(); i++)
 	{												    
@@ -475,7 +472,6 @@ CAmount AssetsGetTxCCInputs(Eval *eval, struct CCcontract_info *cp, const char *
 			{
                 char scriptaddr[KOMODO_ADDRESS_BUFSIZE];
                 if (Getscriptaddress(scriptaddr, vinTx.vout[tx.vin[i].prevout.n].scriptPubKey) && strcmp(scriptaddr, addr) == 0)  {
-                    //std::cerr << __func__ << " adding amount=" << vinTx.vout[tx.vin[i].prevout.n].nValue << " for vin i=" << i << " eval=" << std::hex << (int)cp->evalcode << std::resetiosflags(std::ios::hex) << std::endl;
                     inputs += vinTx.vout[tx.vin[i].prevout.n].nValue;
                 }
 			}
@@ -484,3 +480,21 @@ CAmount AssetsGetTxCCInputs(Eval *eval, struct CCcontract_info *cp, const char *
 	return inputs;
 }
 
+CAmount AssetsGetTxTokenInputs(Eval *eval, struct CCcontract_info *cpTokens, const CTransaction &tx)
+{
+	CTransaction vinTx; 
+    uint256 hashBlock; 
+	CAmount inputs = 0LL;
+
+	for (int32_t i = 0; i < tx.vin.size(); i++)
+	{												    
+		if (cpTokens->ismyvin(tx.vin[i].scriptSig))
+		{
+			if (eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock))
+			{
+                inputs += vinTx.vout[tx.vin[i].prevout.n].nValue;
+			}
+		}
+	}
+	return inputs;
+}
