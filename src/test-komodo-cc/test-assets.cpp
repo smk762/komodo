@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "cc/CCinclude.h"
+#include "cc/CCupgrades.h"
 
 #include "cc/CCtokens.h"
 #include "cc/CCtokens_impl.h"
@@ -82,8 +83,8 @@ public:
 
 static EvalMock eval;
 
-static CTransaction txnormal1, txnormal2, txnormal3, txnormal4, txnormalg, txask1, txask2, txbid1, txbid2, txtokencreate1, txtokencreate2, txtokencreate3, txtokencreateUnused;
-static uint256 tokenid1, tokenid2, tokenid3, tokenidUnused;
+static uint256 tokenid1, tokenid2, tokenid3, tokenid4, tokenidUnused;
+static uint256 askid1, askid2, bidid1;
 
 //  RJXkCF7mn2DRpUZ77XBNTKCe55M2rJbTcu
 static CPubKey pk1 = CPubKey(ParseHex("035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db"));
@@ -266,15 +267,15 @@ bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp, uint8_
                 if (strcmp(destaddr, globaladdr) == 0) {
                     privkey = cp->CCpriv;
                     cond.reset(MakeCCcond1(cp->evalcode, globalpk));
-                    std::cerr << __func__ << " vini." << i << " found globaladdress=" << globaladdr << " destaddr=" << destaddr << " strlen=" << strlen(globaladdr) << " evalcode=" << (int)cp->evalcode << std::endl;
+                    //std::cerr << __func__ << " vini." << i << " found globaladdress=" << globaladdr << " destaddr=" << destaddr << " strlen=" << strlen(globaladdr) << " evalcode=" << (int)cp->evalcode << std::endl;
                 } else if (strcmp(destaddr, myccaddr) == 0) {
                     privkey = myprivkey;
                     cond.reset(MakeCCcond1(cp->evalcode, mypk));
-                    std::cerr << __func__ << " vini." << i << " found myccaddr=" << myccaddr << std::endl;
+                    //std::cerr << __func__ << " vini." << i << " found myccaddr=" << myccaddr << std::endl;
                 } else if (strcmp(destaddr, mytokenaddr) == 0) {
                     privkey = myprivkey;
                     cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
-                    std::cerr << __func__ << " vini." << i << " found mytokenaddr=" << mytokenaddr << " evalcode=" << (int)cp->evalcode << std::endl;
+                    //std::cerr << __func__ << " vini." << i << " found mytokenaddr=" << mytokenaddr << " evalcode=" << (int)cp->evalcode << std::endl;
                 } else {
                     const uint8_t nullpriv[32] = {'\0'};
                     // use vector of dest addresses and conds to probe vintxconds
@@ -285,7 +286,7 @@ bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp, uint8_
                             CCtoAnon(anonCond.get());
                             Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), true));
                             if (strcmp(destaddr, coinaddr) == 0) {
-                                std::cerr << __func__ << " vini." << i << " found vintxprobe=" << coinaddr  << " privkey=" << (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0) << std::endl;
+                                //std::cerr << __func__ << " vini." << i << " found vintxprobe=" << coinaddr  << " privkey=" << (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0) << std::endl;
                                 if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
                                     privkey = t.CCpriv;
                                 else
@@ -368,7 +369,7 @@ protected:
                     std::cerr << __func__ << " cc_verify error D" << std::endl;
                     return false;
                 }
-                std::cerr << __func__ << " cc_verify okay for vin.hash=" << vin.prevout.hash.GetHex() << std::endl;
+                //std::cerr << __func__ << " cc_verify okay for vin.hash=" << vin.prevout.hash.GetHex() << std::endl;
                 break;
             }
         }
@@ -382,7 +383,7 @@ protected:
                     std::cerr << __func__ << " CheckCryptoCondition error=" << ScriptErrorString(error) << " eval=" << eval.state.GetRejectReason() << std::endl;
                     return false;
                 }
-                std::cerr << __func__ << " cc_verify okay for vout.nValue=" << vout.nValue << std::endl;
+                //std::cerr << __func__ << " cc_verify okay for vout.nValue=" << vout.nValue << std::endl;
             }
         }
         return true;
@@ -390,6 +391,8 @@ protected:
 
     static void CreateMockTransactions()
     {
+        CTransaction txnormal1, txnormal2, txnormal3, txnormal4, txnormalg, txask1, txask2, txbid1, txbid2, 
+                    txtokencreate1, txtokencreate2, txtokencreate3, txtokencreate4, txtokencreateUnused;
         txnormal1 = MakeNormalTx(pk1, 20000);
         eval.AddTx(txnormal1);
 
@@ -422,22 +425,26 @@ protected:
         eval.AddTx(txtokencreate3);
         tokenid3 = txtokencreate3.GetHash();
 
+        txtokencreate4 = MakeTokenV2CreateTx(pk1, 10);
+        eval.AddTx(txtokencreate4);
+        tokenid4 = txtokencreate4.GetHash();
+
         txtokencreateUnused = MakeTokenV2CreateTx(pk1, 10);
         eval.AddTx(txtokencreateUnused);
         tokenidUnused = txtokencreateUnused.GetHash();
 
         txask1 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, ASSETS_NORMAL_DUST+1, 222);
         eval.AddTx(txask1);
+        askid1 = txask1.GetHash();
 
         txask2 = MakeTokenV2AskTx(cpTokens, pk1, tokenid1, 2, ASSETS_NORMAL_DUST+1, 222);
         eval.AddTx(txask2);
+        askid2 = txask2.GetHash();
 
         txbid1 = MakeTokenV2BidTx(cpAssets, pk2, tokenid2, 2, ASSETS_NORMAL_DUST+1, 222);
         eval.AddTx(txbid1);
-
-
+        bidid1 = txbid1.GetHash();
         //txbid2 = MakeTokenV2BidTx(pk2, 1000+1, 2, 1000/2, 222);  // test dust
-
     }
 
     static CTransaction MakeNormalTx(CPubKey mypk, CAmount val)
@@ -480,7 +487,6 @@ protected:
         //eval.txs[mtx.GetHash()] = mtx;
         return mtx;
     }
-
 
     static CMutableTransaction MakeTokenV2AskTx(struct CCcontract_info *cpTokens, CPubKey mypk, uint256 tokenid, CAmount numtokens, CAmount unit_price, int32_t expiryHeight)
     {
@@ -529,7 +535,7 @@ protected:
         if(!TestFinalizeTx(mtx, cpTokens, testKeys[mypk], txfee,
             TokensV2::EncodeTokenOpRet(tokenid, { unspendableAssetsPubkey },     
                 { AssetsV2::EncodeAssetOpRet('s', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) }))) {
-            std::cerr << __func__ << " cant finalise tx" << std::endl;
+            std::cerr << __func__ << " cant finalize tx" << std::endl;
             return CTransaction();
         }
         return mtx;
@@ -559,7 +565,7 @@ protected:
         if (!TestFinalizeTx(mtx, cpAssets, testKeys[mypk], txfee,
             TokensV2::EncodeTokenOpRet(tokenid, {},     
                 { AssetsV2::EncodeAssetOpRet('b', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) }))) {
-            std::cerr << __func__ << " cant finalise tx" << std::endl;
+            std::cerr << __func__ << " cant finalize tx" << std::endl;
             return CTransaction(); 
         }  
         return mtx;
@@ -644,7 +650,7 @@ protected:
         if (!TestFinalizeTx(mtx, cpAssets, testKeys[mypk], txfee,
             TokensV2::EncodeTokenOpRet(tokenid, { mypk }, 
                 { AssetsV2::EncodeAssetOpRet('S', unit_price, origpubkey, expiryHeight) } ))) {
-            std::cerr << __func__ << " cant finalise tx" << std::endl;
+            std::cerr << __func__ << " cant finalize tx" << std::endl;
             return CTransaction(); 
         }
         data.pushKV("ownerpubkey", HexStr(ownerpubkey));      
@@ -727,7 +733,7 @@ protected:
         }
         vuint8_t ownerpubkey = std::get<0>(tokenData);
 
-        std::cerr << __func__ << " bidtx=" << bidtx.GetHash().GetHex() << " " << HexStr(E_MARSHAL(ss << bidtx)) << " vouts=" << bidtx.vout.size() << std::endl;
+        //std::cerr << __func__ << " bidtx=" << bidtx.GetHash().GetHex() << " " << HexStr(E_MARSHAL(ss << bidtx)) << " vouts=" << bidtx.vout.size() << std::endl;
 
         CAmount bid_amount = bidtx.vout[bidvout].nValue;
         vuint8_t origpubkey;
@@ -869,15 +875,15 @@ protected:
         CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);
 
         // probe to spend marker
-        std::cerr << __func__ << " mypk=" << HexStr(mypk) << " origpubkey=" << HexStr(pubkey2pk(origpubkey)) << std::endl;
+        //std::cerr << __func__ << " mypk=" << HexStr(mypk) << " origpubkey=" << HexStr(pubkey2pk(origpubkey)) << std::endl;
         if (mypk == pubkey2pk(origpubkey)) {
             CCwrapper wrCond(::MakeCCcond1of2(AssetsV2::EvalCode(), pubkey2pk(origpubkey), unspendableAssetsPk)); 
             CCAddVintxCond(cpAssets, wrCond, nullptr);  // spend with mypk
-            std::cerr << __func__ << " use mypk" << std::endl;
+            //std::cerr << __func__ << " use mypk" << std::endl;
         } else {
             CCwrapper wrCond(::MakeCCcond1of2(AssetsV2::EvalCode(), pubkey2pk(origpubkey), unspendableAssetsPk)); 
             CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);  // spend with shared pk       
-            std::cerr << __func__ << " use unspendableAssetsPrivkey=" << HexStr(unspendableAssetsPrivkey, unspendableAssetsPrivkey+32) << std::endl;
+            //std::cerr << __func__ << " use unspendableAssetsPrivkey=" << HexStr(unspendableAssetsPrivkey, unspendableAssetsPrivkey+32) << std::endl;
         }
 
         if (!TestFinalizeTx(mtx, cpAssets, testKeys[mypk], txfee,
@@ -967,6 +973,13 @@ protected:
         data.pushKV("origpubkey", HexStr(origpubkey));
         data.pushKV("bidamount", bidamount);
         return mtx;
+    }
+
+    virtual void TearDown()
+    {
+        // clean up
+        strcpy(ASSETCHAINS_SYMBOL, "");
+        CCUpgrades::SelectUpgrades(ASSETCHAINS_SYMBOL);  // select default
     }
 
 
@@ -1084,6 +1097,36 @@ TEST_F(TestAssetsCC, tokenv2ask_basic)
                 { AssetsV2::EncodeAssetOpRet('s', unit_price, vuint8_t(origpubkey.begin(), origpubkey.end()), expiryHeight) })));
         EXPECT_FALSE(TestRunCCEval(mtx1));  // == true as pk in token opreturn not used in tokens v2
     }
+    {
+        // test: different tokenid in opdrop
+        eval.SetCurrentHeight(CCASSETS_OPDROP_FIX_TOKEL_HEIGHT);
+        strcpy(ASSETCHAINS_SYMBOL, "TOKEL");
+        CCUpgrades::SelectUpgrades(ASSETCHAINS_SYMBOL);
+
+        CAmount unit_price = 501;
+        CMutableTransaction mtx = MakeTokenV2AskTx(cpTokens, mypk, tokenid1, numtokens, unit_price, 222); // price more than dust
+        ASSERT_FALSE(CTransaction(mtx).IsNull());
+
+        CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey }, {});
+        vscript_t vopret;
+        GetOpReturnData(opret, vopret);
+        std::vector<vscript_t> vData { vopret };
+
+        CScript opretCh = TokensV2::EncodeTokenOpRet(tokenid1, { mypk }, {});
+        vscript_t vopretCh;
+        GetOpReturnData(opretCh, vopretCh);
+        std::vector<vscript_t> vDataCh { vopretCh };
+
+        mtx.vout[0] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx.vout[0].nValue, unspendableAssetsPubkey, &vData);
+        mtx.vout[2] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx.vout[2].nValue, mypk, &vDataCh);  // cc change
+        mtx.vout.pop_back();
+        ASSERT_TRUE(TestFinalizeTx(mtx, cpTokens, testKeys[mypk], 10000,
+            TokensV2::EncodeTokenOpRet(tokenid2, { unspendableAssetsPubkey },   
+                { AssetsV2::EncodeAssetOpRet('s', unit_price, vuint8_t(origpubkey.begin(), origpubkey.end()), expiryHeight) })));
+        std::cerr << __func__ << " tokenv2ask_basic different tokenid in opdrop.." << std::endl;
+        EXPECT_TRUE(!TestRunCCEval(mtx) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // fail: can't ask for different tokenid
+    }
+
 }
 
 TEST_F(TestAssetsCC, tokenv2bid_basic)
@@ -1121,25 +1164,41 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
     UniValue data(UniValue::VOBJ);
     struct CCcontract_info *cpAssets, C; 
     cpAssets = CCinit(&C, AssetsV2::EvalCode());
+    CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, 0);    
 
     eval.SetCurrentHeight(111);  //set height 
 
-    CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, txask1.GetHash(), 2, 0, data);
-    ASSERT_FALSE(CTransaction(mtx).IsNull());
+    for (CAmount fillUnits : { 1, 2 })  {  // fill partially and totally 
+        CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, askid1, fillUnits, 0, data); 
+        ASSERT_FALSE(CTransaction(mtx).IsNull());
 
-    // test: valid tokenv2fillask
-    EXPECT_TRUE(TestRunCCEval(mtx));
+        // test: valid tokenv2fillask
+        EXPECT_TRUE(TestRunCCEval(mtx));
+    }
+
+    CTransaction txask1;
+    CTransaction txbid1;
+    CTransaction txask2;
+
+    uint256 hashBlock;
+    ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, askid1, txask1, hashBlock));
+    ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, bidid1, txbid1, hashBlock));
+    ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, askid2, txask2, hashBlock));
 
     //vuint8_t ownerpubkey = ParseHex(data["ownerpubkey"].getValStr());
+    CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, askid1, 2, 0, data); 
 
     // test: spend invalid tokenid
     {
         CMutableTransaction mtx1(mtx);
-        mtx1.vin.back() = CTxIn(txask1.GetHash(), ASSETS_GLOBALADDR_VOUT, CScript());  // spend order tx
+        mtx1.vin.back() = CTxIn(askid1, ASSETS_GLOBALADDR_VOUT, CScript());  // spend order tx
         vuint8_t origpubkey;
         CAmount unit_price;
         uint256 assetidOpret;
         int32_t expiryHeight;
+        CTransaction txask1;
+        uint256 hashBlock;
+        ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, askid1, txask1, hashBlock));
         uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txask1);
         ASSERT_TRUE(funcid != 0);
         mtx1.vout.pop_back();
@@ -1170,7 +1229,7 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
     // test: spend yet another order 
     {
         CMutableTransaction mtx2(mtx);
-        mtx2.vin.push_back( CTxIn(txask2.GetHash(), ASSETS_GLOBALADDR_VOUT, CScript()) );  // spend yet another order tx
+        mtx2.vin.push_back( CTxIn(askid2, ASSETS_GLOBALADDR_VOUT, CScript()) );  // spend yet another order tx
         vuint8_t origpubkey;
         CAmount unit_price;
         uint256 assetidOpret;
@@ -1191,6 +1250,9 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
         CAmount unit_price;
         uint256 assetidOpret;
         int32_t expiryHeight;
+        CTransaction txask1;
+        uint256 hashBlock;
+        ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, askid1, txask1, hashBlock));
         uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txask1); // get orig pk, orig value
         ASSERT_TRUE(funcid != 0);
         mtx2.vout.pop_back();
@@ -1221,7 +1283,7 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
         int32_t expiryHeight;
         uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txask1);
 
-        CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, txask1.GetHash(), 2, unit_price-1, data);
+        CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, askid1, 2, unit_price-1, data);
         ASSERT_FALSE(CTransaction(mtx).IsNull());
 
         // test: invalid tokenv2fillask with a lower price
@@ -1234,13 +1296,142 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
         int32_t expiryHeight;
         uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txask1);
 
-        CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, txask1.GetHash(), 2, unit_price+1, data);
+        CMutableTransaction mtx = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid1, askid1, 2, unit_price+1, data);
         ASSERT_FALSE(CTransaction(mtx).IsNull());
 
         // test: valid tokenv2fillask with a bigger price
         EXPECT_TRUE(TestRunCCEval(mtx)); 
     }
+    {
+        for (CAmount fillUnits : { 1, 2 })  {  // fill partially and totally
+            // test: fillask with different tokenid in opdrop
+            eval.SetCurrentHeight(CCASSETS_OPDROP_FIX_TOKEL_HEIGHT);
+            //eval.SetCurrentHeight(1);
 
+            strcpy(ASSETCHAINS_SYMBOL, "TOKEL");
+            //strcpy(ASSETCHAINS_SYMBOL, "MYCHAIN_8173645");
+            CCUpgrades::SelectUpgrades(ASSETCHAINS_SYMBOL);
+
+            vuint8_t origpubkey;
+            CAmount unit_price;
+            uint256 assetidOpret;
+            int32_t expiryHeight;
+            CTransaction txask1;
+            uint256 hashBlock;
+            ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, askid1, txask1, hashBlock));
+            uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txask1);
+
+            CMutableTransaction mtx2 = MakeTokenV2FillAskTx(cpAssets, pk2, assetidOpret, askid1, fillUnits, unit_price, data); 
+
+            CAmount txfee = 10000;
+            CAmount otherAmount = TestAddTokenInputs(mtx2, pk2, tokenid3, mtx2.vout[0].nValue);  //add tokenid3
+            ASSERT_TRUE(otherAmount > 0);
+            mtx2.vout.insert(mtx2.vout.begin() + mtx2.vout.size() - 1,  mtx2.vout[0]);  // copy vout with tokens with assetidOpret back 
+            {
+                CScript opret = TokensV2::EncodeTokenOpRet(tokenid3, { unspendableAssetsPubkey }, {}); // put tokenid3 in opdrop while assetid = tokenid2
+                vscript_t vopret;
+                GetOpReturnData(opret, vopret);
+                std::vector<vscript_t> vData { vopret };
+                mtx2.vout[0] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx2.vout[0].nValue, unspendableAssetsPubkey, &vData);  // replace remainder with tokenid3
+            }
+
+            if (otherAmount > mtx2.vout[0].nValue)  {  // if tokenid3 change exists
+                CScript opret = TokensV2::EncodeTokenOpRet(tokenid3, { pk2 }, {}); 
+                vscript_t vopret;
+                GetOpReturnData(opret, vopret);
+                std::vector<vscript_t> vData { vopret };
+                mtx2.vout.insert(mtx2.vout.begin() + mtx2.vout.size() - 1,  
+                    TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), otherAmount - mtx2.vout[0].nValue, pk2, &vData)); // add tokenid3 change
+            }
+
+            mtx2.vout.pop_back(); // remove opret to replace it in TestFinalizeTx
+            CCwrapper wrCond1(TokensV2::MakeTokensCCcond1(TokensV2::EvalCode(), pk2));  // spend my tokens to fill buy
+            CCAddVintxCond(cpAssets, wrCond1, NULL); //NULL indicates to use myprivkey
+
+            ASSERT_TRUE(TestFinalizeTx(mtx2, cpAssets, testKeys[pk2], 10000,
+                TokensV2::EncodeTokenOpRet(assetidOpret, { pk2 },     
+                    { AssetsV2::EncodeAssetOpRet('S', unit_price, vuint8_t(origpubkey.begin(), origpubkey.end()), expiryHeight) })));  
+
+            std::cerr << __func__ << " test: tokenfillask with different tokenid in opdrop, fillUnuts=" << fillUnits << std::endl;
+            EXPECT_FALSE(assetidOpret == tokenid3);
+            EXPECT_TRUE(!TestRunCCEval(mtx2) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // must fail: can't fill with another tokenid in opdrop
+        }
+    }
+
+    {
+        // test: make different tokenid in opdrop in ask and try fillask it
+        eval.SetCurrentHeight(111);  //set height 
+        //eval.SetCurrentHeight(CCASSETS_OPDROP_FIX_TOKEL_HEIGHT);
+        strcpy(ASSETCHAINS_SYMBOL, "TOKEL");
+        CCUpgrades::SelectUpgrades(ASSETCHAINS_SYMBOL);
+
+        CAmount numtokens = 2LL;
+        CPubKey mypk = pk1;
+        uint256 mytokenid = tokenid1;
+        CAmount unit_price = 501;
+        int32_t expiryHeight = CCASSETS_OPDROP_FIX_TOKEL_HEIGHT+222;
+
+        struct CCcontract_info *cpTokens, tokensC;
+        cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+        CMutableTransaction mtx = MakeTokenV2AskTx(cpTokens, mypk, tokenid1, numtokens, unit_price, expiryHeight); // price more than dust
+        ASSERT_FALSE(CTransaction(mtx).IsNull());
+
+        {
+            CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey }, {});
+            vscript_t vopret;
+            GetOpReturnData(opret, vopret);
+            std::vector<vscript_t> vData { vopret };
+            mtx.vout[0] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx.vout[0].nValue, unspendableAssetsPubkey, &vData);
+        }
+        {
+            CScript opretCh = TokensV2::EncodeTokenOpRet(tokenid1, { mypk }, {});
+            vscript_t vopretCh;
+            GetOpReturnData(opretCh, vopretCh);
+            std::vector<vscript_t> vDataCh { vopretCh };
+            mtx.vout[2] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx.vout[2].nValue, mypk, &vDataCh);  // cc change
+        }
+        
+        mtx.vout.pop_back();
+        ASSERT_TRUE(TestFinalizeTx(mtx, cpTokens, testKeys[mypk], 10000,
+            TokensV2::EncodeTokenOpRet(tokenid2, { unspendableAssetsPubkey },   
+                { AssetsV2::EncodeAssetOpRet('s', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) })));
+        std::cerr << __func__ << " tokenv2ask_basic different tokenid in opdrop, adding.." << std::endl;
+        EXPECT_TRUE(TestRunCCEval(mtx));  // work for tokel before CCASSETS_OPDROP_FIX_TOKEL_HEIGHT
+        eval.AddTx(mtx);
+        uint256 askid = mtx.GetHash();
+
+        // add fill ask 
+        eval.SetCurrentHeight(CCASSETS_OPDROP_FIX_TOKEL_HEIGHT);  // after fix activation
+
+        CAmount fillUnits = 1;
+        CAmount txfee = 10000;
+        CMutableTransaction mtx2 = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid2, askid, fillUnits, unit_price, data); 
+        {
+            CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey }, {}); // put tokenid1 in opdrop while assetid = tokenid2
+            vscript_t vopret;
+            GetOpReturnData(opret, vopret);
+            std::vector<vscript_t> vData { vopret };
+            mtx2.vout[0] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx2.vout[0].nValue, unspendableAssetsPubkey, &vData);  // replace remainder with tokenid3
+        }
+        {  
+            CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { pk2 }, {}); 
+            vscript_t vopret;
+            GetOpReturnData(opret, vopret);
+            std::vector<vscript_t> vData { vopret };
+            mtx2.vout[1] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx2.vout[1].nValue, pk2, &vData);  // purchased tokens
+        }
+
+        mtx2.vout.pop_back(); // remove opret to replace it in TestFinalizeTx
+        CCwrapper wrCond1(TokensV2::MakeTokensCCcond1(TokensV2::EvalCode(), pk2));  // spend my tokens to fill buy
+        CCAddVintxCond(cpAssets, wrCond1, NULL); //NULL indicates to use myprivkey
+
+        ASSERT_TRUE(TestFinalizeTx(mtx2, cpAssets, testKeys[pk2], 10000,
+            TokensV2::EncodeTokenOpRet(tokenid2, { pk2 },     
+                { AssetsV2::EncodeAssetOpRet('S', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) })));  
+
+        std::cerr << __func__ << " test: tokenfillask with different tokenid in opdrop, fillUnuts=" << fillUnits << std::endl;
+        EXPECT_TRUE(!TestRunCCEval(mtx2) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // must work before TOKEL activation height
+    }
 }
 
 
@@ -1251,7 +1442,11 @@ TEST_F(TestAssetsCC, tokenv2fillbid_basic)
     cpTokens = CCinit(&C, TokensV2::EvalCode());  
     eval.SetCurrentHeight(111);  //set height 
 
-    CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, txbid1.GetHash(), 2, 0, data);  
+    CTransaction txbid1;
+    uint256 hashBlock;
+    ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, bidid1, txbid1, hashBlock));
+
+    CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, bidid1, 2, 0, data);  
     ASSERT_FALSE(CTransaction(mtx).IsNull());
 
     // test: valid tokenv2fillbid
@@ -1266,7 +1461,7 @@ TEST_F(TestAssetsCC, tokenv2fillbid_basic)
         CAmount unit_price = data["unit_price"].get_int64();
         int32_t expiryHeight = data["expiryHeight"].get_int();
 
-        mtx1.vin[1] = CTxIn(txtokencreate3.GetHash(), 1, CScript());  // spend other tokenid3
+        mtx1.vin[1] = CTxIn(tokenid3, 1, CScript());  // spend other tokenid3
         mtx1.vout.pop_back(); // remove opret to replace it in TestFinalizeTx
         ASSERT_TRUE(TestFinalizeTx(mtx1, cpTokens, testKeys[pk2], txfee,
             TokensV2::EncodeTokenOpRet(tokenid3, { pubkey2pk(origpubkey) },
@@ -1313,7 +1508,7 @@ TEST_F(TestAssetsCC, tokenv2fillbid_basic)
         int32_t expiryHeight;
         uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txbid1); // get orig pk, orig value
 
-        CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, txbid1.GetHash(), 1, unit_price, data);  
+        CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, bidid1, 1, unit_price, data);  
         mtx.vout[1].nValue += 1;  // imitate lower price
         ASSERT_FALSE(CTransaction(mtx).IsNull());
 
@@ -1327,7 +1522,7 @@ TEST_F(TestAssetsCC, tokenv2fillbid_basic)
         int32_t expiryHeight;
         uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txbid1); // get orig pk, orig value
 
-        CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, txbid1.GetHash(), 1, unit_price-1, data);  
+        CMutableTransaction mtx = MakeTokenV2FillBidTx(cpTokens, pk2, tokenid2, bidid1, 1, unit_price-1, data);  
         ASSERT_FALSE(CTransaction(mtx).IsNull());
 
         // test: valid tokenv2fillbid with lower sell price than requested 
@@ -1345,6 +1540,48 @@ TEST_F(TestAssetsCC, tokenv2fillbid_basic)
 
         // test: invalid tokenv2fillbid with bigger sell price than requested 
         EXPECT_FALSE(TestRunCCEval(mtx)); // must fail
+    }
+    {
+        // test: fillbid with different tokenid in opdrop
+        //eval.SetCurrentHeight(111);
+        eval.SetCurrentHeight(CCASSETS_OPDROP_FIX_TOKEL_HEIGHT);
+        strcpy(ASSETCHAINS_SYMBOL, "TOKEL");
+        CCUpgrades::SelectUpgrades(ASSETCHAINS_SYMBOL);
+
+        vuint8_t origpubkey;
+        CAmount unit_price;
+        uint256 assetidOpret;
+        int32_t expiryHeight;
+        uint8_t funcid = GetOrderParams<AssetsV2>(origpubkey, unit_price, assetidOpret, expiryHeight, txbid1); // get orig pk, orig value
+
+        CMutableTransaction mtx2 = MakeTokenV2FillBidTx(cpTokens, pk2, assetidOpret, txbid1.GetHash(), 2, 0, data);  
+
+        CAmount txfee = 10000;
+        mtx2.vin[1] = CTxIn(tokenid3, 1, CScript());  // spend other tokenid3
+        {
+            CScript opret = TokensV2::EncodeTokenOpRet(tokenid3, { origpubkey }, {}); //send to tokenid3 when assetidOpret = tokenid2
+            vscript_t vopret;
+            GetOpReturnData(opret, vopret);
+            std::vector<vscript_t> vData { vopret };
+            mtx2.vout[2] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx2.vout[2].nValue, origpubkey, &vData);  
+        }
+        {
+            CScript opretCh = TokensV2::EncodeTokenOpRet(tokenid3, { pk2 }, {}); //send to tokenid3 when assetidOpret = tokenid2
+            vscript_t vopretCh;
+            GetOpReturnData(opretCh, vopretCh);
+            std::vector<vscript_t> vDataCh { vopretCh };
+            mtx2.vout[3] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx2.vout[3].nValue, pk2, &vDataCh);  // change
+        }
+
+        mtx2.vout.pop_back(); // remove opret to replace it in TestFinalizeTx
+        ASSERT_TRUE(TestFinalizeTx(mtx2, cpTokens, testKeys[pk2], txfee,
+            TokensV2::EncodeTokenOpRet(assetidOpret, { pubkey2pk(origpubkey) },
+                { AssetsV2::EncodeAssetOpRet('B', unit_price, origpubkey, expiryHeight) }))); 
+
+        std::cerr << __func__ << " test: tokenfillbid with different tokenid in opdrop" << std::endl;
+        EXPECT_FALSE(assetidOpret == tokenid3);
+        //EXPECT_TRUE(TestRunCCEval(mtx2));
+        EXPECT_TRUE(!TestRunCCEval(mtx2) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // must fail: can't fill with another tokenid3 in opdrop
     }
 }
 
@@ -1418,6 +1655,9 @@ TEST_F(TestAssetsCC, tokenv2cancelask)
 
     cpAssets = CCinit(&C, AssetsV2::EvalCode());   
     cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+    CTransaction txask1;
+    uint256 hashBlock;
+    ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, askid1, txask1, hashBlock));
 
     for (CTransaction vintx : std::vector<CTransaction>{ txask1 })  // TODO add more txasks
     {
@@ -1477,6 +1717,47 @@ TEST_F(TestAssetsCC, tokenv2cancelask)
                                     { AssetsV2::EncodeAssetOpRet('o', 0, vuint8_t(origpubkey.begin(), origpubkey.end()), 0) } )));
             EXPECT_FALSE(TestRunCCEval(mtx6)); // must fail
         }
+        {  
+            eval.SetCurrentHeight(CCASSETS_OPDROP_FIX_TOKEL_HEIGHT);
+            strcpy(ASSETCHAINS_SYMBOL, "TOKEL");
+            CCUpgrades::SelectUpgrades(ASSETCHAINS_SYMBOL);
+            
+            CMutableTransaction mtx7(mtx);
+
+            CAmount txfee = 10000;
+            CAmount otherAmount = TestAddTokenInputs(mtx7, origpubkey, tokenid4, mtx7.vout[0].nValue);  //add different tokenid
+            ASSERT_TRUE(otherAmount > 0);
+
+            mtx7.vout.insert(mtx7.vout.begin() + mtx7.vout.size() - 1,  mtx7.vout[0]);  // copy vout with tokens with assetidOpret back 
+            
+            CScript opret = TokensV2::EncodeTokenOpRet(tokenid4, { origpubkey }, {}); // put tokenid4 in opdrop while assetid differs
+            vscript_t vopret;
+            GetOpReturnData(opret, vopret);
+            std::vector<vscript_t> vData { vopret };
+            mtx7.vout[0] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx7.vout[0].nValue, origpubkey, &vData);  // replace remainder with tokenid4
+
+            std::cerr << __func__ << " tokenid4=" << tokenid4.GetHex() << " assetidOpret=" << assetidOpret.GetHex() << " otherAmount=" << otherAmount << " mtx7.vin.size()=" << mtx7.vin.size() << std::endl;
+            if (otherAmount > mtx7.vout[0].nValue)  {  // if tokenid4 change exists
+                CScript opret = TokensV2::EncodeTokenOpRet(tokenid4, { origpubkey }, {}); 
+                vscript_t vopret;
+                GetOpReturnData(opret, vopret);
+                std::vector<vscript_t> vData { vopret };
+                mtx7.vout.insert(mtx7.vout.begin() + mtx7.vout.size() - 1,  
+                    TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), otherAmount - mtx7.vout[0].nValue, origpubkey, &vData)); // add tokenid4 change
+            }
+
+            CCwrapper wrCond1(TokensV2::MakeTokensCCcond1(TokensV2::EvalCode(), origpubkey));  // spend my tokenid4
+            CCAddVintxCond(cpAssets, wrCond1, NULL); // NULL indicates to use myprivkey
+
+            mtx7.vout.pop_back(); //remove opret
+            ASSERT_TRUE(TestFinalizeTx(mtx7, cpAssets, testKeys[origpubkey], 10000,
+                TokensV2::EncodeTokenOpRet(assetidOpret, { origpubkey },     
+                   { AssetsV2::EncodeAssetOpRet('x', 0, vuint8_t(), 0) })));  
+
+            std::cerr << __func__ << " test: tokencancelask with different tokenid in opdrop" << std::endl;
+            EXPECT_FALSE(assetidOpret == tokenid4);
+            EXPECT_TRUE(!TestRunCCEval(mtx7) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // must fail: can't cancel with another tokenid in opdrop
+        }
     }
 }
 
@@ -1484,8 +1765,6 @@ TEST_F(TestAssetsCC, tokenv2cancelask_expired)
 {
     CAmount txfee = 10000;
     eval.SetCurrentHeight(111);  //set height 
-
-
     {
 	    struct CCcontract_info *cpTokens, tokensC;
         cpTokens = CCinit(&tokensC, TokensV2::EvalCode()); 
@@ -1595,6 +1874,10 @@ TEST_F(TestAssetsCC, tokenv2cancelbid)
 
     cpAssets = CCinit(&C, AssetsV2::EvalCode());   
     cpTokens = CCinit(&tokensC, TokensV2::EvalCode());  
+
+    CTransaction txbid1;
+    uint256 hashBlock;
+    ASSERT_TRUE(GetTxUnconfirmedOpt(&eval, bidid1, txbid1, hashBlock));
 
     for (CTransaction vintx : std::vector<CTransaction>{ txbid1 })  // TODO add more txbid
     {
@@ -1829,7 +2112,8 @@ TEST_F(TestAssetsCC, tokenv2create)
         uint8_t privkeyg[32];
         CPubKey pkg = GetUnspendable(cpTokens, privkeyg);
 
-        mtx5.vin.push_back(CTxIn(txnormalg.GetHash(), 0));
+        ASSERT_TRUE(TestAddNormalInputs(mtx5, pkg, TOKENS_MARKER_VALUE + 10 + txfee) > 0);
+        //mtx5.vin.push_back(CTxIn(txnormalg.GetHash(), 0));
         mtx5.vout.push_back(TokensV2::MakeCC1vout(TokensV2::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cpTokens, NULL)));           
         mtx5.vout.push_back(TokensV2::MakeTokensCC1vout(0, 10, pk1));
 
