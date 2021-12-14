@@ -1075,7 +1075,7 @@ void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::
 /// returns 0 if requirements for cc module with the evalcode is fulfilled.
 /// @param evalcode eval code for cc module
 /// @returns 0 if okay or -1
-int32_t ensure_CCrequirements(uint8_t evalcode);
+int32_t ensure_CCrequirements(uint8_t evalcode, bool isRemote = false);
 
 /// returns true if tx is in active chain
 /// @param txid txid of tx to check

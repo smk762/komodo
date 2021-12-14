@@ -110,7 +110,7 @@ UniValue tokenlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
     if (fHelp || params.size() > 0)
         throw runtime_error("tokenlist\n");
         
-    if (ensure_CCrequirements(EVAL_TOKENS) < 0)
+    if (ensure_CCrequirements(EVAL_TOKENS, remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     return TokenList();
@@ -127,7 +127,7 @@ UniValue tokenv2list(const UniValue& params, bool fHelp, const CPubKey& remotepk
                             "  \"pubkey\" - search tokens created by a specific pubkey\n"
                             "  \"address\" - search created on a specific cc address\n");
 
-    if (ensure_CCrequirements(EVAL_TOKENSV2) < 0)
+    if (ensure_CCrequirements(EVAL_TOKENSV2, remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     UniValue jsonParams;
@@ -173,7 +173,7 @@ static UniValue tokeninfotokel(const std::string& name, const UniValue& params, 
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(name + " tokenid\n");
-    if (ensure_CCrequirements(V::EvalCode()) < 0)
+    if (ensure_CCrequirements(V::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     uint256 tokenid = Parseuint256((char *)params[0].get_str().c_str());
     return TokenInfo<V>(tokenid, ParseTokelVData);
@@ -189,7 +189,7 @@ UniValue tokenv2infotokel(const UniValue& params, bool fHelp, const CPubKey& rem
 }
 
 template <class T, class A>
-UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     uint256 tokenid;
     const CPubKey emptypk;
@@ -198,7 +198,7 @@ UniValue tokenorders(const std::string& name, const UniValue& params, bool fHelp
         throw runtime_error(name + " [tokenid|'*']\n"
                                    "returns tokens orders for the tokenid or all available token orders if tokenid is not set\n"
                                    "\n");
-    if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
+    if (ensure_CCrequirements(A::EvalCode(), remotepk.IsValid()) < 0 || ensure_CCrequirements(T::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 	if (params.size() >= 1) 
     {
@@ -229,7 +229,7 @@ UniValue mytokenorders(const std::string& name, const UniValue& params, bool fHe
                             "returns all tokens orders for mypubkey\n"
                             // no additional evalcode for mytokenorders - it will return all orders for on mypk:
                             /*"if evalcode is set then returns mypubkey's token orders for non-fungible tokens with this evalcode\n"*/ "\n");
-    if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
+    if (ensure_CCrequirements(A::EvalCode(), remotepk.IsValid()) < 0 || ensure_CCrequirements(T::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
 
@@ -255,7 +255,7 @@ static UniValue tokenbalance(const std::string& name, const UniValue& params, bo
 
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(name + " tokenid [pubkey]\n");
-    if (ensure_CCrequirements(V::EvalCode()) < 0)
+    if (ensure_CCrequirements(V::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     // LOCK(cs_main); 
@@ -304,7 +304,7 @@ static UniValue tokenallbalances(const std::string& name, const UniValue& params
 {
     if (fHelp || params.size() > 1)
         throw runtime_error(name + " [pubkey]\n");
-    if (ensure_CCrequirements(V::EvalCode()) < 0)
+    if (ensure_CCrequirements(V::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     // LOCK(cs_main); 
@@ -345,7 +345,7 @@ static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, 
 
     //if (fHelp || params.size() > 4 || params.size() < 2)
     //    throw runtime_error(fname + " name supply [description] [tokens data]\n");
-    if (ensure_CCrequirements(V::EvalCode()) < 0)
+    if (ensure_CCrequirements(V::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
@@ -505,7 +505,7 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
                             "amount - token amount to send in satoshi, int64\n"
                             "Note, that MofN supported only for tokens v2\n\n");
 
-    if (ensure_CCrequirements(V::EvalCode()) < 0)
+    if (ensure_CCrequirements(V::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     
     if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
@@ -623,7 +623,7 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
 
     if (fHelp || params.size() < 3)
         throw runtime_error(name + " tokenid1 tokenid2 ... destpubkey amount \n");
-    if (ensure_CCrequirements(V::EvalCode()) < 0)
+    if (ensure_CCrequirements(V::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     std::vector<uint256> tokenids;
@@ -740,7 +740,7 @@ UniValue tokenbid(const std::string& name, const UniValue& params, bool fHelp, c
     CCerror.clear();
     if (fHelp || params.size() < 3 || params.size() > 4)
         throw runtime_error(name + " numtokens tokenid price [expiry-height]\n");
-    if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
+    if (ensure_CCrequirements(A::EvalCode(), remotepk.IsValid()) < 0 || ensure_CCrequirements(T::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
@@ -794,7 +794,7 @@ UniValue tokencancelbid(const std::string& name, const UniValue& params, bool fH
     if (fHelp || params.size() != 2)
         throw runtime_error(name + " tokenid bidtxid\n");
 
-    if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
+    if (ensure_CCrequirements(A::EvalCode(), remotepk.IsValid()) < 0 || ensure_CCrequirements(T::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
@@ -834,7 +834,7 @@ UniValue tokenfillbid(const std::string& name, const UniValue& params, bool fHel
 
     if (fHelp || params.size() != 3 && params.size() != 4)
         throw runtime_error(name + " tokenid bidtxid fillamount [unit_price]\n");
-    if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
+    if (ensure_CCrequirements(A::EvalCode(), remotepk.IsValid()) < 0 || ensure_CCrequirements(T::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
@@ -881,7 +881,7 @@ UniValue tokenask(const std::string& name, const UniValue& params, bool fHelp, c
     CCerror.clear();
     if (fHelp || params.size() < 3 || params.size() > 4)
         throw runtime_error(name + " numtokens tokenid price [expiry-height]\n");
-    if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
+    if (ensure_CCrequirements(A::EvalCode(), remotepk.IsValid()) < 0 || ensure_CCrequirements(T::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     
     if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
@@ -937,7 +937,7 @@ UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& remotep
     CCerror.clear();
     if (fHelp || params.size() != 4)
         throw runtime_error("tokenswapask numtokens tokenid otherid price\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0)
+    if (ensure_CCrequirements(EVAL_ASSETS, remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     if (!EnsureWalletIsAvailable(false))
@@ -1014,7 +1014,7 @@ UniValue tokenfillask(const std::string& name, const UniValue& params, bool fHel
 
     if (fHelp || params.size() != 3 && params.size() != 4)
         throw runtime_error(name + " tokenid asktxid fillunits [unitprice]\n");
-    if (ensure_CCrequirements(A::EvalCode()) < 0 || ensure_CCrequirements(T::EvalCode()) < 0)
+    if (ensure_CCrequirements(A::EvalCode(), remotepk.IsValid()) < 0 || ensure_CCrequirements(T::EvalCode(), remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
@@ -1058,7 +1058,7 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remote
     CCerror.clear();
     if (fHelp || params.size() != 4 && params.size() != 5)
         throw runtime_error("tokenfillswap tokenid otherid asktxid fillunits [unitprice]\n");
-    if (!remotepk.IsValid() && ensure_CCrequirements(EVAL_ASSETS) < 0)
+    if (ensure_CCrequirements(EVAL_ASSETS, remotepk.IsValid()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
         
     if (!EnsureWalletIsAvailable(false))
@@ -1129,6 +1129,9 @@ UniValue tokenv2addccinputs(const UniValue& params, bool fHelp, const CPubKey& r
             "Result: json object with created tx and added vin txns\n\n";
         throw runtime_error(msg);
     }
+
+    if (ensure_CCrequirements(EVAL_TOKENSV2, remotepk.IsValid()) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
 
     uint256 tokenid = Parseuint256(params[0].get_str().c_str());
     CPubKey pk = pubkey2pk( ParseHex(params[1].get_str().c_str()) );
