@@ -113,6 +113,8 @@ bool fCoinbaseEnforcedProtectionEnabled = true;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 bool fAlerts = DEFAULT_ALERTS;
+bool fUnspentCCIndex = false;
+
 /* If the tip is older than this (in seconds), the node is considered to be in initial block download.
  */
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
@@ -2119,6 +2121,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 if (fSpentIndex) {
                     pool.addSpentIndex(entry, view);
                 }
+
+                if (fUnspentCCIndex) {
+                    pool.addUnspentCCIndex(entry, view);  // add mempool unspent cc index for cc vin/vouts
+                }
             }
         }
     }
@@ -2182,6 +2188,18 @@ bool GetAddressUnspent(uint160 addressHash, int type,
 
     if (!pblocktree->ReadAddressUnspentIndex(addressHash, type, unspentOutputs))
         return error("unable to get txids for address");
+
+    return true;
+}
+
+bool GetUnspentCCIndex(uint160 addressHash, uint256 creationId,
+                       std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, int32_t beginHeight, int32_t endHeight, int64_t maxOutputs)
+{
+    if (!fUnspentCCIndex)
+        return error("unspent cc index not enabled");
+
+    if (!pblocktree->ReadUnspentCCIndex(addressHash, creationId, unspentOutputs, beginHeight, endHeight, maxOutputs))
+        return error("unable to get outputs for address from unspent cc index");
 
     return true;
 }
@@ -3191,13 +3209,14 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspentIndex;
     std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> > spentIndex;
+    std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentCCIndex; // index for cc transactions
 
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
         uint256 hash = tx.GetHash();
-        if (fAddressIndex) {
-
+        if (fAddressIndex || fUnspentCCIndex) 
+        {
             for (unsigned int k = tx.vout.size(); k-- > 0;) {
                 const CTxOut &out = tx.vout[k];
 
@@ -3207,11 +3226,36 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 int keyType = GetAddressType(out.scriptPubKey, vDest, txType, vSols);
                 if ( keyType != 0 )
                 {
-                    for (auto addr : vSols)
+                    if (fAddressIndex)  {
+                        for (auto addr : vSols)
+                        {
+                            uint160 addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
+                            addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, hash, k, false), out.nValue));
+                            addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, hash, k), CAddressUnspentValue()));
+                        }
+                    }
+                    if (fUnspentCCIndex) 
                     {
-                        uint160 addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
-                        addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, hash, k, false), out.nValue));
-                        addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, hash, k), CAddressUnspentValue()));
+                        if (keyType == 3)   // CC type
+                        {
+                            if (vSols.size() > 0)   
+                            {                                 
+                                uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address                                    
+                                uint256 creationId;
+                                uint8_t evalcode, funcid, version;
+                                CScript opreturn; //init as empty
+                                if (tx.vout.back().scriptPubKey.size() > 0 && tx.vout.back().scriptPubKey[0] == OP_RETURN)
+                                    opreturn = tx.vout.back().scriptPubKey;
+
+                                if (CCDecodeTxVout(tx, k, evalcode, funcid, version, creationId))  {
+                                    // set key for delete the current entry from unspent cc index
+                                    unspentCCIndex.push_back(make_pair(
+                                        CUnspentCCIndexKey(addrHash, creationId, hash, k), 
+                                        CUnspentCCIndexValue()));
+                                    //std::cerr << __func__ << " undoing cc tx=" << hash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3259,22 +3303,51 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     spentIndex.push_back(make_pair(CSpentIndexKey(input.prevout.hash, input.prevout.n), CSpentIndexValue()));
                 }
 
-                if (fAddressIndex) {
+                if (fAddressIndex || fUnspentCCIndex) {
                     const CTxOut &prevout = view.GetOutputFor(tx.vin[j]);
 
                     vector<vector<unsigned char>> vSols;
                     CTxDestination vDest;
                     txnouttype txType = TX_PUBKEYHASH;
                     int keyType = GetAddressType(prevout.scriptPubKey, vDest, txType, vSols);
-                    if ( keyType != 0 )
+                    if (keyType != 0)
                     {
-                        for (auto addr : vSols)
+                        if (fAddressIndex)
                         {
-                            uint160 addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
-                            // undo spending activity
-                            addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, hash, j, true), prevout.nValue * -1));
-                            // restore unspent index
-                            addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, input.prevout.hash, input.prevout.n), CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, undo.nHeight)));
+                            for (auto addr : vSols)
+                            {
+                                uint160 addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
+                                // undo spending activity
+                                addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, hash, j, true), prevout.nValue * -1));
+                                // restore unspent index
+                                addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, input.prevout.hash, input.prevout.n), CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, undo.nHeight)));
+                            }
+                        }
+                        if (fUnspentCCIndex) // support cc index for cc chains
+                        {
+                            if (keyType == 3)  // type CC
+                            {
+                                if (vSols.size() > 0)   
+                                {                                    
+                                    uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address
+                                    CTransaction vintx;
+                                    uint256 hashBlock;
+                                    
+                                    if (myGetTransaction(input.prevout.hash, vintx, hashBlock) && vintx.vout.size() > 0) {  // load previous tx to get opreturn
+                                        uint256 creationId;
+                                        uint8_t evalcode, funcid, version;
+                                        CScript prevOpreturn; //init as empty
+                                        if (vintx.vout.back().scriptPubKey.size() > 0 && vintx.vout.back().scriptPubKey[0] == OP_RETURN)
+                                            prevOpreturn = vintx.vout.back().scriptPubKey;
+
+                                        // restore prev entry:
+                                        if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))
+                                            unspentCCIndex.push_back(make_pair(
+                                                CUnspentCCIndexKey(addrHash, creationId, input.prevout.hash, input.prevout.n), 
+                                                CUnspentCCIndexValue(prevout.nValue, prevout.scriptPubKey, prevOpreturn, undo.nHeight, evalcode, funcid, version)));
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -3314,6 +3387,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
         if (!pblocktree->UpdateAddressUnspentIndex(addressUnspentIndex)) {
             return AbortNode(state, "Failed to write address unspent index");
+        }
+    }
+
+    if (fUnspentCCIndex) {
+        if (!pblocktree->UpdateUnspentCCIndex(unspentCCIndex)) {
+            return AbortNode(state, "Failed to write unspent cc index");
         }
     }
 
@@ -3573,9 +3652,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     std::vector<std::pair<uint256, CDiskTxPos> > vPos;
     vPos.reserve(block.vtx.size());
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
+
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspentIndex;
     std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> > spentIndex;
+    std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentCCIndex; // index for cc transactions
+
     // Construct the incremental merkle tree at the current
     // block position,
     auto old_sprout_tree_root = view.GetBestAnchor(SPROUT);
@@ -3627,7 +3709,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
                                  REJECT_INVALID, "bad-txns-joinsplit-requirements-not-met");
 
-            if (fAddressIndex || fSpentIndex)
+            if (fAddressIndex || fSpentIndex || fUnspentCCIndex)
             {
                 for (size_t j = 0; j < tx.vin.size(); j++) 
                 {
@@ -3640,22 +3722,55 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     txnouttype txType = TX_PUBKEYHASH;
                     uint160 addrHash;
                     int keyType = GetAddressType(prevout.scriptPubKey, vDest, txType, vSols);
-                    if ( keyType != 0 )
+                    if (fAddressIndex || fSpentIndex)
                     {
-                        for (auto addr : vSols)
+                        if ( keyType != 0 )
                         {
-                            addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
-                            // record spending activity
-                            addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, txhash, j, true), prevout.nValue * -1));
+                            for (auto addr : vSols)
+                            {
+                                addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
+                                // record spending activity
+                                addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, txhash, j, true), prevout.nValue * -1));
 
-                            // remove address from unspent index
-                            addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, input.prevout.hash, input.prevout.n), CAddressUnspentValue()));
+                                // remove address from unspent index
+                                addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, input.prevout.hash, input.prevout.n), CAddressUnspentValue()));
+                            }
+
+                            if (fSpentIndex) {
+                                // add the spent index to determine the txid and input that spent an output
+                                // and to find the amount and address from an input
+                                spentIndex.push_back(make_pair(CSpentIndexKey(input.prevout.hash, input.prevout.n), CSpentIndexValue(txhash, j, pindex->GetHeight(), prevout.nValue, keyType, addrHash)));
+                            }
                         }
+                    }
+                    if (fUnspentCCIndex) 
+                    {
+                        // erase spent cc entry
+                        if (keyType == 3)   
+                        {
+                            if (vSols.size() > 0)   
+                            {            
+                                CTransaction vintx;
+                                uint256 hashBlock;
 
-                        if (fSpentIndex) {
-                            // add the spent index to determine the txid and input that spent an output
-                            // and to find the amount and address from an input
-                            spentIndex.push_back(make_pair(CSpentIndexKey(input.prevout.hash, input.prevout.n), CSpentIndexValue(txhash, j, pindex->GetHeight(), prevout.nValue, keyType, addrHash)));
+                                if (myGetTransaction(input.prevout.hash, vintx, hashBlock) && vintx.vout.size() > 0)
+                                {                     
+                                    uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address                                    
+                                    uint256 creationId;
+                                    uint8_t evalcode, funcid, version;
+                                    CScript opreturn; //init as empty
+                                    if (vintx.vout.back().scriptPubKey.size() > 0 && vintx.vout.back().scriptPubKey[0] == OP_RETURN)
+                                        opreturn = tx.vout.back().scriptPubKey;
+
+                                    if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))  {
+                                        // set key for delete the spent output
+                                        unspentCCIndex.push_back(make_pair(
+                                            CUnspentCCIndexKey(addrHash, creationId, input.prevout.hash, input.prevout.n), 
+                                            CUnspentCCIndexValue()));
+                                        //std::cerr << __func__ << " erasing spent cc output evalcode=" << (int)evalcode << " Hash160(vSols[0])=" << Hash160(vSols[0]).GetHex() << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -3699,7 +3814,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             control.Add(vChecks);
         }
 
-        if (fAddressIndex) {
+        if (fAddressIndex || fUnspentCCIndex) // update address index, unspent index and cc index
+        {
             for (unsigned int k = 0; k < tx.vout.size(); k++) {
                 const CTxOut &out = tx.vout[k];
 
@@ -3709,16 +3825,42 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 CTxDestination vDest;
                 txnouttype txType = TX_PUBKEYHASH;
                 int keyType = GetAddressType(out.scriptPubKey, vDest, txType, vSols);
-                if ( keyType != 0 )
+                if (keyType != 0)
                 {
-                    for (auto addr : vSols)
+                    if (fAddressIndex)
                     {
-                        addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
-                        // record receiving activity
-                        addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, txhash, k, false), out.nValue));
+                        for (auto addr : vSols)
+                        {
+                            addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
+                            // record receiving activity
+                            addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, txhash, k, false), out.nValue));
 
-                        // record unspent output
-                        addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, txhash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->GetHeight())));
+                            // record unspent output
+                            addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, txhash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->GetHeight())));
+                        }
+                    }
+                    if (fUnspentCCIndex) // support cc index for cc chains
+                    {
+                        if (keyType == 3)  // type CC
+                        {
+                            if (vSols.size() > 0)   
+                            {                                 
+                                uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address                                    
+                                uint256 creationId;
+                                uint8_t evalcode, funcid, version;
+                                CScript opreturn; //init as empty
+                                if (tx.vout.back().scriptPubKey.size() > 0 && tx.vout.back().scriptPubKey[0] == OP_RETURN)
+                                    opreturn = tx.vout.back().scriptPubKey;
+
+                                if (CCDecodeTxVout(tx, k, evalcode, funcid, version, creationId))  {
+                                    // record cc index output with spk and opreturn
+                                    unspentCCIndex.push_back(make_pair(
+                                        CUnspentCCIndexKey(addrHash, creationId, txhash, k), 
+                                        CUnspentCCIndexValue(tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, pindex->GetHeight(), evalcode, funcid, version)));
+                                    //std::cerr << __func__ << " adding to cc index tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3858,6 +4000,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (!pblocktree->UpdateAddressUnspentIndex(addressUnspentIndex)) {
             return AbortNode(state, "Failed to write address unspent index");
+        }
+    }
+
+    if (fUnspentCCIndex)    {
+        if (!pblocktree->UpdateUnspentCCIndex(unspentCCIndex)) {
+            return AbortNode(state, "Failed to write address unspent cc index");
         }
     }
 
@@ -6243,6 +6391,9 @@ bool static LoadBlockIndexDB()
     pblocktree->ReadFlag("spentindex", fSpentIndex);
     LogPrintf("%s: spent index %s\n", __func__, fSpentIndex ? "enabled" : "disabled");
 
+    pblocktree->ReadFlag("unspentccindex", fUnspentCCIndex);
+    LogPrintf("%s: unspent cc index %s\n", __func__, fUnspentCCIndex ? "enabled" : "disabled");
+
     // Fill in-memory data
     BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
     {
@@ -6613,6 +6764,11 @@ bool InitBlockIndex() {
         fSpentIndex = GetBoolArg("-spentindex", DEFAULT_SPENTINDEX);
         pblocktree->WriteFlag("spentindex", fSpentIndex);
         fprintf(stderr,"fAddressIndex.%d/%d fSpentIndex.%d/%d\n",fAddressIndex,DEFAULT_ADDRESSINDEX,fSpentIndex,DEFAULT_SPENTINDEX);
+
+        fUnspentCCIndex = GetBoolArg("-unspentccindex", DEFAULT_UNSPENTCCINDEX);
+        pblocktree->WriteFlag("unspentccindex", fUnspentCCIndex);
+        fprintf(stderr, "fUnspentCCIndex.%d\n", fUnspentCCIndex);
+
         LogPrintf("Initializing databases...\n");
     }
     // Only add the genesis block if not reindexing (in which case we reuse the one already on disk)

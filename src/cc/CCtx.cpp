@@ -418,6 +418,39 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
     }
 }
 
+// find cc unspent outputs with use unspents cc index
+void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId)
+{
+    int32_t type=0;
+    uint160 hashBytes; 
+    std::vector<std::pair<uint160, uint256> > searchKeys;
+
+    if (!coinaddr)
+        return;
+    CBitcoinAddress address(coinaddr);
+
+    if (address.GetIndexKey(hashBytes, type, true) == 0)
+        return;
+    searchKeys.push_back(std::make_pair(hashBytes, creationId));
+    for (std::vector<std::pair<uint160, uint256> >::iterator it = searchKeys.begin(); it != searchKeys.end(); it++)
+    {
+        if (GetUnspentCCIndex((*it).first, (*it).second, unspentOutputs, -1, -1, 0) == 0)
+            return;
+    }
+}
+
+void AddCCunspentsCCIndexMempool(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId)
+{
+    if (!coinaddr)
+        return;
+    CBitcoinAddress address( coinaddr );
+    uint160 hashBytes;
+    int type;
+    if (address.GetIndexKey(hashBytes, type, true)) {
+        mempool.getUnspentCCIndex({ std::make_pair(hashBytes, creationId) }, unspentOutputs);
+    }
+}
+
 void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr,bool ccflag)
 {
     int32_t type=0,i,n; char *ptr; std::string addrstr; uint160 hashBytes; std::vector<std::pair<uint160, int> > addresses;

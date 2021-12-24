@@ -898,3 +898,115 @@ bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,co
     }
     return eval->Invalid("cclib CC must have evalcode between 16 and 127");
 }
+
+// get OP_DROP data:
+CScript GetCCDropAsOpret(const CScript &scriptPubKey)
+{
+    std::vector<std::vector<unsigned char>> vParams;
+    CScript dummy; 
+    CScript opret;
+
+    if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams))
+    {
+
+        if (vParams.size() > 0)  {
+            COptCCParams parsed(vParams[0]);
+
+            LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)parsed.evalCode << " vKeys.size()=" << (int)parsed.vKeys.size() << " vData.size()=" << (int)parsed.vData.size() << std::endl);
+            if (parsed.vData.size() > 0)      {
+                opret << OP_RETURN << parsed.vData[0];  // return vData[0] as cc opret
+                return opret;
+            }
+        }
+
+        /* parse OP_DROP without verus header (such opdrops are not supported anymore):
+        if (vParams.size() >= 1)  // allow more data after cc opret
+        {
+            //uint8_t version;
+            //uint8_t evalCode;
+            //uint8_t m, n;
+            std::vector< vscript_t > vData;
+
+            // parse vParams[0] as script
+            // try read verus header <evalcode version M N>, do not allow pubkeys after the header
+            CScript inScript(vParams[0].begin(), vParams[0].end());
+            CScript::const_iterator pc = inScript.begin();
+            inScript.GetPushedData(pc, vData);
+
+            if (vData.size() > 1 && vData[0].size() == 4) // first vector is 4-byte verus header
+            {
+                // support Verus-style vData
+                opret << OP_RETURN << vData[1];  // return vData[1] as cc opret
+                return true;
+            }
+            else if (vParams.size() == 1)
+            {
+                // support token-v2-style vData:
+                opret << OP_RETURN << vParams[0];  // no verus header, treat vParams[0] as cc data and return as opret
+                return true;
+            }
+        } */
+    }
+    return CScript();
+}
+
+// decode cc transaction:
+// try to find cc data in vout's opdrop or in the last vout opreturn
+// return funcid, version and creationid
+bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_t &funcid, uint8_t &version, uint256 &creationId)
+{
+    if (tx.vout.size() > 0)     
+    {
+        // note: assumes that this is a cc vout (does not check this)
+
+        // first try if OP_DROP data exists
+        bool usedOpreturn;
+        CScript opdrop;
+        vscript_t vccdata;
+
+        if (!(opdrop = GetCCDropAsOpret(tx.vout[n].scriptPubKey)).empty()) {
+            GetOpReturnData(opdrop, vccdata);
+            usedOpreturn = false;
+        }
+        else   {
+            GetOpReturnData(tx.vout.back().scriptPubKey, vccdata); 
+            usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
+        }
+
+        // use following algotithm to determine creationId
+        // get the evalcode from ccdata
+        // if no cc vins found with this evalcode this is the creation tx and creationId = tx.GetHash()
+        // else the creationId is after the version field: 'evalcode funcid version creationId'
+        if (vccdata.size() >= 3)  {
+            struct CCcontract_info *cp, C; 
+            cp = CCinit(&C, vccdata[0]);
+            int32_t i = 0;
+            for (; i < tx.vin.size(); i ++)
+                if (cp->ismyvin(tx.vin[i].scriptSig))
+                    break;
+            if (i == tx.vin.size()) 
+            {
+                creationId = tx.GetHash(); // tx is the creation tx
+                evalcode = vccdata[0];
+                funcid = vccdata[1];
+                version = vccdata[2];
+                LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << std::endl); 
+            }
+            else
+            {
+                uint256 encodedCrid;
+                if (vccdata.size() >= 3 + sizeof(uint256))   {  // get creationId from the ccdata
+                    bool isEof = true;
+                    if (!E_UNMARSHAL(vccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {  // E_UNMARSHAL might parse okay but return false if not EoF yet. So EoF==true means bad parse
+                        LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "failed to decode ccdata, isEof=" << isEof << " usedOpreturn=" << usedOpreturn << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
+                        return false;
+                    }
+                }
+                creationId = revuint256(encodedCrid);
+                LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << " evalcode=" << (int)evalcode << " funcid=" << (char)funcid << "(" << (int)funcid << "), version=" << (int)version << " in opret found creationid=" << creationId.GetHex() << std::endl);
+            }
+        }
+        return true;
+    }
+    return false;
+}
