@@ -19,6 +19,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <cJSON.h>
 #include "../include/cryptoconditions.h"
 #include "include/sha256.h"
 #include "asn/asn_application.h"
@@ -129,7 +130,7 @@ unsigned char *base64_decode(const unsigned char *data_,
         if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
         if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
     }
-
+    free(data);
     return decoded_data;
 }
 
