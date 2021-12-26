@@ -51,6 +51,7 @@
 #include "wallet/asyncrpcoperation_shieldcoinbase.h"
 #include "notaries_staked.h"
 #include "komodo_extern_globals.h"
+#include "nSPV/nspv_defs.h"
 
 #include <cstring>
 #include <algorithm>
@@ -2258,7 +2259,7 @@ bool myGetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlo
     if ( KOMODO_NSPV_SUPERLITE )
     {
         int64_t rewardsum = 0; int32_t i,retval,txheight,currentheight,height=0,vout = 0;
-        for (i=0; i<NSPV_U.U.numutxos; i++)
+        for (i=0; i<NSPV_U.U.utxos.size(); i++)
             if ( NSPV_U.U.utxos[i].txid == hash )
             {
                 height = NSPV_U.U.utxos[i].height;
@@ -2312,7 +2313,7 @@ bool NSPV_myGetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &ha
     if ( KOMODO_NSPV_SUPERLITE )
     {
         int64_t rewardsum = 0; int32_t i,retval,height=0,vout = 0;
-        for (i=0; i<NSPV_U.U.numutxos; i++)
+        for (i=0; i<NSPV_U.U.utxos.size(); i++)
             if ( NSPV_U.U.utxos[i].txid == hash )
             {
                 height = NSPV_U.U.utxos[i].height;
@@ -7395,12 +7396,6 @@ void static ProcessGetData(CNode* pfrom)
         pfrom->PushMessage("notfound", vNotFound);
     }
 }
-
-#include "komodo_nSPV_defs.h"
-#include "komodo_nSPV.h"            // shared defines, structs, serdes, purge functions
-#include "komodo_nSPV_fullnode.h"   // nSPV fullnode handling of the getnSPV request messages
-#include "komodo_nSPV_superlite.h"  // nSPV superlite client, issuing requests and handling nSPV responses
-#include "komodo_nSPV_wallet.h"     // nSPV_send and support functions, really all the rest is to support this
 
 bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, int64_t nTimeReceived)
 {

@@ -14,7 +14,7 @@
  ******************************************************************************/
 #include "komodo_utils.h"
 #include "komodo_gateway.h"
-#include "komodo_nSPV_defs.h"
+#include "nSPV/nspv_defs.h"
 #include "komodo_extern_globals.h"
 #include "komodo_notary.h"
 

@@ -362,7 +362,13 @@ libbitcoin_server_a_SOURCES = \
   txdb.cpp \
   txmempool.cpp \
   validationinterface.cpp \
-  cc/CCupgrades.cpp \  
+  cc/CCupgrades.cpp \
+  nSPV/nspv_fullnode.cpp \
+  nSPV/nspv_fullnode_basic.cpp \
+  nSPV/nspv_fullnode_cc.cpp \
+  nSPV/nspv_superlite.cpp \
+  nSPV/nspv_misc.cpp \
+  nSPV/nspv_wallet.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
 

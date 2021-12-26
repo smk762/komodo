@@ -15,7 +15,7 @@
 #include "komodo.h"
 #include "komodo_extern_globals.h"
 #include "komodo_notary.h"
-#include "komodo_nSPV_defs.h"
+#include "nSPV/nspv_defs.h"
 #include "mem_read.h"
 
 extern struct NSPV_inforesp NSPV_inforesult;

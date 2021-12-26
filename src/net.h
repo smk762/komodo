@@ -284,8 +284,10 @@ public:
     int64_t nLastRecv;
     int64_t nTimeConnected;
     int64_t nTimeOffset;
-    uint32_t prevtimes[16];
-    // Address of this peer
+    struct {
+        uint32_t prevtime;
+        uint32_t nreqs;
+    } nspvdata[16];    // Address of this peer
     CAddress addr;
     // Bind address of our side of the connection
     // const CAddress addrBind; // https://github.com/bitcoin/bitcoin/commit/a7e3c2814c8e49197889a4679461be42254e5c51
@@ -304,6 +306,7 @@ public:
     bool fInbound;
     bool fNetworkNode;
     bool fSuccessfullyConnected;
+    bool fNspvConnected;
     bool fDisconnect;
     // We use fRelayTxes for two purposes -
     // a) it allows us to not relay tx invs before receiving the peer's version message

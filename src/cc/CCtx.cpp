@@ -14,16 +14,16 @@
  ******************************************************************************/
 
 #include "CCinclude.h"
-#include "komodo_nSPV_defs.h"
+#include "nSPV/nspv_defs.h"
 
 #include "CCtokens.h"
 #include "key_io.h"
 
 std::vector<CPubKey> NULL_pubkeys;
-void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &outputs,char *coinaddr,bool ccflag);
-bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
-void NSPV_CCtxids(std::vector<uint256>& txids, char* coinaddr, bool ccflag, uint8_t evalcode, uint256 filtertxid, uint8_t func);
-void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
+//void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &outputs,char *coinaddr,bool ccflag);
+//bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
+//void NSPV_CCtxids(std::vector<uint256>& txids, char* coinaddr, bool ccflag, uint8_t evalcode, uint256 filtertxid, uint8_t func);
+//void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
 
 /* see description to function definition in CCinclude.h */
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
@@ -830,7 +830,7 @@ void SetAddressIndexTxids(std::vector<std::pair<CAddressIndexKey, CAmount>>& add
     uint160 hashBytes;
     std::vector<std::pair<uint160, int>> addresses;
     if (KOMODO_NSPV_SUPERLITE) {
-        NSPV_CCtxids(addressIndex, (char*)coinaddr, ccflag);
+        NSPV_AddressIndexEntries(addressIndex, (char*)coinaddr, ccflag);
         return;
     }
     if (!coinaddr)
@@ -1119,7 +1119,7 @@ CAmount AddNormalinputsLocal(CMutableTransaction& mtx, CPubKey mypk, CAmount tot
     CTransaction tx;
     struct CC_utxo *utxos, *up;
     if (KOMODO_NSPV_SUPERLITE)
-        return (NSPV_AddNormalinputs(mtx, mypk, total, maxinputs, &NSPV_U));
+        return (NSPV_AddNormalinputs(mtx, mypk, total, maxinputs, NSPV_U));
 
         // if (mypk != pubkey2pk(Mypubkey()))  //remote superlite mypk, do not use wallet since it is not locked for non-equal pks (see rpcs with nspv support)!
         //     return(AddNormalinputs3(mtx, mypk, total, maxinputs));
@@ -1230,7 +1230,7 @@ CAmount AddNormalinputsRemote(CMutableTransaction& mtx, CPubKey mypk, CAmount to
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
 
     if (KOMODO_NSPV_SUPERLITE)
-        return (NSPV_AddNormalinputs(mtx, mypk, total, maxinputs, &NSPV_U));
+        return (NSPV_AddNormalinputs(mtx, mypk, total, maxinputs, NSPV_U));
     utxos = (struct CC_utxo*)calloc(CC_MAXVINS, sizeof(*utxos));
     if (maxinputs > CC_MAXVINS)
         maxinputs = CC_MAXVINS;

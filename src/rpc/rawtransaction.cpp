@@ -41,6 +41,7 @@
 #endif
 
 #include "komodo_defs.h"
+#include "nSPV/nspv_defs.h"
 
 #include <stdint.h>
 
@@ -1329,7 +1330,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp, const CPubKey& m
     return result;
 }
 
-extern UniValue NSPV_broadcast(char *hex);
+//extern UniValue NSPV_broadcast(char *hex);
 
 UniValue sendrawtransaction(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {

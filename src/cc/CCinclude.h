@@ -68,7 +68,7 @@ Details.
 #include <univalue.h>
 #include <exception>
 #include "../komodo_defs.h"
-#include "../komodo_nSPV_defs.h"
+#include "../nSPV/nspv_defs.h"
 #include "../utlist.h"
 #include "../uthash.h"
 #include "merkleblock.h"
@@ -950,9 +950,9 @@ void SetCCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t 
 /// @param mypk pubkey to make TX_PUBKEY address from
 /// @param total amount of inputs to add. If total equals to 0 the function does not add inputs but returns amount of all available normal inputs in the wallet
 /// @param maxinputs maximum number of inputs to add
-/// @param[out] ptr pointer to NSPV_CCmtxinfo structure with the info about the added utxo
+/// @param[out] ref to NSPV_CCmtxinfo structure with the info about the added utxo
 /// @returns amount of added normal inputs or amount of all normal inputs in the wallet
-int64_t NSPV_AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs,struct NSPV_CCmtxinfo *ptr);
+CAmount NSPV_AddNormalinputs(CMutableTransaction& mtx, CPubKey mypk, int64_t total, int32_t maxinputs, struct NSPV_CCmtxinfo& mtxinfo);
 
 /// AddNormalinputs wrapper for calling either AddNormalinputsLocal or AddNormalinputsRemote 
 /// @param mtx mutable transaction object

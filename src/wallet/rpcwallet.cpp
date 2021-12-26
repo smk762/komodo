@@ -69,7 +69,7 @@
 #include "komodo_kv.h"
 #include "komodo_pax.h"
 #include "komodo_bitcoind.h"
-#include "komodo_nSPV_defs.h"
+#include "nSPV/nspv_defs.h"
 #include "hex.h"
 
 using namespace std;

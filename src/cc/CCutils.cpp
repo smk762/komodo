@@ -20,7 +20,7 @@
 #include "komodo_defs.h"
 #include "komodo_structs.h"
 #include "komodo_utils.h"
-#include "komodo_nSPV_defs.h"
+#include "nSPV/nspv_defs.h"
 #include "CCinclude.h"
 #include "CCtokens.h"
 
@@ -747,11 +747,11 @@ int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_
         CTransaction tx; uint256 hashBlock;
 
         NSPV_evalcode_inmempool(evalcode,funcid);
-        for (int i=0;i<NSPV_mempoolresult.numtxids;i++)
+        for (int i=0;i<NSPV_mempoolresult.txids.size();i++)
         {
             if (myGetTransaction(NSPV_mempoolresult.txids[i],tx,hashBlock)!=0) txs.push_back(tx);
         }
-        return (NSPV_mempoolresult.numtxids);
+        return (NSPV_mempoolresult.txids.size());
     }
     LOCK(mempool.cs);
     BOOST_FOREACH(const CTxMemPoolEntry &e, mempool.mapTx)
