@@ -27,18 +27,18 @@
 #include "core_io.h"
 #include "crosschain.h"
 
-bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn);
+bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 char *CClib_name();
 
 Eval* EVAL_TEST = 0;
 struct CCcontract_info CCinfos[0x100];
 extern pthread_mutex_t KOMODO_CC_mutex;
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn)
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
     EvalRef eval;
     pthread_mutex_lock(&KOMODO_CC_mutex);
-    bool out = eval->Dispatch(cond, tx, nIn);
+    bool out = eval->Dispatch(cond, tx, nIn, evalcodeChecker);
     pthread_mutex_unlock(&KOMODO_CC_mutex);
     if ( eval->state.IsValid() != out)
         fprintf(stderr,"out %d vs %d isValid\n",(int32_t)out,(int32_t)eval->state.IsValid());
@@ -46,13 +46,14 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn)
 
     if (eval->state.IsValid()) return true;
 
+    // report cc error:
     std::string lvl = eval->state.IsInvalid() ? "Invalid" : "Error!";
-    fprintf(stderr, "CC Eval %s %s: %s spending tx %s\n",
-            EvalToStr(cond->code[0]).data(),
-            lvl.data(),
-            eval->state.GetRejectReason().data(),
-            tx.vin[nIn].prevout.hash.GetHex().data());
-    if (eval->state.IsError()) fprintf(stderr, "Culprit: %s\n", EncodeHexTx(tx).data());
+    LOGSTREAMFN("cc", CCLOG_ERROR, stream << "CC Eval evalcode: " << EvalToStr(cond->code[0]) << " " << lvl << ", reason: " << eval->state.GetRejectReason() << std::endl);
+    if (eval->state.IsError()) {
+        LOGSTREAMFN("cc", CCLOG_ERROR, stream << "CC Eval Culprit tx: " << EncodeHexTx(tx) << std::endl);
+    }
+
+    /* this hangs komodod bcs of lock!
     CTransaction tmp; 
     if (mempool.lookup(tx.GetHash(), tmp))
     {
@@ -60,8 +61,9 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn)
         // Miner will mine 1 invalid block, but doesnt stop them mining until a restart.
         // This would almost never happen in normal use.
         std::list<CTransaction> dummy;
-        mempool.remove(tx,dummy,true);
+        //mempool.remove(tx,dummy,true);  
     }
+    */
     return false;
 }
 
@@ -69,13 +71,14 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn)
 /*
  * Test the validity of an Eval node
  */
-bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn)
+bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
     struct CCcontract_info *cp;
     if (cond->codeLength == 0)
         return Invalid("empty-eval");
 
     uint8_t ecode = cond->code[0];
+    if (evalcodeChecker.get()!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),ecode)!=0) return true;
     if ( ASSETCHAINS_CCDISABLES[ecode] != 0 )
     {
         // check if a height activation has been set. 
@@ -90,7 +93,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn)
     if ( ecode >= EVAL_FIRSTUSER && ecode <= EVAL_LASTUSER )
     {
         if ( ASSETCHAINS_CCLIB.size() > 0 && ASSETCHAINS_CCLIB == CClib_name() )
-            return CClib_Dispatch(cond,this,vparams,txTo,nIn);
+            return CClib_Dispatch(cond,this,vparams,txTo,nIn,evalcodeChecker);
         else return Invalid("mismatched -ac_cclib vs CClib_name");
     }
     cp = &CCinfos[(int32_t)ecode];
@@ -111,7 +114,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn)
             break;
 
         default:
-            return(ProcessCC(cp,this, vparams, txTo, nIn));
+            return(ProcessCC(cp,this, vparams, txTo, nIn, evalcodeChecker));
             break;
     }
     return Invalid("invalid-code, dont forget to add EVAL_NEWCC to Eval::Dispatch");
@@ -257,4 +260,9 @@ uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves)
     bool fMutated;
     std::vector<uint256> vMerkleTree;
     return BuildMerkleTree(&fMutated, vLeaves, vMerkleTree);
+}
+
+bool GetTxUnconfirmedOpt(Eval *eval, const uint256 &hash, CTransaction &txOut, uint256 &hashBlock)
+{
+   return eval ? eval->GetTxUnconfirmed(hash, txOut, hashBlock) : myGetTransaction(hash, txOut, hashBlock);
 }
