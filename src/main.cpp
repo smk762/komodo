@@ -7353,10 +7353,18 @@ void static ProcessGetData(CNode* pfrom)
                 // Send stream from relay memory
                 bool pushed = false;
                 {
-                    LOCK(cs_mapRelay);
-                    map<CInv, CDataStream>::iterator mi = mapRelay.find(inv);
-                    if (mi != mapRelay.end()) {
-                        pfrom->PushMessage(inv.GetCommand(), (*mi).second);
+                    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+                    bool found = false;
+                    {
+                        LOCK(cs_mapRelay);
+                        map<CInv, CDataStream>::iterator mi = mapRelay.find(inv);
+                        if (mi != mapRelay.end())  {
+                            ss = ((*mi).second);
+                            found = true;
+                        }
+                    }
+                    if (found) {
+                        pfrom->PushMessage(inv.GetCommand(), ss);
                         pushed = true;
                     }
                 }
