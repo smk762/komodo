@@ -27,6 +27,8 @@
 #include "util.h"
 #include "utiltime.h"
 #include "wallet.h"
+#include "wallet/rpcwallet.h"
+
 
 #include <fstream>
 #include <stdint.h>
@@ -41,12 +43,13 @@
 
 #include "zcash/Note.hpp"
 #include "zcash/NoteEncryption.hpp"
+#include "wallet/rpcwallet.h"
 
 using namespace std;
 using namespace libzcash;
 
 // Function declaration for function implemented in wallet/rpcwallet.cpp
-bool EnsureWalletIsAvailable(bool avoidException);
+//bool EnsureWalletIsAvailable(bool avoidException);
 
 /**
  * RPC call to generate a payment disclosure

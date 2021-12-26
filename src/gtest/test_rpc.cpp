@@ -6,10 +6,11 @@
 #include "clientversion.h"
 #include "primitives/block.h"
 #include "rpc/server.h"
+#include "wallet/rpcwallet.h"
 #include "streams.h"
 #include "utilstrencodings.h"
 
-extern UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
+//extern UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
 
 TEST(rpc, check_blockToJSON_returns_minified_solution) {
     SelectParams(CBaseChainParams::TESTNET);

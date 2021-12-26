@@ -41,6 +41,7 @@
 #include "key_io.h"
 #endif
 #include "main.h"
+#include "komodo_extern_globals.h"
 #include "metrics.h"
 #include "miner.h"
 #include "net.h"
@@ -96,9 +97,9 @@ using namespace std;
 #include "komodo_defs.h"
 extern void ThreadSendAlert();
 extern bool komodo_dailysnapshot(int32_t height);
-extern int32_t KOMODO_LOADINGBLOCKS;
-extern bool VERUS_MINTBLOCKS;
-extern char ASSETCHAINS_SYMBOL[];
+//extern int32_t KOMODO_LOADINGBLOCKS;
+//extern bool VERUS_MINTBLOCKS;
+//extern char ASSETCHAINS_SYMBOL[];
 extern int32_t KOMODO_SNAPSHOT_INTERVAL;
 
 ZCJoinSplit* pzcashParams = NULL;

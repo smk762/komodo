@@ -22,11 +22,11 @@
 #include "cc/eval.h"
 #include "cc/utils.h"
 #include "cc/CCinclude.h"
+#include "hex.h"
 #include "main.h"
 #include "chain.h"
 #include "core_io.h"
 #include "crosschain.h"
-#include "hex.h"
 
 #define FAUCET2SIZE COIN
 #define EVAL_FAUCET2 EVAL_FIRSTUSER
@@ -609,11 +609,11 @@ std::string CClib_rawtxgen(struct CCcontract_info *cp,uint8_t funcid,cJSON *para
         for (i=0; i<1000000; i++,j++)
         {
             tmpmtx = mtx;
-            rawhex = FinalizeCCTx(-1LL,cp,tmpmtx,mypk,txfee,CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_FAUCET2 << (uint8_t)'G' << j));
+            rawhex = FinalizeCCTx(0,cp,tmpmtx,mypk,txfee,CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_FAUCET2 << (uint8_t)'G' << j));
             if ( (len= (int32_t)rawhex.size()) > 0 && len < 65536 )
             {
                 len >>= 1;
-                decode_hex(buf,len,rawhex.c_str());
+                decode_hex(buf,len,(char *)rawhex.c_str());
                 hash = bits256_doublesha256(0,buf,len);
                 if ( (hash.bytes[0] & 0xff) == 0 && (hash.bytes[31] & 0xff) == 0 )
                 {

@@ -186,7 +186,7 @@ int32_t myIsutxo_spent(uint256 &spenttxid,uint256 txid,int32_t vout)
     return(-1);
 }
 
-void TxToJSONExpanded(const CTransaction& tx, const uint256 hashBlock, UniValue& entry, int nHeight = 0, int nConfirmations = 0, int nBlockTime = 0)
+void TxToJSONExpanded(const CTransaction& tx, const uint256 hashBlock, UniValue& entry, int nHeight, int nConfirmations, int nBlockTime)
 {
     uint256 notarized_hash,notarized_desttxid; int32_t prevMoMheight,notarized_height;
     notarized_height = komodo_notarized_height(&prevMoMheight,&notarized_hash,&notarized_desttxid);
@@ -1330,8 +1330,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp, const CPubKey& m
     return result;
 }
 
-//extern UniValue NSPV_broadcast(char *hex);
-
 UniValue sendrawtransaction(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
@@ -1394,7 +1392,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp, const CPubKey& m
     }
     else
     {
-        NSPV_broadcast((char *)params[0].get_str().c_str());
+        NSPV_broadcast(params[0].get_str().c_str());
     }
     return hashTx.GetHex();
 }

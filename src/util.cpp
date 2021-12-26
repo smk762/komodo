@@ -528,7 +528,7 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
     strMiscWarning = message;
 }
 
-extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
+//extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
 //int64_t MAX_MONEY = 200000000 * 100000000LL;
 
 boost::filesystem::path GetDefaultDataDir()
