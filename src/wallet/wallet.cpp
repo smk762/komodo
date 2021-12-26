@@ -38,6 +38,8 @@
 #include "crypter.h"
 #include "coins.h"
 #include "zcash/zip32.h"
+
+#include "komodo_interest.h"
 #include "cc/CCinclude.h"
 
 #include <assert.h>
@@ -2236,12 +2238,13 @@ isminetype CWallet::IsMine(const CTransaction& tx, uint32_t voutNum)
         case TX_CRYPTOCONDITION:
             // for now, default is that the first value returned will be the script, subsequent values will be
             // pubkeys. if we have the first pub key in our wallet, we consider this spendable
+            /* verus feature, we do not support cc spks in the wallet
             if (vSolutions.size() > 1)
             {
                 keyID = CPubKey(vSolutions[1]).GetID();
                 if (this->HaveKey(keyID))
                     return ISMINE_SPENDABLE;
-            }
+            }*/
             break;
 
         case TX_PUBKEY:
@@ -3385,8 +3388,8 @@ CAmount CWallet::GetImmatureWatchOnlyBalance() const
 /**
  * populate vCoins with vector of available COutputs.
  */
-uint64_t komodo_interestnew(int32_t txheight,uint64_t nValue,uint32_t nLockTime,uint32_t tiptime);
-uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight);
+//uint64_t komodo_interestnew(int32_t txheight,uint64_t nValue,uint32_t nLockTime,uint32_t tiptime);
+//uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight);
 
 void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase) const
 {
@@ -4800,6 +4803,8 @@ public:
         if (keystore.GetCScript(scriptId, script))
             Process(script);
     }
+    
+    void operator()(const CCryptoConditionID &none) {}  // no cc in the wallet
 
     void operator()(const CNoDestination &none) {}
 };

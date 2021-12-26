@@ -93,12 +93,13 @@ isminetype IsMineInner(const CKeyStore& keystore, const CScript& _scriptPubKey, 
     case TX_CRYPTOCONDITION:
         // for now, default is that the first value returned will be the script, subsequent values will be
         // pubkeys. if we have the first pub key in our wallet, we consider this spendable
+        /* this is verus feature, we do not support cc spks in the wallet yet:
         if (vSolutions.size() > 1)
         {
-            keyID = CPubKey(vSolutions[1]).GetID();
+            keyID = CPubKey(vSolutions[1]).GetID();  
             if (keystore.HaveKey(keyID))
                 return ISMINE_SPENDABLE;
-        }
+        } */
         break;
     case TX_PUBKEY:
         keyID = CPubKey(vSolutions[0]).GetID();

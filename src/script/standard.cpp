@@ -34,8 +34,6 @@ typedef vector<unsigned char> valtype;
 
 unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
-bool komodo_is_vSolutionsFixActive(); // didn't want to bring komodo headers here, it's a special case to bypass bad code in Solver() and ExtractDestination() 
-
 COptCCParams::COptCCParams(std::vector<unsigned char> &vch)
 {
     CScript inScr = CScript(vch.begin(), vch.end());
@@ -146,6 +144,8 @@ std::vector<unsigned char> COptCCParams::AsVector()
     }
     return std::vector<unsigned char>(cData.begin(), cData.end());
 }
+
+bool komodo_is_vSolutionsFixActive(); // didn't want to bring komodo headers here, it's a special case to bypass bad code in Solver() and ExtractDestination() 
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
@@ -411,7 +411,9 @@ bool ExtractDestination(const CScript& _scriptPubKey, CTxDestination& addressRet
         }
         else
         {
-            addressRet = CKeyID(uint160(vSolutions[0]));
+            addressRet = CCryptoConditionID(uint160(vSolutions[0]));
+            // we do not create CCLTVID for CC spks as it does not make sense (any timelocks should be inside the cc code)
+            // however we do not fail it either to provide compatibility with the pre-CCLTVID code
         }
         return true;
     }
@@ -526,6 +528,11 @@ public:
         script->clear();
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
         return true;
+    }
+    
+    bool operator()(const CCryptoConditionID &dest) const {
+        script->clear();
+        return false;  // can't create a cc that simple
     }
 };
 }
