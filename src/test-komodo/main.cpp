@@ -20,3 +20,8 @@ int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
+
+bool komodo_is_vSolutionsFixActive()
+{
+    return true;
+}

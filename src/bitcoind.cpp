@@ -262,3 +262,10 @@ int main(int argc, char* argv[])
 
     return (AppInit(argc, argv) ? EXIT_SUCCESS : EXIT_FAILURE);
 }
+
+// check if block timestamp is more than S5 activation time
+// this function is to activate the ExtractDestination fix 
+bool komodo_is_vSolutionsFixActive()
+{
+    return GetLatestTimestamp(komodo_currentheight()) > nS5Timestamp;
+}

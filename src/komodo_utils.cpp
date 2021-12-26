@@ -2077,12 +2077,13 @@ void komodo_prefetch(FILE *fp)
     fseek(fp,fpos,SEEK_SET);
 }
 
+// This function moved to bitcoind.cpp to remove it from the bitcoind library (to be able to make isolated tests)
 // check if block timestamp is more than S5 activation time
 // this function is to activate the ExtractDestination fix 
-bool komodo_is_vSolutionsFixActive()
+/*bool komodo_is_vSolutionsFixActive()
 {
     return GetLatestTimestamp(komodo_currentheight()) > nS5Timestamp;
-}
+}*/
 
 int64_t komodo_get_blocktime(uint256 hashBlock)
 {
