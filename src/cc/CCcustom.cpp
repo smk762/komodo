@@ -14,6 +14,7 @@
  ******************************************************************************/
 #include "hex.h"
 #include "key_io.h"
+#include "komodo_utils.h"
 #include "CCinclude.h"
 #include "CCassets.h"
 #include "CCfaucet.h"

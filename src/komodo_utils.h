@@ -17,7 +17,11 @@
 #include "hex.h"
 #include "key_io.h"
 #include "cc/CCinclude.h"
+
+#include <stdint.h>
 #include <string.h>
+
+#include <gmp.h>
 
 #ifdef _WIN32
 #include <sodium.h>
@@ -44,7 +48,7 @@ typedef struct queue
     char name[64],initflag;
 } queue_t;
 
-#include "mini-gmp.h"
+//#include "mini-gmp.h"
 
 #define CRYPTO777_PUBSECPSTR "020e46e79a2a8d12b9b5d12c7a91adb4e454edfae43c0a0cb805427d2ac7613fd9"
 #define CRYPTO777_KMDADDR "RXL3YXG2ceaB6C5hfJcN4fvmLH2C34knhA"
@@ -393,3 +397,21 @@ void komodo_prefetch(FILE *fp);
 // check if block timestamp is more than S5 activation time
 // this function is to activate the ExtractDestination fix 
 bool komodo_is_vSolutionsFixActive();
+
+int64_t komodo_get_blocktime(uint256 hashBlock);
+
+uint32_t komodo_next_tx_locktime();
+
+int32_t komodo_get_current_height();
+
+char *bitcoin_base58encode(char *coinaddr, uint8_t *data,int32_t datalen);
+
+int32_t bitcoin_base58decode(uint8_t *data, char *coinaddr);
+
+void mpz_from_bits256(mpz_t bn, bits256 x);
+
+bits256 mpz_to_bits256(mpz_t bn);
+
+bits256 mpz_muldivcmp(bits256 oldval,int32_t mulval,int32_t divval,bits256 targetval);
+
+bits256 mpz_div64(bits256 hash,uint64_t divval);

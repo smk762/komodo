@@ -36,6 +36,12 @@
 #include "wallet/walletdb.h"
 #endif
 
+#include "komodo_extern_globals.h"
+#include "komodo_notary.h"
+#include "komodo_bitcoind.h"
+#include "komodo_utils.h"
+#include "komodo_jumblr.h"
+
 #include <stdint.h>
 
 #include <boost/assign/list_of.hpp>
@@ -60,6 +66,7 @@ using namespace std;
  * Or alternatively, create a specific query method for the information.
  **/
 
+/*
 int32_t Jumblr_depositaddradd(char *depositaddr);
 int32_t Jumblr_secretaddradd(char *secretaddr);
 uint64_t komodo_interestsum();
@@ -78,9 +85,12 @@ int32_t notarizedtxid_height(char *dest,char *txidstr,int32_t *kmdnotarized_heig
 int8_t StakedNotaryID(std::string &notaryname, char *Raddress);
 uint64_t komodo_notarypayamount(int32_t nHeight, int64_t notarycount);
 int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestamp);
+*/
 
 #define KOMODO_VERSION "0.7.1"
 #define VERUS_VERSION "0.4.0g"
+
+/*
 extern uint16_t ASSETCHAINS_P2PPORT,ASSETCHAINS_RPCPORT;
 extern uint32_t ASSETCHAINS_CC;
 extern uint32_t ASSETCHAINS_MAGIC,ASSETCHAINS_ALGO;
@@ -88,6 +98,7 @@ extern uint64_t ASSETCHAINS_COMMISSION,ASSETCHAINS_SUPPLY;
 extern int32_t ASSETCHAINS_LWMAPOS,ASSETCHAINS_SAPLING,ASSETCHAINS_STAKED;
 extern uint64_t ASSETCHAINS_ENDSUBSIDY[],ASSETCHAINS_REWARD[],ASSETCHAINS_HALVING[],ASSETCHAINS_DECAY[],ASSETCHAINS_NOTARY_PAY[];
 extern std::string NOTARY_PUBKEY,NOTARY_ADDRESS; extern uint8_t NOTARY_PUBKEY33[];
+*/
 
 int32_t getera(int timestamp)
 {
@@ -231,9 +242,9 @@ UniValue getinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
     
     proxyType proxy;
     GetProxy(NET_IPV4, proxy);
-    notarized_height = komodo_notarized_height(&prevMoMheight,&notarized_hash,&notarized_desttxid);
+    notarized_height = komodo_notarized_height(&prevMoMheight, &notarized_hash, &notarized_desttxid);
     //fprintf(stderr,"after notarized_height %u\n",(uint32_t)time(NULL));
-    
+
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("version", CLIENT_VERSION));
     obj.push_back(Pair("protocolversion", PROTOCOL_VERSION));
@@ -1621,11 +1632,12 @@ UniValue decodeccopret(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
     std::vector<unsigned char> hex(ParseHex(params[0].get_str()));
     CScript scripthex(hex.begin(),hex.end());
-    std::vector<std::pair<uint8_t, vscript_t>>  oprets;
-    if (DecodeTokenOpRet(scripthex,tokenevalcode,tokenid,pubkeys, oprets)!=0 && tokenevalcode==EVAL_TOKENS && oprets.size()>0)
+    std::vector<vscript_t>  oprets;
+    if (DecodeTokenOpRetV1(scripthex,tokenid,pubkeys, oprets)!=0  && oprets.size()>0)
     {
         // seems we need a loop here
-        vOpretExtra = oprets[0].second;  
+        if (oprets.size() > 0)
+            vOpretExtra = oprets[0]; 
         UniValue obj(UniValue::VOBJ);
         GetOpReturnData(scripthex,vopret);
         script = (uint8_t *)vopret.data();

@@ -33,6 +33,8 @@
 #include "utilmoneystr.h"
 #include "wallet.h"
 #include "walletdb.h"
+#include "wallet/rpcwallet.h"
+
 #include "primitives/transaction.h"
 #include "zcbenchmarks.h"
 #include "script/interpreter.h"
@@ -51,6 +53,7 @@
 #include "sodium.h"
 
 #include <stdint.h>
+#include <string.h>
 
 #include <boost/assign/list_of.hpp>
 //#include <utf8.h>
@@ -60,27 +63,32 @@
 #include <numeric>
 
 #include "komodo_defs.h"
+#include "komodo_extern_globals.h"
+#include "komodo_utils.h"
+#include "komodo_gateway.h"
+#include "komodo_kv.h"
+#include "komodo_pax.h"
+#include "komodo_bitcoind.h"
+#include "komodo_nSPV_defs.h"
 #include "hex.h"
-#include <string.h>
 
 using namespace std;
 
 using namespace libzcash;
 
-extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
-extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
+//extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
+//extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
 const std::string ADDR_TYPE_SPROUT = "sprout";
 const std::string ADDR_TYPE_SAPLING = "sapling";
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
-extern int32_t KOMODO_INSYNC;
-uint32_t komodo_segid32(char *coinaddr);
-int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
-int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime); // from ac_private chains only
-CBlockIndex *komodo_getblockindex(uint256 hash);
+//extern int32_t KOMODO_INSYNC;
+//uint32_t komodo_segid32(char *coinaddr);
+//int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
+//int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime); // from ac_private chains only
+//CBlockIndex *komodo_getblockindex(uint256 hash);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
-std::string CCerror;
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -134,7 +142,7 @@ void Unlock2NSPV(const CPubKey &pk)
     }
 }
 
-uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight);
+//uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight);
 
 void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
 {
@@ -569,8 +577,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return wtx.GetHash().GetHex();
 }
 
-#include "komodo_defs.h"
-
+/*
 #define KOMODO_KVPROTECTED 1
 #define KOMODO_KVBINARY 2
 #define KOMODO_KVDURATION 1440
@@ -591,6 +598,7 @@ uint256 komodo_kvsig(uint8_t *buf,int32_t len,uint256 privkey);
 int32_t komodo_kvduration(uint32_t flags);
 uint256 komodo_kvprivkey(uint256 *pubkeyp,char *passphrase);
 int32_t komodo_kvsigverify(uint8_t *buf,int32_t len,uint256 _pubkey,uint256 sig);
+*/
 
 UniValue kvupdate(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
@@ -7346,498 +7354,6 @@ UniValue diceinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
         throw runtime_error(CC_REQUIREMENTS_MSG);
     fundingtxid = Parseuint256((char *)params[0].get_str().c_str());
     return(DiceInfo(fundingtxid));
-}
-
-UniValue tokenlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    uint256 tokenid;
-    if ( fHelp || params.size() > 0 )
-        throw runtime_error("tokenlist\n");
-    if ( ensure_CCrequirements(EVAL_TOKENS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    return(TokenList());
-}
-
-UniValue tokeninfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    uint256 tokenid;
-    if ( fHelp || params.size() != 1 )
-        throw runtime_error("tokeninfo tokenid\n");
-    if ( ensure_CCrequirements(EVAL_TOKENS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    return(TokenInfo(tokenid));
-}
-
-UniValue tokenorders(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    uint256 tokenid;
-    if ( fHelp || params.size() > 1 )
-        throw runtime_error("tokenorders [tokenid]\n"
-                            "returns token orders for the tokenid or all available token orders if tokenid is not set\n"
-                            "(this rpc supports only fungible tokens)\n" "\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-	if (params.size() == 1) {
-		tokenid = Parseuint256((char *)params[0].get_str().c_str());
-		if (tokenid == zeroid) 
-			throw runtime_error("incorrect tokenid\n");
-        return AssetOrders(tokenid, CPubKey(), 0);
-	}
-    else {
-        // throw runtime_error("no tokenid\n");
-        return AssetOrders(zeroid, CPubKey(), 0);
-    }
-}
-
-
-UniValue mytokenorders(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    uint256 tokenid;
-    if (fHelp || params.size() > 1)
-        throw runtime_error("mytokenorders [evalcode]\n"
-                            "returns all the token orders for mypubkey\n"
-                            "if evalcode is set then returns mypubkey token orders for non-fungible tokens with this evalcode\n" "\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    uint8_t additionalEvalCode = 0;
-    if (params.size() == 1)
-        additionalEvalCode = strtol(params[0].get_str().c_str(), NULL, 0);  // supports also 0xEE-like values
-
-    return AssetOrders(zeroid, Mypubkey(), additionalEvalCode);
-}
-
-UniValue tokenbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); uint256 tokenid; uint64_t balance; std::vector<unsigned char> pubkey; struct CCcontract_info *cp,C;
-	CCerror.clear();
-
-    if ( fHelp || params.size() > 2 )
-        throw runtime_error("tokenbalance tokenid [pubkey]\n");
-    if ( ensure_CCrequirements(EVAL_TOKENS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    
-	LOCK(cs_main);
-
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    if ( params.size() == 2 )
-        pubkey = ParseHex(params[1].get_str().c_str());
-    else 
-		pubkey = Mypubkey();
-
-    balance = GetTokenBalance(pubkey2pk(pubkey),tokenid);
-
-	if (CCerror.empty()) {
-		char destaddr[64];
-
-		result.push_back(Pair("result", "success"));
-        cp = CCinit(&C,EVAL_TOKENS);
-		if (GetCCaddress(cp, destaddr, pubkey2pk(pubkey)) != 0)
-			result.push_back(Pair("CCaddress", destaddr));
-
-		result.push_back(Pair("tokenid", params[0].get_str()));
-		result.push_back(Pair("balance", (int64_t)balance));
-	}
-	else {
-		ERR_RESULT(CCerror);
-	}
-
-    return(result);
-}
-
-UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ);
-    std::string name, description, hextx; 
-    std::vector<uint8_t> nonfungibleData;
-    int64_t supply; // changed from uin64_t to int64_t for this 'if ( supply <= 0 )' to work as expected
-
-    CCerror.clear();
-
-    if ( fHelp || params.size() > 4 || params.size() < 2 )
-        throw runtime_error("tokencreate name supply [description][data]\n");
-    if ( ensure_CCrequirements(EVAL_TOKENS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-
-    name = params[0].get_str();
-    if (name.size() == 0 || name.size() > 32)   {
-        ERR_RESULT("Token name must not be empty and up to 32 characters");
-        return(result);
-    }
-
-    supply = atof(params[1].get_str().c_str()) * COIN + 0.00000000499999;   // what for is this '+0.00000000499999'? it will be lost while converting double to int64_t (dimxy)
-    if (supply <= 0)    {
-        ERR_RESULT("Token supply must be positive");
-        return(result);
-    }
-    
-    if (params.size() >= 3)     {
-        description = params[2].get_str();
-        if (description.size() > 4096)   {
-            ERR_RESULT("Token description must be <= 4096 characters");
-            return(result);
-        }
-    }
-    
-    if (params.size() == 4)    {
-        nonfungibleData = ParseHex(params[3].get_str());
-        if (nonfungibleData.size() > IGUANA_MAXSCRIPTSIZE) // opret limit
-        {
-            ERR_RESULT("Non-fungible data size must be <= " + std::to_string(IGUANA_MAXSCRIPTSIZE));
-            return(result);
-        }
-        if( nonfungibleData.empty() ) {
-            ERR_RESULT("Non-fungible data incorrect");
-            return(result);
-        }
-    }
-
-    hextx = CreateToken(0, supply, name, description, nonfungibleData);
-    if( hextx.size() > 0 )     {
-        result.push_back(Pair("result", "success"));
-        result.push_back(Pair("hex", hextx));
-    } 
-    else 
-        ERR_RESULT(CCerror);
-    return(result);
-}
-
-UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); 
-    std::string hex; 
-    int64_t amount; 
-    uint256 tokenid;
-    
-    CCerror.clear();
-
-    if ( fHelp || params.size() != 3)
-        throw runtime_error("tokentransfer tokenid destpubkey amount\n");
-    if ( ensure_CCrequirements(EVAL_TOKENS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    std::vector<unsigned char> pubkey(ParseHex(params[1].get_str().c_str()));
-    //amount = atol(params[2].get_str().c_str());
-	amount = atoll(params[2].get_str().c_str()); // dimxy changed to prevent loss of significance
-    if( tokenid == zeroid )    {
-        ERR_RESULT("invalid tokenid");
-        return(result);
-    }
-    if( amount <= 0 )    {
-        ERR_RESULT("amount must be positive");
-        return(result);
-    }
-
-    hex = TokenTransfer(0, tokenid, pubkey, amount);
-
-    if( !CCerror.empty() )   {
-        ERR_RESULT(CCerror);
-    }
-    else {
-        result.push_back(Pair("result", "success"));
-        result.push_back(Pair("hex", hex));
-    }
-    return(result);
-}
-
-UniValue tokenconvert(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); std::string hex; int32_t evalcode; int64_t amount; uint256 tokenid;
-    if ( fHelp || params.size() != 4 )
-        throw runtime_error("tokenconvert evalcode tokenid pubkey amount\n");
-    if ( ensure_CCrequirements(EVAL_ASSETS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    evalcode = atoi(params[0].get_str().c_str());
-    tokenid = Parseuint256((char *)params[1].get_str().c_str());
-    std::vector<unsigned char> pubkey(ParseHex(params[2].get_str().c_str()));
-    //amount = atol(params[3].get_str().c_str());
-	amount = atoll(params[3].get_str().c_str()); // dimxy changed to prevent loss of significance
-    if ( tokenid == zeroid )
-    {
-        ERR_RESULT("invalid tokenid");
-        return(result);
-    }
-    if ( amount <= 0 )
-    {
-        ERR_RESULT("amount must be positive");
-        return(result);
-    }
-
-	ERR_RESULT("deprecated");
-	return(result);
-
-/*    hex = AssetConvert(0,tokenid,pubkey,amount,evalcode);
-    if (amount > 0) {
-        if ( hex.size() > 0 )
-        {
-            result.push_back(Pair("result", "success"));
-            result.push_back(Pair("hex", hex));
-        } else ERR_RESULT("couldnt convert tokens");
-    } else {
-        ERR_RESULT("amount must be positive");
-    }
-    return(result); */
-}
-
-UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); int64_t bidamount,numtokens; std::string hex; double price; uint256 tokenid;
-    if ( fHelp || params.size() != 3 )
-        throw runtime_error("tokenbid numtokens tokenid price\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    //numtokens = atoi(params[0].get_str().c_str());
-	numtokens = atoll(params[0].get_str().c_str());  // dimxy changed to prevent loss of significance
-    tokenid = Parseuint256((char *)params[1].get_str().c_str());
-    price = atof(params[2].get_str().c_str());
-    bidamount = (price * numtokens) * COIN + 0.0000000049999;
-    if ( price <= 0 )
-    {
-        ERR_RESULT("price must be positive");
-        return(result);
-    }
-    if ( tokenid == zeroid )
-    {
-        ERR_RESULT("invalid tokenid");
-        return(result);
-    }
-    if ( bidamount <= 0 )
-    {
-        ERR_RESULT("bid amount must be positive");
-        return(result);
-    }
-    hex = CreateBuyOffer(0,bidamount,tokenid,numtokens);
-    if (price > 0 && numtokens > 0) {
-        if ( hex.size() > 0 )
-        {
-            result.push_back(Pair("result", "success"));
-            result.push_back(Pair("hex", hex));
-        } else ERR_RESULT("couldnt create bid");
-    } else {
-        ERR_RESULT("price and numtokens must be positive");
-    }
-    return(result);
-}
-
-UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); std::string hex; int32_t i; uint256 tokenid,bidtxid;
-    if ( fHelp || params.size() != 2 )
-        throw runtime_error("tokencancelbid tokenid bidtxid\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    bidtxid = Parseuint256((char *)params[1].get_str().c_str());
-    if ( tokenid == zeroid || bidtxid == zeroid )
-    {
-        result.push_back(Pair("error", "invalid parameter"));
-        return(result);
-    }
-    hex = CancelBuyOffer(0,tokenid,bidtxid);
-    if ( hex.size() > 0 )
-    {
-        result.push_back(Pair("result", "success"));
-        result.push_back(Pair("hex", hex));
-    } else ERR_RESULT("couldnt cancel bid");
-    return(result);
-}
-
-UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); int64_t fillamount; std::string hex; uint256 tokenid,bidtxid;
-    if ( fHelp || params.size() != 3 )
-        throw runtime_error("tokenfillbid tokenid bidtxid fillamount\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    bidtxid = Parseuint256((char *)params[1].get_str().c_str());
-    // fillamount = atol(params[2].get_str().c_str());
-	fillamount = atoll(params[2].get_str().c_str());		// dimxy changed to prevent loss of significance
-    if ( fillamount <= 0 )
-    {
-        ERR_RESULT("fillamount must be positive");
-        return(result);
-    }
-    if ( tokenid == zeroid || bidtxid == zeroid )
-    {
-        ERR_RESULT("must provide tokenid and bidtxid");
-        return(result);
-    }
-    hex = FillBuyOffer(0,tokenid,bidtxid,fillamount);
-    if ( hex.size() > 0 )
-    {
-        result.push_back(Pair("result", "success"));
-        result.push_back(Pair("hex", hex));
-    } else ERR_RESULT("couldnt fill bid");
-    return(result);
-}
-
-UniValue tokenask(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); int64_t askamount,numtokens; std::string hex; double price; uint256 tokenid;
-    if ( fHelp || params.size() != 3 )
-        throw runtime_error("tokenask numtokens tokenid price\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    //numtokens = atoi(params[0].get_str().c_str());
-	numtokens = atoll(params[0].get_str().c_str());			// dimxy changed to prevent loss of significance
-    tokenid = Parseuint256((char *)params[1].get_str().c_str());
-    price = atof(params[2].get_str().c_str());
-    askamount = (price * numtokens) * COIN + 0.0000000049999;
-	//std::cerr << std::boolalpha << "tokenask(): (tokenid == zeroid) is "  << (tokenid == zeroid) << " (numtokens <= 0) is " << (numtokens <= 0) << " (price <= 0) is " << (price <= 0) << " (askamount <= 0) is " << (askamount <= 0) << std::endl;
-    if ( tokenid == zeroid || numtokens <= 0 || price <= 0 || askamount <= 0 )
-    {
-        ERR_RESULT("invalid parameter");
-        return(result);
-    }
-    hex = CreateSell(0,numtokens,tokenid,askamount);
-    if (price > 0 && numtokens > 0) {
-        if ( hex.size() > 0 )
-        {
-            result.push_back(Pair("result", "success"));
-            result.push_back(Pair("hex", hex));
-        } else ERR_RESULT("couldnt create ask");
-    } else {
-        ERR_RESULT("price and numtokens must be positive");
-    }
-    return(result);
-}
-
-UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    static uint256 zeroid;
-    UniValue result(UniValue::VOBJ); int64_t askamount,numtokens; std::string hex; double price; uint256 tokenid,otherid;
-    if ( fHelp || params.size() != 4 )
-        throw runtime_error("tokenswapask numtokens tokenid otherid price\n");
-    if ( ensure_CCrequirements(EVAL_ASSETS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    //numtokens = atoi(params[0].get_str().c_str());
-	numtokens = atoll(params[0].get_str().c_str());			// dimxy changed to prevent loss of significance
-    tokenid = Parseuint256((char *)params[1].get_str().c_str());
-    otherid = Parseuint256((char *)params[2].get_str().c_str());
-    price = atof(params[3].get_str().c_str());
-    askamount = (price * numtokens);
-    hex = CreateSwap(0,numtokens,tokenid,otherid,askamount);
-    if (price > 0 && numtokens > 0) {
-        if ( hex.size() > 0 )
-        {
-            result.push_back(Pair("result", "success"));
-            result.push_back(Pair("hex", hex));
-        } else ERR_RESULT("couldnt create swap");
-    } else {
-        ERR_RESULT("price and numtokens must be positive");
-    }
-    return(result);
-}
-
-UniValue tokencancelask(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); std::string hex; int32_t i; uint256 tokenid,asktxid;
-    if ( fHelp || params.size() != 2 )
-        throw runtime_error("tokencancelask tokenid asktxid\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    asktxid = Parseuint256((char *)params[1].get_str().c_str());
-    if ( tokenid == zeroid || asktxid == zeroid )
-    {
-        result.push_back(Pair("error", "invalid parameter"));
-        return(result);
-    }
-    hex = CancelSell(0,tokenid,asktxid);
-    if ( hex.size() > 0 )
-    {
-        result.push_back(Pair("result", "success"));
-        result.push_back(Pair("hex", hex));
-    } else ERR_RESULT("couldnt cancel ask");
-    return(result);
-}
-
-UniValue tokenfillask(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    UniValue result(UniValue::VOBJ); int64_t fillunits; std::string hex; uint256 tokenid,asktxid;
-    if ( fHelp || params.size() != 3 )
-        throw runtime_error("tokenfillask tokenid asktxid fillunits\n");
-    if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    asktxid = Parseuint256((char *)params[1].get_str().c_str());
-    //fillunits = atol(params[2].get_str().c_str());
-	fillunits = atoll(params[2].get_str().c_str());	 // dimxy changed to prevent loss of significance
-    if ( fillunits <= 0 )
-    {
-        ERR_RESULT("fillunits must be positive");
-        return(result);
-    }
-    if ( tokenid == zeroid || asktxid == zeroid )
-    {
-        result.push_back(Pair("error", "invalid parameter"));
-        return(result);
-    }
-    hex = FillSell(0,tokenid,zeroid,asktxid,fillunits);
-    if (fillunits > 0) {
-        if (CCerror != "") {
-            ERR_RESULT(CCerror);
-        } else if ( hex.size() > 0) {
-            result.push_back(Pair("result", "success"));
-            result.push_back(Pair("hex", hex));
-        } else {
-            ERR_RESULT("couldnt fill ask");
-        }
-    } else {
-        ERR_RESULT("fillunits must be positive");
-    }
-    return(result);
-}
-
-UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& mypk)
-{
-    static uint256 zeroid;
-    UniValue result(UniValue::VOBJ); int64_t fillunits; std::string hex; uint256 tokenid,otherid,asktxid;
-    if ( fHelp || params.size() != 4 )
-        throw runtime_error("tokenfillswap tokenid otherid asktxid fillunits\n");
-    if ( ensure_CCrequirements(EVAL_ASSETS) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    otherid = Parseuint256((char *)params[1].get_str().c_str());
-    asktxid = Parseuint256((char *)params[2].get_str().c_str());
-    //fillunits = atol(params[3].get_str().c_str());
-	fillunits = atoll(params[3].get_str().c_str());  // dimxy changed to prevent loss of significance
-    hex = FillSell(0,tokenid,otherid,asktxid,fillunits);
-    if (fillunits > 0) {
-        if ( hex.size() > 0 ) {
-            result.push_back(Pair("result", "success"));
-            result.push_back(Pair("hex", hex));
-        } else ERR_RESULT("couldnt fill bid");
-    } else {
-        ERR_RESULT("fillunits must be positive");
-    }
-    return(result);
 }
 
 UniValue getbalance64(const UniValue& params, bool fHelp, const CPubKey& mypk)

@@ -15,7 +15,10 @@
 #include "komodo.h"
 #include "komodo_extern_globals.h"
 #include "komodo_notary.h"
+#include "komodo_nSPV_defs.h"
 #include "mem_read.h"
+
+extern struct NSPV_inforesp NSPV_inforesult;
 
 void komodo_currentheight_set(int32_t height)
 {
@@ -23,8 +26,6 @@ void komodo_currentheight_set(int32_t height)
     if ( (sp= komodo_stateptr(symbol,dest)) != 0 )
         sp->CURRENT_HEIGHT = height;
 }
-
-extern NSPV_inforesp NSPV_inforesult;
 
 int32_t komodo_currentheight()
 {

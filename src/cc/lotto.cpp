@@ -266,7 +266,7 @@ UniValue LottoList()
 {
     UniValue result(UniValue::VARR); std::vector<uint256> txids; struct CCcontract_info *cp,C; uint256 txid,hashBlock,hentropy; CTransaction vintx; uint64_t sbits; int32_t ticketsize,odds,firstheight,period; char str[65];
     cp = CCinit(&C,EVAL_LOTTO);
-    SetCCtxids(txids,cp->normaladdr,true,cp->evalcode,zeroid,'F');
+    SetCCtxids(txids,cp->normaladdr,true,cp->evalcode,0,zeroid,'F');
     for (std::vector<uint256>::const_iterator it=txids.begin(); it!=txids.end(); it++)
     {
         txid = *it;
@@ -316,7 +316,7 @@ std::string LottoTicket(uint64_t txfee,uint256 lottoid,int64_t numtickets)
         if ( CCchange != 0 )
             mtx.vout.push_back(MakeCC1vout(EVAL_LOTTO,CCchange,lottopk));
         mtx.vout.push_back(CTxOut(nValue,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
-        return(FinalizeCCTx(-1LL,cp,mtx,mypk,txfee,opret));
+        return(FinalizeCCTx(0,cp,mtx,mypk,txfee,opret));
     } else fprintf(stderr,"cant find Lotto inputs\n");
     return("");
 }

@@ -16,19 +16,19 @@
 /*
  CCutils has low level functions that are universally useful for all contracts.
  */
-
-#include "CCinclude.h"
-#include "komodo_structs.h"
 #include "key_io.h"
+#include "komodo_defs.h"
+#include "komodo_structs.h"
+#include "komodo_utils.h"
+#include "komodo_nSPV_defs.h"
+#include "CCinclude.h"
+#include "CCtokens.h"
 
-#ifdef TESTMODE           
-    #define MIN_NON_NOTARIZED_CONFIRMS 2
-#else
-    #define MIN_NON_NOTARIZED_CONFIRMS 101
-#endif // TESTMODE
-int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
-struct komodo_state *komodo_stateptr(char *symbol,char *dest);
-extern uint32_t KOMODO_DPOWCONFS;
+extern char NSPV_wifstr[],NSPV_pubkeystr[];
+extern uint32_t NSPV_lastinfo, NSPV_logintime, NSPV_tiptime;
+
+
+thread_local CCERROR CCerror = "";
 
 void endiancpy(uint8_t *dest,uint8_t *src,int32_t len)
 {
@@ -97,39 +97,75 @@ bool makeCCopret(CScript &opret, std::vector<std::vector<unsigned char>> &vData)
     return true;
 }
 
-CTxOut MakeCC1vout(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData)
+CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData)
 {
     CTxOut vout;
-    CC *payoutCond = MakeCCcond1(evalcode,pk);
-    vout = CTxOut(nValue,CCPubKey(payoutCond));
-    if ( vData )
+    CCwrapper payoutCond(MakeCCcond1(evalcode, pk));
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get()));
+    if (vData)
     {
         //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
         std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
-        //vPubKeys.push_back(pk);
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 1, vPubKeys, ( * vData));
+        //vPubKeys.push_back(pk);   // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 1, vPubKeys, (*vData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
-    cc_free(payoutCond);
     return(vout);
 }
 
-CTxOut MakeCC1of2vout(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<std::vector<unsigned char>>* vData)
+CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<std::vector<unsigned char>>* vData)
 {
     CTxOut vout;
-    CC *payoutCond = MakeCCcond1of2(evalcode,pk1,pk2);
-    vout = CTxOut(nValue,CCPubKey(payoutCond));
-    if ( vData )
+    CCwrapper payoutCond(MakeCCcond1of2(evalcode, pk1, pk2));
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get()));
+    if (vData)
     {
         //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
         std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
-         // skip pubkeys. These need to maybe be optional and we need some way to get them out that is easy!
-        //vPubKeys.push_back(pk1);
+        // skip pubkeys. These need to maybe be optional and we need some way to get them out that is easy!
+        // this is for multisig
+        //vPubKeys.push_back(pk1);  // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
         //vPubKeys.push_back(pk2);
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 2, vPubKeys, ( * vData));
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 2, vPubKeys, (*vData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
-    cc_free(payoutCond);
+    return(vout);
+}
+/*
+bool CCtoAnon(const CC *cond)
+{
+    for (int i=0; i<cond->size;i++)
+            if (cc_typeId(cond->subconditions[i])==CC_Threshold)
+            {
+                cond->subconditions[i]=cc_anon(cond->subconditions[i]);
+                return (true);
+            }
+    return (false);
+}
+*/
+CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData)
+{
+    CTxOut vout;
+    CCwrapper payoutCond(MakeCCcond1(evalcode,pk));
+    if (!CCtoAnon(payoutCond.get())) return (vout);
+    vout = CTxOut(nValue,CCPubKey(payoutCond.get(),true));
+    if ( vData )
+    {
+        vout.scriptPubKey << *vData << OP_DROP;
+    }
+    return(vout);
+}
+
+CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<unsigned char> *vData)
+{
+    CTxOut vout;
+    CCwrapper payoutCond(MakeCCcond1of2(evalcode,pk1,pk2));
+    if (!CCtoAnon(payoutCond.get())) return (vout);
+    vout = CTxOut(nValue,CCPubKey(payoutCond.get(),true));
+    if ( vData )
+    {
+        vout.scriptPubKey << *vData << OP_DROP;
+    }
     return(vout);
 }
 
@@ -139,16 +175,17 @@ CC* GetCryptoCondition(CScript const& scriptSig)
     opcodetype opcode;
     std::vector<unsigned char> ffbin;
     if (scriptSig.GetOp(pc, opcode, ffbin))
-        return cc_readFulfillmentBinary((uint8_t*)ffbin.data(), ffbin.size()-1);
-    else return(0);
+        if (ffbin.data() != NULL)  // could return NULL if called for coinbase
+            return cc_readFulfillmentBinary((uint8_t*)ffbin.data(), ffbin.size()-1);
+    
+    return(NULL);
 }
 
 bool IsCCInput(CScript const& scriptSig)
 {
-    CC *cond;
-    if ( (cond= GetCryptoCondition(scriptSig)) == 0 )
+    CCwrapper cond(GetCryptoCondition(scriptSig));
+    if ( cond.get() == 0 )
         return false;
-    cc_free(cond);
     return true;
 }
 
@@ -241,7 +278,7 @@ bool GetCCParams(Eval* eval, const CTransaction &tx, uint32_t nIn,
 {
     uint256 blockHash;
 
-    if (myGetTransaction(tx.vin[nIn].prevout.hash, txOut, blockHash) && txOut.vout.size() > tx.vin[nIn].prevout.n)
+    if (eval->GetTxUnconfirmed(tx.vin[nIn].prevout.hash, txOut, blockHash) && txOut.vout.size() > tx.vin[nIn].prevout.n)
     {
         CBlockIndex index;
         if (eval->GetBlock(blockHash, index))
@@ -292,8 +329,40 @@ CPubKey CCtxidaddr(char *txidaddr,uint256 txid)
     buf33[0] = 0x02;
     endiancpy(&buf33[1],(uint8_t *)&txid,32);
     pk = buf2pk(buf33);
-    Getscriptaddress(txidaddr,CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG);
+    if (txidaddr != NULL)
+        Getscriptaddress(txidaddr,CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG);
     return(pk);
+}
+
+// CCtxidaddr version that makes valid pubkey by tweaking it
+CPubKey CCtxidaddr_tweak(char *txidaddr, uint256 txid)
+{
+    uint8_t buf33[33]; 
+    CPubKey pk;
+    
+    buf33[0] = 0x02;
+    endiancpy(&buf33[1], (uint8_t *)&txid, 32);
+
+    // tweak last byte
+    // NOTE: this algorithm should not be changed, it should remain compatible with existing in chains txid-pubkeys
+    int maxtweaks = 256;
+    while (maxtweaks--) {
+        pk = buf2pk(buf33);
+        if (pk.IsFullyValid())
+            break;
+        buf33[sizeof(buf33)-1]++;
+    }
+
+    if (pk.IsFullyValid()) {
+        if (txidaddr != NULL)
+            Getscriptaddress(txidaddr, CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG);
+        return(pk);
+    }
+    else    {
+        if (txidaddr != NULL)
+            strcpy(txidaddr, "");
+        return CPubKey();
+    }
 }
 
 CPubKey CCCustomtxidaddr(char *txidaddr,uint256 txid,uint8_t taddr,uint8_t prefix,uint8_t prefix2)
@@ -301,96 +370,136 @@ CPubKey CCCustomtxidaddr(char *txidaddr,uint256 txid,uint8_t taddr,uint8_t prefi
     uint8_t buf33[33]; CPubKey pk;
     buf33[0] = 0x02;
     endiancpy(&buf33[1],(uint8_t *)&txid,32);
-    pk = buf2pk(buf33);
-    GetCustomscriptaddress(txidaddr,CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG,taddr,prefix,prefix2);
+    int maxtweaks = 256;
+    while (maxtweaks--) {
+        pk = buf2pk(buf33);
+        if (pk.IsFullyValid())
+            break;
+        buf33[sizeof(buf33)-1]++;
+    }
+
+    if (pk.IsFullyValid()) {
+        if (txidaddr != NULL)
+            GetCustomscriptaddress(txidaddr, CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG,taddr,prefix,prefix2);
+        return(pk);
+    }
+    else    {
+        if (txidaddr != NULL)
+            strcpy(txidaddr, "");
+        return CPubKey();
+    }
     return(pk);
 }
 
-bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk)
+bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk,bool mixed)
 {
-    CC *payoutCond;
+    CCwrapper payoutCond(MakeCCcond1(evalcode,pk));
     destaddr[0] = 0;
-    if ( (payoutCond= MakeCCcond1(evalcode,pk)) != 0 )
+    if (payoutCond.get() != 0 )
     {
-        Getscriptaddress(destaddr,CCPubKey(payoutCond));
-        cc_free(payoutCond);
+        if (mixed) CCtoAnon(payoutCond.get());
+        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
     }
     return(destaddr[0] != 0);
 }
 
-bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk)
+bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk,bool mixed)
 {
     destaddr[0] = 0;
     if ( pk.size() == 0 )
         pk = GetUnspendable(cp,0);
-    return(_GetCCaddress(destaddr,cp->evalcode,pk));
+    return(_GetCCaddress(destaddr,cp->evalcode,pk,mixed));
 }
 
-bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
+static bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode1, uint8_t evalcode2, CPubKey pk, bool mixed)
 {
-	CC *payoutCond;
+	CCwrapper payoutCond;
+    if (!mixed)
+        payoutCond.reset(MakeTokensCCcond1(evalcode1, evalcode2, pk));
+    else
+        payoutCond.reset(MakeTokensv2CCcond1(evalcode1, evalcode2, pk));
+
 	destaddr[0] = 0;
-	if ((payoutCond = MakeTokensCCcond1(evalcode, evalcode2, pk)) != 0)
+	if (payoutCond != nullptr)
 	{
-		Getscriptaddress(destaddr, CCPubKey(payoutCond));
-		cc_free(payoutCond);
+        if (mixed) 
+            CCtoAnon(payoutCond.get());
+		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), mixed));
 	}
 	return(destaddr[0] != 0);
 }
 
 // get scriptPubKey adddress for three/dual eval token cc vout
-bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk)
+bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, bool mixed)
 {
 	destaddr[0] = 0;
 	if (pk.size() == 0)
 		pk = GetUnspendable(cp, 0);
-	return(_GetTokensCCaddress(destaddr, cp->evalcode, cp->additionalTokensEvalcode2, pk));
+	return(_GetTokensCCaddress(destaddr, cp->evalcode, 0, pk, mixed));
 }
 
-
-bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2)
+bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed)
 {
-    CC *payoutCond;
+    CCwrapper payoutCond(MakeCCcond1of2(cp->evalcode,pk,pk2));
     destaddr[0] = 0;
-    if ( (payoutCond= MakeCCcond1of2(cp->evalcode,pk,pk2)) != 0 )
+    if ( payoutCond.get() != 0 )
     {
-        Getscriptaddress(destaddr,CCPubKey(payoutCond));
-        cc_free(payoutCond);
+        if (mixed) CCtoAnon(payoutCond.get());
+        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
     }
     return(destaddr[0] != 0);
 }
 
-bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2)
+bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk1, CPubKey pk2, bool mixed)
 {
-	CC *payoutCond;
+	CCwrapper payoutCond;
+    if (!mixed)
+        payoutCond.reset(MakeTokensCCcond1of2(cp->evalcode, pk1, pk2));
+    else
+        payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, pk1, pk2));
+
 	destaddr[0] = 0;
-	if ((payoutCond = MakeTokensCCcond1of2(cp->evalcode, cp->additionalTokensEvalcode2, pk, pk2)) != 0)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
+	if (payoutCond != nullptr) 
 	{
-		Getscriptaddress(destaddr, CCPubKey(payoutCond));
-		cc_free(payoutCond);
+        if (mixed) 
+            CCtoAnon(payoutCond.get());
+		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), mixed));
 	}
 	return(destaddr[0] != 0);
 }
 
+// validate cc or normal vout address and value
 bool ConstrainVout(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue)
 {
     char destaddr[64];
     if ( vout.scriptPubKey.IsPayToCryptoCondition() != CCflag )
     {
-        fprintf(stderr,"constrain vout error isCC %d vs %d CCflag\n", vout.scriptPubKey.IsPayToCryptoCondition(), CCflag);
+        //fprintf(stderr,"constrain vout error isCC %d vs %d CCflag\n", vout.scriptPubKey.IsPayToCryptoCondition(), CCflag);
         return(false);
     }
     else if ( cmpaddr != 0 && (Getscriptaddress(destaddr, vout.scriptPubKey) == 0 || strcmp(destaddr, cmpaddr) != 0) )
     {
-        fprintf(stderr,"constrain vout error: check addr %s vs script addr %s\n", cmpaddr!=0?cmpaddr:"", destaddr!=0?destaddr:"");
+        //fprintf(stderr,"constrain vout error: check addr %s vs script addr %s\n", cmpaddr!=0?cmpaddr:"", destaddr!=0?destaddr:"");
         return(false);
     }
     else if ( nValue != 0 && nValue != vout.nValue ) //(nValue == 0 && vout.nValue < 10000) || (
     {
-        fprintf(stderr,"constrain vout error nValue %.8f vs %.8f\n",(double)nValue/COIN,(double)vout.nValue/COIN);
+        //fprintf(stderr,"constrain vout error nValue %.8f vs %.8f\n",(double)nValue/COIN,(double)vout.nValue/COIN);
         return(false);
     }
     else return(true);
+}
+
+// validate cc or normal vout address and value
+bool ConstrainVoutV2(CTxOut vout, int32_t CCflag, char *cmpaddr, int64_t nValue, uint8_t evalCode)
+{
+    if (ConstrainVout(vout, CCflag, cmpaddr, nValue))
+        if (CCflag && evalCode != 0)
+            return vout.scriptPubKey.SpkHasEvalcodeCCV2(evalCode);
+        else
+            return true;
+    else
+        return false;
 }
 
 bool PreventCC(Eval* eval,const CTransaction &tx,int32_t preventCCvins,int32_t numvins,int32_t preventCCvouts,int32_t numvouts)
@@ -444,29 +553,23 @@ std::vector<uint8_t> Mypubkey()
     return(pubkey);
 }
 
-extern char NSPV_wifstr[],NSPV_pubkeystr[];
-extern uint32_t NSPV_logintime;
-#define NSPV_AUTOLOGOUT 777
-
 bool Myprivkey(uint8_t myprivkey[])
 {
     char coinaddr[64],checkaddr[64]; std::string strAddress; char *dest; int32_t i,n; CBitcoinAddress address; CKeyID keyID; CKey vchSecret; uint8_t buf33[33];
     if ( KOMODO_NSPV_SUPERLITE )
     {
-        if ( NSPV_logintime == 0 || time(NULL) > NSPV_logintime+NSPV_AUTOLOGOUT )
+        if ( NSPV_logintime != 0 && time(NULL) <= NSPV_logintime+NSPV_AUTOLOGOUT )
         {
-            fprintf(stderr,"need to be logged in to get myprivkey\n");
-            return false;
+            vchSecret = DecodeSecret(NSPV_wifstr);
+            memcpy(myprivkey,vchSecret.begin(),32);
+            //for (i=0; i<32; i++)
+            //    fprintf(stderr,"%02x",myprivkey[i]);
+            //fprintf(stderr," myprivkey %s\n",NSPV_wifstr);
+            memset((uint8_t *)vchSecret.begin(),0,32);
+            return true;
         }
-        vchSecret = DecodeSecret(NSPV_wifstr);
-        memcpy(myprivkey,vchSecret.begin(),32);
-        //for (i=0; i<32; i++)
-        //    fprintf(stderr,"%02x",myprivkey[i]);
-        //fprintf(stderr," myprivkey %s\n",NSPV_wifstr);
-        memset((uint8_t *)vchSecret.begin(),0,32);
-        return true;
     }
-    if ( Getscriptaddress(coinaddr,CScript() << Mypubkey() << OP_CHECKSIG) != 0 )
+    if ( pwalletMain != 0 && Getscriptaddress(coinaddr,CScript() << Mypubkey() << OP_CHECKSIG) != 0 )
     {
         n = (int32_t)strlen(coinaddr);
         strAddress.resize(n+1);
@@ -494,9 +597,9 @@ bool Myprivkey(uint8_t myprivkey[])
                     else printf("mismatched privkey -> addr %s vs %s\n",checkaddr,coinaddr);
                 }
                 return(false);
-            }
+            } else fprintf(stderr,"(%p) cant find (%s) privkey\n",pwalletMain,coinaddr);
 #endif
-        }
+        } else fprintf(stderr,"cant find (%s) in wallet\n",coinaddr);
     }
     fprintf(stderr,"privkey for the -pubkey= address is not in the wallet, importprivkey!\n");
     return(false);
@@ -586,19 +689,38 @@ uint256 CCOraclesReverseScan(char const *logcategory,uint256 &txid,int32_t heigh
     return(zeroid);
 }
 
+int64_t CCOraclesGetDepositBalance(char const *logcategory,uint256 reforacletxid,uint256 batontxid)
+{
+    CTransaction tx; uint256 hash,prevbatontxid,hashBlock,oracletxid; int32_t len,len2,numvouts;
+    int64_t val,balance=0; CPubKey pk; std::vector<uint8_t>data;
+
+    if ( myGetTransaction(batontxid,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 )
+    {
+        if ( DecodeOraclesData(tx.vout[numvouts-1].scriptPubKey,oracletxid,prevbatontxid,pk,data) == 'D' && oracletxid == reforacletxid )
+        {
+            if ( oracle_format(&hash,&balance,0,'L',(uint8_t *)data.data(),(int32_t)(sizeof(int32_t)+sizeof(uint256)*2),(int32_t)data.size()) == (int32_t)(sizeof(int32_t)+sizeof(uint256)*2+sizeof(int64_t)))
+            {
+                return (balance);
+            }
+        }
+    }
+    return (0);
+}
+
+
 int32_t NSPV_coinaddr_inmempool(char const *logcategory,char *coinaddr,uint8_t CCflag);
 
-int32_t myIs_coinaddr_inmempoolvout(char const *logcategory,char *coinaddr)
+int32_t myIs_coinaddr_inmempoolvout(char const *logcategory,uint256 txid,char *coinaddr)
 {
     int32_t i,n; char destaddr[64];
     if ( KOMODO_NSPV_SUPERLITE )
-        return(NSPV_coinaddr_inmempool(logcategory,coinaddr,1));
+        return(NSPV_coinaddr_inmempool(logcategory,coinaddr,0));
     BOOST_FOREACH(const CTxMemPoolEntry &e,mempool.mapTx)
     {
         const CTransaction &tx = e.GetTx();
         if ( (n= tx.vout.size()) > 0 )
         {
-            const uint256 &txid = tx.GetHash();
+            if (txid == tx.GetHash()) continue;
             for (i=0; i<n; i++)
             {
                 Getscriptaddress(destaddr,tx.vout[i].scriptPubKey);
@@ -631,7 +753,8 @@ int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_
         }
         return (NSPV_mempoolresult.numtxids);
     }
-    BOOST_FOREACH(const CTxMemPoolEntry &e,mempool.mapTx)
+    LOCK(mempool.cs);
+    BOOST_FOREACH(const CTxMemPoolEntry &e, mempool.mapTx)
     {
         txs.push_back(e.GetTx());
         i++;
@@ -639,17 +762,49 @@ int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_
     return(i);
 }
 
-int32_t CCCointxidExists(char const *logcategory,uint256 cointxid)
+int32_t CCCointxidExists(char const* logcategory, uint256 txid, uint256 cointxid)
 {
-    char txidaddr[64]; std::string coin; int32_t numvouts; uint256 hashBlock;
-    std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
-    CCtxidaddr(txidaddr,cointxid);
-    SetCCtxids(addressIndex,txidaddr,true);
-    for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++)
-    {
-        return(-1);
+    char txidaddr[64];
+    std::string coin;
+    int32_t numvouts;
+    uint256 hashBlock;
+
+    std::vector<std::pair<CAddressIndexKey, CAmount>> addressIndex;
+    CCtxidaddr_tweak(txidaddr, cointxid);
+    SetAddressIndexTxids(addressIndex, txidaddr, false);
+    for (std::vector<std::pair<CAddressIndexKey, CAmount>>::const_iterator it = addressIndex.begin(); it != addressIndex.end(); it++) {
+        return (-1);
     }
-    return(myIs_coinaddr_inmempoolvout(logcategory,txidaddr));
+    return (myIs_coinaddr_inmempoolvout(logcategory, txid, txidaddr));
+}
+
+bool CompareHexVouts(std::string hex1, std::string hex2)
+{
+    CTransaction tx1,tx2;
+
+    if (!DecodeHexTx(tx1,hex1)) return (false);
+    if (!DecodeHexTx(tx2,hex2)) return (false);
+    if (tx1.vout.size()!=tx2.vout.size()) return (false);
+    for (int i=0;i<(int32_t)tx1.vout.size();i++) if (tx1.vout[i]!=tx2.vout[i]) return (false);
+    return (true);
+}
+
+CPubKey CheckVinPk(struct CCcontract_info *cp,const CTransaction &tx, int32_t n, std::vector<CPubKey> &pubkeys)
+{
+    CTransaction vintx; uint256 blockHash; char destaddr[64],pkaddr[64];
+
+    if(myGetTransaction(tx.vin[n].prevout.hash, vintx, blockHash)==0) return (CPubKey());
+    if( tx.vin[n].prevout.n < vintx.vout.size() && Getscriptaddress(destaddr, vintx.vout[tx.vin[n].prevout.n].scriptPubKey) != 0 )
+    {
+        for(int i=0;i<(int32_t)pubkeys.size();i++)
+        {
+            pubkey2addr(pkaddr,(uint8_t *)pubkeys[i].begin());
+            if (strcmp(pkaddr, destaddr) == 0) {
+                return (pubkeys[i]);
+            }
+        }
+    }    
+    return (CPubKey());
 }
 
 /* Get the block merkle root for a proof
@@ -663,80 +818,6 @@ uint256 BitcoinGetProofMerkleRoot(const std::vector<uint8_t> &proofData, std::ve
     if (!E_UNMARSHAL(proofData, ss >> merkleBlock))
         return uint256();
     return merkleBlock.txn.ExtractMatches(txids);
-}
-
-extern struct NSPV_inforesp NSPV_inforesult;
-int32_t komodo_get_current_height()
-{
-    if ( KOMODO_NSPV_SUPERLITE )
-    {
-        return (NSPV_inforesult.height);
-    }
-    else return chainActive.LastTip()->GetHeight();
-}
-
-bool komodo_txnotarizedconfirmed(uint256 txid)
-{
-    char str[65];
-    int32_t confirms,notarized=0,txheight=0,currentheight=0;;
-    CTransaction tx;
-    uint256 hashBlock;
-    CBlockIndex *pindex;    
-    char symbol[KOMODO_ASSETCHAIN_MAXLEN],dest[KOMODO_ASSETCHAIN_MAXLEN]; struct komodo_state *sp;
-
-    if ( KOMODO_NSPV_SUPERLITE )
-    {
-        if ( NSPV_myGetTransaction(txid,tx,hashBlock,txheight,currentheight) == 0 )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed cant find txid %s\n",txid.ToString().c_str());
-            return(0);
-        }
-        else if (txheight<=0)
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed no txheight.%d for txid %s\n",txheight,txid.ToString().c_str());
-            return(0);
-        }
-        else if (txheight>currentheight)
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed backwards heights for txid %s hts.(%d %d)\n",txid.ToString().c_str(),txheight,currentheight);
-            return(0);
-        }
-        confirms=1 + currentheight - txheight;
-    }
-    else
-    {
-        if ( myGetTransaction(txid,tx,hashBlock) == 0 )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed cant find txid %s\n",txid.ToString().c_str());
-            return(0);
-        }
-        else if ( hashBlock == zeroid )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed no hashBlock for txid %s\n",txid.ToString().c_str());
-            return(0);
-        }
-        else if ( (pindex= komodo_blockindex(hashBlock)) == 0 || (txheight= pindex->GetHeight()) <= 0 )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed no txheight.%d %p for txid %s\n",txheight,pindex,txid.ToString().c_str());
-            return(0);
-        }
-        else if ( (pindex= chainActive.LastTip()) == 0 || pindex->GetHeight() < txheight )
-        {
-            fprintf(stderr,"komodo_txnotarizedconfirmed backwards heights for txid %s hts.(%d %d)\n",txid.ToString().c_str(),txheight,(int32_t)pindex->GetHeight());
-            return(0);
-        }    
-        confirms=1 + pindex->GetHeight() - txheight;
-    }
-
-    if ((sp= komodo_stateptr(symbol,dest)) != 0 && (notarized=sp->NOTARIZED_HEIGHT) > 0 && txheight > sp->NOTARIZED_HEIGHT)  notarized=0;            
-#ifdef TESTMODE           
-    notarized=0;
-#endif //TESTMODE
-    if (notarized>0 && confirms > 1)
-        return (true);
-    else if (notarized==0 && confirms >= MIN_NON_NOTARIZED_CONFIRMS)
-        return (true);
-    return (false);
 }
 
 CPubKey check_signing_pubkey(CScript scriptSig)
@@ -755,12 +836,11 @@ CPubKey check_signing_pubkey(CScript scriptSig)
         return r ? 0 : 1;
     };
 
-    CC *cond = GetCryptoCondition(scriptSig);
+    CCwrapper cond(GetCryptoCondition(scriptSig));
 
-    if (cond) {
+    if (cond.get()) {
         CCVisitor visitor = { findEval, (uint8_t*)"", 0, &pubkey };
-        bool out = !cc_visit(cond, visitor);
-        cc_free(cond);
+        bool out = !cc_visit(cond.get(), visitor);
 
         if (pubkey.IsValid()) {
             return pubkey;
@@ -771,13 +851,14 @@ CPubKey check_signing_pubkey(CScript scriptSig)
 
 
 // returns total of normal inputs signed with this pubkey
-int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey)
+CAmount TotalPubkeyNormalInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey)
 {
-    int64_t total = 0;
-    for (auto vin : tx.vin) {
+    CAmount total = 0;
+
+    for (const auto &vin : tx.vin) {
         CTransaction vintx;
         uint256 hashBlock;
-        if (!IsCCInput(vin.scriptSig) && myGetTransaction(vin.prevout.hash, vintx, hashBlock)) {
+        if (!IsCCInput(vin.scriptSig) && GetTxUnconfirmedOpt(eval, vin.prevout.hash, vintx, hashBlock)) {
             typedef std::vector<unsigned char> valtype;
             std::vector<valtype> vSolutions;
             txnouttype whichType;
@@ -800,17 +881,17 @@ int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey)
 }
 
 // returns total of CC inputs signed with this pubkey
-int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey)
+CAmount TotalPubkeyCCInputs(Eval *eval, const CTransaction &tx, const CPubKey &pubkey)
 {
-    int64_t total = 0;
-    for (auto vin : tx.vin) {
+    CAmount total = 0;
+    for (const auto &vin : tx.vin) {
         if (IsCCInput(vin.scriptSig)) {
             CPubKey vinPubkey = check_signing_pubkey(vin.scriptSig);
             if (vinPubkey.IsValid()) {
                 if (vinPubkey == pubkey) {
                     CTransaction vintx;
                     uint256 hashBlock;
-                    if (myGetTransaction(vin.prevout.hash, vintx, hashBlock)) {
+                    if (GetTxUnconfirmedOpt(eval, vin.prevout.hash, vintx, hashBlock)) {
                         total += vintx.vout[vin.prevout.n].nValue;
                     }
                 }
@@ -858,9 +939,40 @@ bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> para
     return false;
 }
 
-extern struct CCcontract_info CCinfos[0x100];
-extern std::string MYCCLIBNAME;
-bool CClib_validate(struct CCcontract_info *cp,int32_t height,Eval *eval,const CTransaction tx,unsigned int nIn);
+bool SubcallCCValidate(Eval* eval, uint8_t evalcode, const CTransaction& ctx, int32_t nIn)
+{
+    if (ASSETCHAINS_CC == 0)
+        return eval->Invalid("CC are disabled");
+
+
+    if ( ASSETCHAINS_CCDISABLES[evalcode] != 0 )
+    {
+        // check if a height activation has been set. 
+        if ( mapHeightEvalActivate[evalcode] == 0 || eval->GetCurrentHeight() == 0 || mapHeightEvalActivate[evalcode] > eval->GetCurrentHeight() )
+        {
+            return eval->Invalid("disabled-code, -ac_ccenables didnt include this ecode");
+        }
+    }
+
+    struct CCcontract_info *cp;
+    cp = &CCinfos[(int32_t)evalcode];
+    if ( cp->didinit == 0 )
+    {
+        CCinit(cp, evalcode);
+        cp->didinit = 1;
+    }
+
+    if (cp->validate == NULL)
+        return eval->Invalid("validation not supported for eval code");
+
+    CCclearvars(cp);
+    if ((*cp->validate)(cp, eval, ctx, nIn) != false) {
+        return true;
+    }
+    else  {
+        return false;
+    }
+}
 
 bool CClib_Dispatch(const CC* cond, Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction& txTo, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
@@ -903,6 +1015,343 @@ bool CClib_Dispatch(const CC* cond, Eval* eval, std::vector<uint8_t> paramsNull,
     }
     return eval->Invalid("cclib CC must have evalcode between 16 and 127");
 }
+
+//void OS_randombytes(unsigned char *x,long xlen);
+//extern bits256 curve25519_basepoint9();
+
+int32_t _SuperNET_cipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 destpub,bits256 srcpriv,uint8_t *buf)
+{
+    memset(cipher,0,len+crypto_box_ZEROBYTES);
+    memset(buf,0,crypto_box_ZEROBYTES);
+    memcpy(buf+crypto_box_ZEROBYTES,message,len);
+    if ( crypto_box(cipher,buf,len+crypto_box_ZEROBYTES,nonce,destpub.bytes,srcpriv.bytes) != 0 )
+        return(-1);
+    return(len + crypto_box_ZEROBYTES);
+}
+
+uint8_t *_SuperNET_decipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 srcpub,bits256 mypriv)
+{
+    int32_t err;
+    if ( (0) )
+    {
+        int32_t z;
+        for (z=0; z<crypto_box_NONCEBYTES; z++)
+            fprintf(stderr,"%02x",nonce[z]);
+        fprintf(stderr," nonce, ");
+        for (z=0; z<32; z++)
+            fprintf(stderr,"%02x",mypriv.bytes[z]);
+        fprintf(stderr," priv\n");
+        for (z=0; z<32; z++)
+            fprintf(stderr,"%02x",srcpub.bytes[z]);
+        fprintf(stderr," srcpub ");
+        for (z=0; z<len; z++)
+            fprintf(stderr,"%02x",cipher[z]);
+        fprintf(stderr," cipher[%d]\n",len);
+    }
+    if ( (err= crypto_box_open(message,cipher,len,nonce,srcpub.bytes,mypriv.bytes)) == 0 )
+    {
+        message += crypto_box_ZEROBYTES;
+        len -= crypto_box_ZEROBYTES;
+        return(message);
+    }
+    return(0);
+}
+
+uint8_t *SuperNET_deciphercalc(uint8_t *senderpub,uint8_t **ptrp,int32_t *msglenp,bits256 privkey,uint8_t *cipher,int32_t cipherlen)
+{
+    bits256 srcpubkey; uint8_t *origptr,*nonce,*message; uint8_t *retptr = 0;
+    message = (uint8_t *)calloc(1,cipherlen);
+    *ptrp = message;
+    origptr = cipher;
+    memcpy(srcpubkey.bytes,cipher,sizeof(srcpubkey));
+    memcpy(senderpub,srcpubkey.bytes,sizeof(srcpubkey));
+    cipher += sizeof(srcpubkey);
+    cipherlen -= sizeof(srcpubkey);
+    nonce = cipher;
+    cipher += crypto_box_NONCEBYTES, cipherlen -= crypto_box_NONCEBYTES;
+    *msglenp = cipherlen - crypto_box_ZEROBYTES;
+    if ( *msglenp <= 0 || (retptr= _SuperNET_decipher(nonce,cipher,message,cipherlen,srcpubkey,privkey)) == 0 )
+    {
+        *msglenp = -1;
+        free(*ptrp);
+        *ptrp = 0;
+    }
+    return(retptr);
+}
+
+uint8_t *SuperNET_ciphercalc(uint8_t **ptrp,int32_t *cipherlenp,bits256 privkey,bits256 destpubkey,uint8_t *data,int32_t datalen)
+{
+    bits256 mypubkey; uint8_t *buf,*nonce,*cipher,*origptr,space[1024]; int32_t allocsize;
+    *ptrp = 0;
+    allocsize = (datalen + crypto_box_NONCEBYTES + crypto_box_ZEROBYTES + sizeof(mypubkey));
+    if ( allocsize > sizeof(space) )
+        buf = (uint8_t *)calloc(1,allocsize);
+    else
+    {
+        memset(space,0,sizeof(space));
+        buf = space;
+    }
+    cipher = (uint8_t *)calloc(1,allocsize);
+    *ptrp = cipher;
+    origptr = nonce = cipher;
+    mypubkey = curve25519(privkey,curve25519_basepoint9());
+    memcpy(cipher,mypubkey.bytes,sizeof(mypubkey));
+    nonce = &cipher[sizeof(mypubkey)];
+    OS_randombytes(nonce,crypto_box_NONCEBYTES);
+    cipher = &nonce[crypto_box_NONCEBYTES];
+    _SuperNET_cipher(nonce,cipher,data,datalen,destpubkey,privkey,buf);
+    if ( (0) )
+    {
+        int32_t z;
+        uint8_t message[8192];
+        for (z=0; z<32; z++)
+            fprintf(stderr,"%02x",mypubkey.bytes[z]);
+        fprintf(stderr," mypub\n");
+        if ( _SuperNET_decipher(nonce,cipher,message,datalen+crypto_box_ZEROBYTES,destpubkey,privkey) != 0 )
+        {
+            for (z=0; z<datalen; z++)
+                fprintf(stderr,"%02x",message[z+crypto_box_ZEROBYTES]);
+            fprintf(stderr," deciphered.%d\n",z);
+        } else fprintf(stderr,"decipher error\n");
+    }
+    if ( buf != space )
+        free(buf);
+    *cipherlenp = allocsize;
+    return(origptr);
+}
+
+
+// add probe vintx conditions for making CCSig in FinalizeCCTx
+void CCAddVintxCond(struct CCcontract_info *cp, const CCwrapper &condWrapped, const uint8_t *priv)
+{
+    if (cp == NULL) return;
+    if (condWrapped.get() == NULL) return;
+
+    struct CCVintxProbe ccprobe(condWrapped, priv);
+    cp->CCvintxprobes.push_back(ccprobe);
+}
+
+/*std::ostream& operator<<(std::ostream& os, const CCwrapper& cc)
+{
+    os << cc_conditionToJSONString(cc.get());
+    return os;
+}*/
+
+int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t *data,int32_t offset,int32_t datalen)
+{
+    char _str[65]; int32_t sflag = 0,i,val32,len = 0,slen = 0,dlen = 0; uint32_t uval32; uint16_t uval16; int16_t val16; int64_t val = 0; uint64_t uval = 0;
+    *valp = 0;
+    *hashp = zeroid;
+    if ( str != 0 )
+        str[0] = 0;
+    switch ( fmt )
+    {
+        case 's': slen = data[offset++]; break;
+        case 'S': slen = data[offset++]; slen |= ((int32_t)data[offset++] << 8); break;
+        case 'd': dlen = data[offset++]; break;
+        case 'D': dlen = data[offset++]; dlen |= ((int32_t)data[offset++] << 8); break;
+        case 'c': len = 1; sflag = 1; break;
+        case 'C': len = 1; break;
+        case 't': len = 2; sflag = 1; break;
+        case 'T': len = 2; break;
+        case 'i': len = 4; sflag = 1; break;
+        case 'I': len = 4; break;
+        case 'l': len = 8; sflag = 1; break;
+        case 'L': len = 8; break;
+        case 'h': len = 32; break;
+        default: return(-1); break;
+    }
+    if ( slen != 0 )
+    {
+        if ( str != 0 )
+        {
+            if ( slen < IGUANA_MAXSCRIPTSIZE && offset+slen <= datalen )
+            {
+                for (i=0; i<slen; i++)
+                    str[i] = data[offset++];
+                str[i] = 0;
+            } else return(-1);
+        }
+    }
+    else if ( dlen != 0 )
+    {
+        if ( str != 0 )
+        {
+            if ( dlen < IGUANA_MAXSCRIPTSIZE && offset+dlen <= datalen )
+            {
+                for (i=0; i<dlen; i++)
+                    sprintf(&str[i<<1],"%02x",data[offset++]);
+                str[i<<1] = 0;
+            } else return(-1);
+        }
+    }
+    else if ( len != 0 && len+offset <= datalen )
+    {
+        if ( len == 32 )
+        {
+            iguana_rwbignum(0,&data[offset],len,(uint8_t *)hashp);
+            if ( str != 0 )
+                sprintf(str,"%s",uint256_str(_str,*hashp));
+        }
+        else
+        {
+            if ( sflag != 0 )
+            {
+                switch ( len )
+                {
+                    case 1: val = (int8_t)data[offset]; break;
+                    case 2: iguana_rwnum(0,&data[offset],len,(void *)&val16); val = val16; break;
+                    case 4: iguana_rwnum(0,&data[offset],len,(void *)&val32); val = val32; break;
+                    case 8: iguana_rwnum(0,&data[offset],len,(void *)&val); break;
+                }
+                if ( str != 0 )
+                    sprintf(str,"%lld",(long long)val);
+                *valp = val;
+            }
+            else
+            {
+                switch ( len )
+                {
+                    case 1: uval = data[offset]; break;
+                    case 2: iguana_rwnum(0,&data[offset],len,(void *)&uval16); uval = uval16; break;
+                    case 4: iguana_rwnum(0,&data[offset],len,(void *)&uval32); uval = uval32; break;
+                    case 8: iguana_rwnum(0,&data[offset],len,(void *)&uval); break;
+                }
+                if ( str != 0 )
+                    sprintf(str,"%llu",(long long)uval);
+                *valp = (int64_t)uval;
+            }
+        }
+        offset += len;
+    } else return(-1);
+    return(offset);
+}
+
+int32_t oracle_parse_data_format(std::vector<uint8_t> data,std::string format)
+{
+    int64_t offset=0,len=0; char fmt;
+
+    for (int i=0; i<format.size();i++)
+    {
+        fmt=format[i];
+        switch (fmt)
+        {
+            case 's': len = data[offset++]; break;
+            case 'S': len = data[offset++]; len |= ((int32_t)data[offset++] << 8); break;
+            case 'd': len = data[offset++]; break;
+            case 'D': len = data[offset++]; len |= ((int32_t)data[offset++] << 8); break;
+            case 'c': len = 1; break;
+            case 'C': len = 1; break;
+            case 't': len = 2; break;
+            case 'T': len = 2; break;
+            case 'i': len = 4; break;
+            case 'I': len = 4; break;
+            case 'l': len = 8; break;
+            case 'L': len = 8; break;
+            case 'h': len = 32; break;
+            default: return(0); break;
+        }
+        if (len>data.size()-offset) return (0);
+        if (fmt=='S' || fmt=='s')
+        {
+            for (int j=offset;j<offset+len;j++)
+                if (data[j]<32 || data[j]>127) return (0);
+        }
+        offset+=len;
+    }
+    if (offset!=data.size()) return (0);
+    else return (offset);
+}
+
+int64_t _correlate_price(int64_t *prices,int32_t n,int64_t price)
+{
+    int32_t i,count = 0; int64_t diff,threshold = (price >> 8);
+    for (i=0; i<n; i++)
+    {
+        if ( (diff= (price - prices[i])) < 0 )
+            diff = -diff;
+        if ( diff <= threshold )
+            count++;
+    }
+    if ( count < (n >> 1) )
+        return(0);
+    else return(price);
+}
+
+int64_t correlate_price(int32_t height,int64_t *prices,int32_t n)
+{
+    int32_t i,j; int64_t price = 0;
+    if ( n == 1 )
+        return(prices[0]);
+    for (i=0; i<n; i++)
+    {
+        j = (height + i) % n;
+        if ( prices[j] != 0 && (price= _correlate_price(prices,n,prices[j])) != 0 )
+            break;
+    }
+    for (i=0; i<n; i++)
+        fprintf(stderr,"%llu ",(long long)prices[i]);
+    fprintf(stderr,"-> %llu ht.%d\n",(long long)price,height);
+    return(price);
+}
+
+int64_t OracleCorrelatedPrice(int32_t height,std::vector <int64_t> origprices)
+{
+    std::vector <int64_t> sorted; int32_t i,n; int64_t *prices,price;
+    if ( (n= origprices.size()) == 1 )
+        return(origprices[0]);
+    std::sort(origprices.begin(), origprices.end());
+    prices = (int64_t *)calloc(n,sizeof(*prices));
+    i = 0;
+    for (std::vector<int64_t>::const_iterator it=sorted.begin(); it!=sorted.end(); it++)
+        prices[i++] = *it;
+    price = correlate_price(height,prices,i);
+    free(prices);
+    return(price);
+}
+
+int32_t oracleprice_add(std::vector<struct oracleprice_info> &publishers,CPubKey pk,int32_t height,std::vector <uint8_t> data,int32_t maxheight)
+{
+    struct oracleprice_info item; int32_t flag = 0;
+    for (std::vector<struct oracleprice_info>::iterator it=publishers.begin(); it!=publishers.end(); it++)
+    {
+        if ( pk == it->pk )
+        {
+            flag = 1;
+            if ( height > it->height )
+            {
+                it->height = height;
+                it->data = data;
+                return(height);
+            }
+        }
+    }
+    if ( flag == 0 )
+    {
+        item.pk = pk;
+        item.data = data;
+        item.height = height;
+        publishers.push_back(item);
+        return(height);
+    } else return(0);
+}
+
+UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatlen)
+{
+    UniValue obj(UniValue::VARR); uint256 hash; int32_t i,j=0; int64_t val; char str[IGUANA_MAXSCRIPTSIZE*2+1];
+    for (i=0; i<formatlen && j<datalen; i++)
+    {
+        str[0] = 0;
+        j = oracle_format(&hash,&val,str,format[i],data,j,datalen);
+        obj.push_back(str);
+        if ( j < 0 )
+            break;
+        if ( j >= datalen )
+            break;
+    }
+    return(obj);
+}
+
 
 // get OP_DROP data:
 CScript GetCCDropAsOpret(const CScript &scriptPubKey)
@@ -953,6 +1402,98 @@ CScript GetCCDropAsOpret(const CScript &scriptPubKey)
         } */
     }
     return CScript();
+}
+
+// get OP_DROP data for mixed cc vouts
+// the function returns OP_DROP data as OP_RETURN script. This looks strange but all cc modules have DecodeOpReturn-like functions 
+// that accept OP_RETURN scripts 
+/*bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
+{
+    std::vector<vscript_t> vParams;
+    CScript dummy; 
+
+    if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) != 0)
+    {
+        if (vParams.size() >= 1)  // allow more data after cc opret
+        {
+            opret << OP_RETURN << vParams[0];  // return vData[1] as cc opret
+            return true;
+        }
+    }
+    return false;
+}*/
+
+// get cc address for pubkey or mypk
+UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vector<unsigned char> &pubkey, bool mixed)
+{
+    UniValue result(UniValue::VOBJ); 
+    char destaddr[64],str[64]; 
+    CPubKey mypk,globalpk;
+    
+    globalpk = GetUnspendable(cp, NULL);
+    GetCCaddress(cp, destaddr, globalpk, mixed);
+    if (strcmp(destaddr,cp->unspendableCCaddr) != 0)
+    {
+        uint8_t priv[32];
+        Myprivkey(priv); // it is assumed the CC's normal address'es -pubkey was used
+        fprintf(stderr,"fix mismatched CCaddr %s -> %s\n",cp->unspendableCCaddr,destaddr);
+        strcpy(cp->unspendableCCaddr,destaddr);
+        memset(priv,0,32);
+    }
+    result.push_back(Pair("result", "success"));
+    sprintf(str,"GlobalPk %s CC Address",name);
+    result.push_back(Pair(str,cp->unspendableCCaddr));
+    sprintf(str,"GlobalPk %s CC Balance",name);
+    result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(cp->unspendableCCaddr,1))));
+    sprintf(str,"GlobalPk %s Normal Address",name);
+    result.push_back(Pair(str,cp->normaladdr));
+    sprintf(str,"GlobalPk %s Normal Balance",name);
+    result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(cp->normaladdr,0))));
+    if (strcmp(name,"Gateways")==0) result.push_back(Pair("GatewaysPubkey","03ea9c062b9652d8eff34879b504eda0717895d27597aaeb60347d65eed96ccb40"));
+    
+    else if (strcmp(name,"Tokens")!=0 && strcmp(name,"Tokensv2")!=0)
+    {
+        if (GetTokensCCaddress(cp, destaddr, globalpk, mixed)>0)
+        {
+            sprintf(str,"GlobalPk %s/Tokens CC Address",name);
+            result.push_back(Pair(str,destaddr));
+        }
+    }
+    if (pubkey.size() == 33)
+    {
+        if (GetCCaddress(cp,destaddr,pubkey2pk(pubkey), mixed) != 0)
+        {
+            sprintf(str,"pubkey %s CC Address",name);
+            result.push_back(Pair(str,destaddr));
+            sprintf(str,"pubkey %s CC Balance",name);
+            result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,0))));
+        }
+    }
+    if ((strcmp(name,"Channels")==0 || strcmp(name,"Heir")==0) && pubkey.size() == 33)
+    {
+        sprintf(str,"mypk/pubkey 1of2 %s CC Address",name);
+        mypk = pubkey2pk(Mypubkey());
+        GetCCaddress1of2(cp, destaddr, mypk, pubkey2pk(pubkey), mixed);
+        result.push_back(Pair(str,destaddr));
+        if (GetTokensCCaddress1of2(cp,destaddr,mypk,pubkey2pk(pubkey), mixed) > 0)
+        {
+            sprintf(str,"mypk/pubkey 1of2 %s/Tokens CC Address",name);
+            result.push_back(Pair(str,destaddr));
+        }
+    }
+    if (GetCCaddress(cp, destaddr, pubkey2pk(Mypubkey()), mixed) != 0)
+    {
+        sprintf(str,"mypk %s CC Address",name);
+        result.push_back(Pair(str,destaddr));
+        sprintf(str,"mypk %s CC Balance",name);
+        result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,1))));
+    }
+    if ( Getscriptaddress(destaddr,(CScript() << Mypubkey() << OP_CHECKSIG)) != 0 )
+    {
+        result.push_back(Pair("mypk Normal Address",destaddr));
+        result.push_back(Pair("mypk Normal Balance",ValueFromAmount(CCaddress_balance(destaddr,0))));
+    }
+    return(result);
 }
 
 // decode cc transaction:
@@ -1014,4 +1555,37 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
         return true;
     }
     return false;
+}
+
+bool IsBlockHashInActiveChain(uint256 hashBlock)
+{
+    AssertLockHeld(cs_main);
+    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+    if (mi != mapBlockIndex.end() && (*mi).second) {
+        CBlockIndex* pindex = (*mi).second;
+        if (chainActive.Contains(pindex)) 
+            return true;
+    }
+    return false;
+}
+
+/**
+ * IsTxidInActiveChain load a tx and checks if it is in active chain (not in orphaned blocks)
+ * cs_main section should be locked
+ */
+bool IsTxidInActiveChain(uint256 txid)
+{
+    CTransaction tx;
+    uint256 hashBlock;
+
+    if (myGetTransaction(txid, tx, hashBlock))
+    {
+        return IsBlockHashInActiveChain(hashBlock);
+    }
+    return false;
+}
+
+std::string ccRequirementsMessage()
+{
+    return (KOMODO_NSPV_SUPERLITE ? "to use CC contracts you need to nspv_login first\n" : "to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n" );
 }

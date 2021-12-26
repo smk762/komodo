@@ -13,8 +13,18 @@
  *                                                                            *
  ******************************************************************************/
 #include "komodo_utils.h"
+#include "komodo_gateway.h"
+#include "komodo_nSPV_defs.h"
 #include "komodo_extern_globals.h"
 #include "komodo_notary.h"
+
+extern struct NSPV_inforesp NSPV_inforesult;
+
+#ifdef TESTMODE           
+    #define MIN_NON_NOTARIZED_CONFIRMS 2
+#else
+    #define MIN_NON_NOTARIZED_CONFIRMS 101
+#endif // TESTMODE
 
 void vcalc_sha256(char deprecated[(256 >> 3) * 2 + 1],uint8_t hash[256 >> 3],uint8_t *src,int32_t len)
 {
@@ -1248,9 +1258,9 @@ uint64_t komodo_ac_block_subsidy(int nHeight)
     return(subsidy);
 }
 
-extern int64_t MAX_MONEY;
-void komodo_cbopretupdate(int32_t forceflag);
-void SplitStr(const std::string& strVal, std::vector<std::string> &outVals);
+//extern int64_t MAX_MONEY;
+//void komodo_cbopretupdate(int32_t forceflag);
+//void SplitStr(const std::string& strVal, std::vector<std::string> &outVals);
 
 int8_t equihash_params_possible(uint64_t n, uint64_t k)
 {
@@ -2072,4 +2082,222 @@ void komodo_prefetch(FILE *fp)
 bool komodo_is_vSolutionsFixActive()
 {
     return GetLatestTimestamp(komodo_currentheight()) > nS5Timestamp;
+}
+
+int64_t komodo_get_blocktime(uint256 hashBlock)
+{
+    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+    if (mi != mapBlockIndex.end() && (*mi).second)
+    {
+        CBlockIndex* pindex = (*mi).second;
+        if (chainActive.Contains(pindex))
+            return pindex->GetBlockTime();
+    }
+    return 0;
+}
+
+// creates a nLockTime value for a new tx, with Dec 2019 hardfork check
+uint32_t komodo_next_tx_locktime()
+{
+    AssertLockHeld(cs_main);
+    if (!komodo_hardfork_active((uint32_t)chainActive.LastTip()->nTime))
+        return (uint32_t)chainActive.LastTip()->nTime + 1; // set to a time close to now
+    else
+        return (uint32_t)chainActive.Tip()->GetMedianTimePast();
+}
+
+int32_t komodo_get_current_height()
+{
+    if ( KOMODO_NSPV_SUPERLITE )
+    {
+        return (NSPV_inforesult.height);
+    }
+    else return chainActive.LastTip()->GetHeight();
+}
+
+static const char base58_chars[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+char *bitcoin_base58encode(char *coinaddr, uint8_t *data, int32_t datalen)
+{
+    mpz_t bn0,bn58,dv,rem,bn; char rs[128]; int32_t i,n=0;
+    //mpz_init_set_str(bn58,"58",10);
+    //mpz_init_set_str(bn0,"0",10);
+    mpz_init_set_ui(bn58,58);
+    mpz_init_set_ui(bn0,0);
+    mpz_init(dv), mpz_init(rem), mpz_init(bn);
+    mpz_import(bn,datalen,1,sizeof(data[0]),0,0,data);
+    while ( mpz_cmp(bn,bn0) > 0 )
+    {
+        mpz_tdiv_qr(bn,rem,bn,bn58);
+        rs[n++] = base58_chars[mpz_get_ui(rem)];
+    }
+    for (i=0; i<datalen; i++)
+    {
+        if ( data[i] == 0 )
+            rs[n++] = base58_chars[0];
+        else break;
+    }
+    for (i=0; i<n; i++)
+        coinaddr[n - i - 1] = rs[i];
+    coinaddr[n] = 0;
+    mpz_clear(bn0), mpz_clear(bn58), mpz_clear(dv), mpz_clear(rem), mpz_clear(bn);
+    return(coinaddr);
+}
+
+int32_t bitcoin_base58decode(uint8_t *data, char *coinaddr)
+{
+ 	uint32_t zeroes,be_sz=0; size_t count; const char *p,*p1; mpz_t bn58,bn;
+    mpz_init_set_ui(bn58,58);
+    mpz_init_set_ui(bn,0);
+	while ( isspace((uint32_t)(*coinaddr & 0xff)) )
+		coinaddr++;
+	for (p=coinaddr; *p; p++)
+    {
+		p1 = strchr(base58_chars,*p);
+		if ( p1 == 0 )
+        {
+			while (isspace((uint32_t)*p))
+				p++;
+			if ( *p != '\0' )
+            {
+                mpz_clear(bn), mpz_clear(bn58);
+                return(-1);
+            }
+			break;
+		}
+        mpz_mul(bn,bn,bn58);
+        mpz_add_ui(bn,bn,(int32_t)(p1 - base58_chars));
+	}
+    zeroes = 0;
+	for (p=coinaddr; *p==base58_chars[0]; p++)
+		data[zeroes++] = 0;
+    mpz_export(data+zeroes,&count,1,sizeof(data[0]),-1,0,bn);
+	if ( count >= 2 && data[count - 1] == 0 && data[count - 2] >= 0x80 )
+		count--;
+    be_sz = (uint32_t)count + (uint32_t)zeroes;
+	//memset(data,0,be_sz);
+    //for (i=0; i<count; i++)
+    //    data[i+zeroes] = revdata[count - 1 - i];
+    //printf("len.%d be_sz.%d zeroes.%d data[0] %02x %02x\n",be_sz+zeroes,be_sz,zeroes,data[0],data[1]);
+    mpz_clear(bn), mpz_clear(bn58);
+	return(be_sz);
+}
+
+//#include "../includes/curve25519.h"
+
+void mpz_from_bits256(mpz_t bn,bits256 x)
+{
+    int32_t i;
+    mpz_init_set_ui(bn,x.ulongs[3]);
+    for (i=2; i>=0; i--)
+    {
+        mpz_mul_2exp(bn,bn,64);
+        if ( x.ulongs[i] != 0 )
+            mpz_add_ui(bn,bn,x.ulongs[i]);
+    }
+}
+
+bits256 mpz_to_bits256(mpz_t bn)
+{
+    bits256 x,rev; size_t count; int32_t i;
+    mpz_export(rev.bytes,&count,1,sizeof(uint64_t),1,0,bn);
+    for (i=0; i<32; i++)
+        x.bytes[i] = rev.bytes[31-i];
+    return(x);
+}
+
+bits256 mpz_muldivcmp(bits256 oldval,int32_t mulval,int32_t divval,bits256 targetval)
+{
+    mpz_t bn,target; bits256 newval;
+    //printf("mulval.%d divval.%d]\n",mulval,divval);
+    mpz_init(bn), mpz_init(target);
+    mpz_from_bits256(bn,oldval);
+    mpz_mul_ui(bn,bn,mulval);
+    mpz_tdiv_qr_ui(bn,NULL,bn,divval);
+    if ( bn->_mp_size <= 0 || mpz_cmp(bn,target) > 0 )
+        newval = targetval;
+    newval = mpz_to_bits256(bn);
+    //char *bits256_str(char *,bits256);
+    //char str[65],str2[65]; printf("%s mul.%d div.%d -> %s size.%d\n",bits256_str(str,oldval),mulval,divval,bits256_str(str2,newval),bn->_mp_size);
+    mpz_clear(bn), mpz_clear(target);
+    return(newval);
+}
+
+bits256 mpz_div64(bits256 hash,uint64_t divval)
+{
+    mpz_t bn; bits256 newval;
+    mpz_init(bn);
+    mpz_from_bits256(bn,hash);
+    mpz_tdiv_qr_ui(bn,NULL,bn,divval);
+    newval = mpz_to_bits256(bn);
+    //char *bits256_str(char *,bits256);
+    //char str[65],str2[65]; printf("%s div.%lld -> %s size.%d\n",bits256_str(str,hash),(long long)divval,bits256_str(str2,newval),bn->_mp_size);
+    mpz_clear(bn);
+    return(newval);
+}
+
+bool komodo_txnotarizedconfirmed(uint256 txid, int32_t minconfirms)
+{
+    char str[65];
+    int32_t confirms,minimumconfirms,notarized=0,txheight=0,currentheight=0;;
+    CTransaction tx;
+    uint256 hashBlock;
+    CBlockIndex *pindex;    
+    char symbol[KOMODO_ASSETCHAIN_MAXLEN],dest[KOMODO_ASSETCHAIN_MAXLEN]; struct komodo_state *sp;
+
+    if (minconfirms==0) return (true);
+    if ( KOMODO_NSPV_SUPERLITE )
+    {
+        if ( NSPV_myGetTransaction(txid,tx,hashBlock,txheight,currentheight) == 0 )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed cant find txid %s\n",txid.ToString().c_str());
+            return(0);
+        }
+        else if (txheight<=0)
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed no txheight.%d for txid %s\n",txheight,txid.ToString().c_str());
+            return(0);
+        }
+        else if (txheight>currentheight)
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed backwards heights for txid %s hts.(%d %d)\n",txid.ToString().c_str(),txheight,currentheight);
+            return(0);
+        }
+        confirms=1 + currentheight - txheight;
+    }
+    else
+    {
+        if ( myGetTransaction(txid,tx,hashBlock) == 0 )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed cant find txid %s\n",txid.ToString().c_str());
+            return(0);
+        }
+        else if ( hashBlock == zeroid )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed no hashBlock for txid %s\n",txid.ToString().c_str());
+            return(0);
+        }
+        else if ( (pindex= komodo_blockindex(hashBlock)) == 0 || (txheight= pindex->GetHeight()) <= 0 )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed no txheight.%d %p for txid %s\n",txheight,pindex,txid.ToString().c_str());
+            return(0);
+        }
+        else if ( (pindex= chainActive.LastTip()) == 0 || pindex->GetHeight() < txheight )
+        {
+            fprintf(stderr,"komodo_txnotarizedconfirmed backwards heights for txid %s hts.(%d %d)\n",txid.ToString().c_str(),txheight,(int32_t)pindex->GetHeight());
+            return(0);
+        }    
+        confirms=1 + pindex->GetHeight() - txheight;
+    }
+    if (minconfirms>1) minimumconfirms=minconfirms;
+    else minimumconfirms=MIN_NON_NOTARIZED_CONFIRMS;
+    if ((sp= komodo_stateptr(symbol,dest)) != 0 && (notarized=sp->NOTARIZED_HEIGHT) > 0 && txheight > sp->NOTARIZED_HEIGHT)  notarized=0;            
+#ifdef TESTMODE           
+    notarized=0;
+#endif //TESTMODE
+    if (notarized>0 && confirms > 1)
+        return (true);
+    else if (notarized==0 && confirms >= minimumconfirms)
+        return (true);
+    return (false);
 }

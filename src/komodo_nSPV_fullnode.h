@@ -440,7 +440,7 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp *ptr,char *coinaddr,bool isCC
 {
     int32_t maxlen,txheight,ind=0,n = 0,len = 0; CTransaction tx; uint256 hashBlock;
     std::vector<std::pair<CAddressIndexKey, CAmount> > txids;
-    SetCCtxids(txids,coinaddr,isCC);
+    SetAddressIndexTxids(txids, coinaddr, isCC);
     ptr->nodeheight = chainActive.LastTip()->GetHeight();
     maxlen = MAX_BLOCK_SIZE(ptr->nodeheight) - 512;
     maxlen /= sizeof(*ptr->txids);
@@ -494,7 +494,7 @@ int32_t NSPV_mempoolfuncs(bits256 *satoshisp,int32_t *vindexp,std::vector<uint25
         int32_t n=0,skipcount=vout>>16; uint8_t eval=(vout>>8)&0xFF, func=vout&0xFF;
 
         CTransaction tx;
-        SetCCtxids(tmp_txids,coinaddr,isCC);
+        SetAddressIndexTxids(tmp_txids, coinaddr, isCC);
         if ( skipcount < 0 ) skipcount = 0;
         if ( skipcount >= tmp_txids.size() )
             skipcount = tmp_txids.size()-1;
@@ -505,15 +505,14 @@ int32_t NSPV_mempoolfuncs(bits256 *satoshisp,int32_t *vindexp,std::vector<uint25
                 if (txid!=zeroid || func!=0)
                 {
                     myGetTransaction(it->first.txhash,tx,hashBlock);
-                    std::vector<std::pair<uint8_t, vscript_t>>  oprets; uint256 tokenid,txid;
+                    std::vector<vscript_t>  oprets; uint256 tokenid,txid;
                     std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f,tokenevalcode;
                     std::vector<CPubKey> pubkeys;
 
-                    if (DecodeTokenOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,tokenevalcode,tokenid,pubkeys,oprets)!=0 && GetOpretBlob(oprets, OPRETID_CHANNELSDATA, vOpretExtra) && tokenevalcode==EVAL_TOKENS && vOpretExtra.size()>0)
-                    {
-                        vopret=vOpretExtra;
-                    }
-                    else GetOpReturnData(tx.vout[tx.vout.size()-1].scriptPubKey, vopret);
+                    if (DecodeTokenOpRetV1(tx.vout[tx.vout.size() - 1].scriptPubKey, tokenid, pubkeys, oprets) != 0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size() > 0) {
+                        vopret = vOpretExtra;
+                    } else
+                        GetOpReturnData(tx.vout[tx.vout.size() - 1].scriptPubKey, vopret);
                     script = (uint8_t *)vopret.data();
                     if ( vopret.size() > 2 && script[0]==eval )
                     {

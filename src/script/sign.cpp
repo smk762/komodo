@@ -241,7 +241,7 @@ static bool SignStepCC(const BaseSignatureCreator& creator, const CScript& scrip
         if (_Getscriptaddress(addr, subScript) && GetCCByUnspendableAddress(&C, addr))
         {
             vPK.push_back(CPubKey(ParseHex(C.CChexstr)));
-            p = COptCCParams(p.VERSION, C.evalcode, 1, 1, vPK, vParams);
+            p = COptCCParams(p.VERSION_1, C.evalcode, 1, 1, vPK, vParams);
         }
     }
     else

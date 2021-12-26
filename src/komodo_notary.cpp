@@ -17,6 +17,8 @@
 #include "komodo.h" // komodo_stateupdate()
 #include "komodo_structs.h" // KOMODO_NOTARIES_HARDCODED
 #include "komodo_utils.h" // komodo_stateptr
+#include "komodo_notary.h" // komodo_stateptr
+
 
 const char *Notaries_genesis[][2] =
 {

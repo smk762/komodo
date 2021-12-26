@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright Â© 2014-2019 The SuperNET Developers.                             *
+ * Copyright © 2014-2019 The SuperNET Developers.                             *
  *                                                                            *
  * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
  * the top-level directory of this distribution for the individual copyright  *
@@ -12,31 +12,39 @@
  * Removal or modification of this copyright notice is prohibited.            *
  *                                                                            *
  ******************************************************************************/
-#pragma once
 
-#include "komodo_defs.h"
-#include "hex.h"
+#include "gmp_i64.h"
 
-#define KOMODO_KVPROTECTED 1
-#define KOMODO_KVBINARY 2
-#define KOMODO_KVDURATION 1440
+void mpz_set_si64( mpz_t rop, int64_t op )
+{
+	int isneg = op < 0 ? 1 : 0;
+    int64_t op_abs = op < 0 ? -op : op;
+    mpz_import(rop, 1, 1, sizeof(op_abs), 0, 0, &op_abs);
+    if (isneg)
+    	mpz_neg(rop, rop);
+}
 
-int32_t komodo_kvcmp(uint8_t *refvalue,uint16_t refvaluesize,uint8_t *value,uint16_t valuesize);
+int64_t mpz_get_si64( mpz_t op )
+{
+    uint64_t u = 0LL; /* if op is zero nothing will be written into u */
+    uint64_t u_abs;
 
-int32_t komodo_kvnumdays(uint32_t flags);
+    mpz_export(&u, NULL, 1, sizeof(u), 0, 0, op);
+    u_abs = u < 0 ? -u : u;
+    if (mpz_sgn(op) < 0)
+		return -(int64_t)u_abs;
+    else
+        return (int64_t)u_abs;
+}
 
-int32_t komodo_kvduration(uint32_t flags);
+void mpz_set_ui64( mpz_t rop, uint64_t op )
+{
+    mpz_import(rop, 1, 1, sizeof(op), 0, 0, &op);
+}
 
-uint64_t komodo_kvfee(uint32_t flags,int32_t opretlen,int32_t keylen);
-
-int32_t komodo_kvsearch(uint256 *pubkeyp,int32_t current_height,uint32_t *flagsp,int32_t *heightp,uint8_t value[IGUANA_MAXSCRIPTSIZE],uint8_t *key,int32_t keylen);
-
-uint256 komodo_kvsig(uint8_t *buf,int32_t len,uint256 privkey);
-
-int32_t komodo_kvduration(uint32_t flags);
-
-uint256 komodo_kvprivkey(uint256 *pubkeyp,char *passphrase);
-
-int32_t komodo_kvsigverify(uint8_t *buf,int32_t len,uint256 _pubkey,uint256 sig);
-
-void komodo_kvupdate(uint8_t *opretbuf,int32_t opretlen,uint64_t value);
+uint64_t mpz_get_ui64( mpz_t op )
+{
+    uint64_t u = 0LL; /* if op is zero nothing will be written into u */
+    mpz_export(&u, NULL, 1, sizeof(u), 0, 0, op);
+    return u;
+}

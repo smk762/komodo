@@ -16,6 +16,9 @@
 #include "komodo_extern_globals.h"
 #include "komodo_utils.h" // OS_milliseconds
 #include "komodo_notary.h" // komodo_chosennotary()
+#include "wallet/rpcwallet.h"
+
+bool EnsureWalletIsAvailable(bool avoidException);
 
 /************************************************************************
  *
@@ -1633,9 +1636,6 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
     //fprintf(stderr,"slow.%d ht.%d isPoS.%d\n",slowflag,height,isPoS);
     return(isPoS != 0);
 }
-
-bool GetStakeParams(const CTransaction &stakeTx, CStakeParams &stakeParams);
-bool ValidateMatchingStake(const CTransaction &ccTx, uint32_t voutNum, const CTransaction &stakeTx, bool &cheating);
 
 // for now, we will ignore slowFlag in the interest of keeping success/fail simpler for security purposes
 bool verusCheckPOSBlock(int32_t slowflag, CBlock *pblock, int32_t height)

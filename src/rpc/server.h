@@ -445,16 +445,17 @@ extern UniValue reconsiderblock(const UniValue& params, bool fHelp, const CPubKe
 extern UniValue getspentinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue selfimport(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue importdual(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewayaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewayinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewaybind(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewaydeposit(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewaywithdraw(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewaypartialsign(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewaycompletesigning(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewaymarkdone(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewaypendingwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue importgatewayprocessed(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewayaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewayinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewaybind(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewaydeposit(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewaywithdraw(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewaywithdrawsign(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewaymarkdone(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewaypendingsignwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewaysignedwithdraws(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewayexternaladdress(const UniValue& params, bool fHelp, const CPubKey& mypk);
+UniValue importgatewaydumpprivkey(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue genminingCSV(const UniValue& params, bool fHelp, const CPubKey& mypk);
 
 extern UniValue nspv_getinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
@@ -529,7 +530,5 @@ extern UniValue pricesrekt(const UniValue& params, bool fHelp, const CPubKey& my
 extern UniValue pricesaddfunding(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pricesgetorderbook(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pricesrefillfund(const UniValue& params, bool fHelp, const CPubKey& mypk);
-
-
 
 #endif // BITCOIN_RPCSERVER_H

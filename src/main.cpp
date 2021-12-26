@@ -2236,7 +2236,7 @@ struct CompareBlocksByHeightMain
     else return(coins.vout[n].nValue);
 }*/
 
-bool myAddtomempool(CTransaction &tx, CValidationState *pstate, bool fSkipExpiry)
+bool myAddtomempool(const CTransaction &tx, CValidationState *pstate, bool fSkipExpiry)
 {
     CValidationState state;
     if (!pstate)

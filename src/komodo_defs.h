@@ -16,6 +16,7 @@
 #ifndef KOMODO_DEFS_H
 #define KOMODO_DEFS_H
 #include "arith_uint256.h"
+#include "bits256.h"
 #include "chain.h"
 #include "komodo_nk.h"
 
@@ -38,6 +39,9 @@
 #define ASSETCHAINS_STAKED_MIN_POW_DIFF 536900000 // 537000000 537300000
 #define _COINBASE_MATURITY 100
 #define _ASSETCHAINS_TIMELOCKOFF 0xffffffffffffffff
+
+#define KOMODO_ADDRESS_BUFSIZE 64
+#define IS_KMD_CHAIN() (ASSETCHAINS_SYMBOL[0] == '\0')
 
 // KMD Notary Seasons 
 // 1: May 1st 2018 1530921600
@@ -506,12 +510,12 @@ extern std::vector<std::string> ASSETCHAINS_PRICES,ASSETCHAINS_STOCKS;
 
 extern int32_t VERUS_BLOCK_POSUNITS, VERUS_CONSECUTIVE_POS_THRESHOLD, VERUS_NOPOS_THRESHHOLD;
 extern uint256 KOMODO_EARLYTXID;
+extern uint8_t ASSETCHAINS_CCDISABLES[256],ASSETCHAINS_CCZEROTXFEE[256];
 
 extern bool IS_KOMODO_DEALERNODE;
 extern int32_t KOMODO_CONNECTING,KOMODO_CCACTIVATE;
 extern uint32_t ASSETCHAINS_CC;
-extern std::string CCerror,ASSETCHAINS_CCLIB;
-extern uint8_t ASSETCHAINS_CCDISABLES[256];
+extern std::string ASSETCHAINS_CCLIB;
 
 extern int32_t USE_EXTERNAL_PUBKEY;
 extern std::string NOTARY_PUBKEY,NOTARY_ADDRESS;
@@ -573,10 +577,28 @@ int32_t komodo_nextheight();
 CBlockIndex *komodo_blockindex(uint256 hash);
 CBlockIndex *komodo_chainactive(int32_t height);
 int32_t komodo_blockheight(uint256 hash);
-bool komodo_txnotarizedconfirmed(uint256 txid);
+bool komodo_txnotarizedconfirmed(uint256 txid,int32_t minconfirms=1);
 int32_t komodo_blockload(CBlock& block, CBlockIndex *pindex);
 uint32_t komodo_chainactive_timestamp();
 uint32_t GetLatestTimestamp(int32_t height);
+void komodo_setactivation(int32_t height);
+
+int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime); // from ac_private chains only
+
+void OS_randombytes(unsigned char *x, long xlen);  // this func impl exists for win too
+
+bits256 curve25519_shared(bits256 privkey,bits256 otherpub);
+bits256 curve25519_basepoint9();
+bits256 curve25519(bits256 mysecret,bits256 basepoint);
+void vcalc_sha256(char deprecated[(256 >> 3) * 2 + 1],uint8_t hash[256 >> 3],uint8_t *src,int32_t len);
+bits256 bits256_doublesha256(char *deprecated,uint8_t *data,int32_t datalen);
+
+// supernet cipher
+int32_t _SuperNET_cipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 destpub,bits256 srcpriv,uint8_t *buf);
+uint8_t *_SuperNET_decipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 srcpub,bits256 mypriv);
+uint8_t *SuperNET_deciphercalc(uint8_t *senderpub,uint8_t **ptrp,int32_t *msglenp,bits256 privkey,uint8_t *cipher,int32_t cipherlen);
+uint8_t *SuperNET_ciphercalc(uint8_t **ptrp,int32_t *cipherlenp,bits256 privkey,bits256 destpubkey,uint8_t *data,int32_t datalen);
+
 
 #ifndef KOMODO_NSPV_FULLNODE
 #define KOMODO_NSPV_FULLNODE (KOMODO_NSPV <= 0)

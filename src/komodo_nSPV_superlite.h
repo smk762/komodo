@@ -42,6 +42,7 @@ struct NSPV_broadcastresp NSPV_broadcastresult;
 struct NSPV_ntzsresp NSPV_ntzsresp_cache[NSPV_MAXVINS];
 struct NSPV_ntzsproofresp NSPV_ntzsproofresp_cache[NSPV_MAXVINS * 2];
 struct NSPV_txproof NSPV_txproof_cache[NSPV_MAXVINS * 4];
+struct NSPV_CCmtxinfo NSPV_U;
 
 struct NSPV_ntzsresp *NSPV_ntzsresp_find(int32_t reqheight)
 {

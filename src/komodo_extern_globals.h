@@ -84,6 +84,8 @@ extern uint64_t ASSETCHAINS_TIMEUNLOCKFROM;
 extern uint64_t ASSETCHAINS_TIMEUNLOCKTO;
 extern uint64_t ASSETCHAINS_CBOPRET;
 
+extern uint64_t KOMODO_INTERESTSUM, KOMODO_WALLETBALANCE;
+
 extern std::mutex komodo_mutex;
 extern std::vector<uint8_t> Mineropret;
 extern pthread_mutex_t KOMODO_KV_mutex;

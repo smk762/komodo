@@ -13,6 +13,8 @@
  *                                                                            *
  ******************************************************************************/
 
+#include "CCtokens.h"
+#include "CCtokens_impl.h"
 #include "CCGateways.h"
 #include "key_io.h"
 
@@ -164,15 +166,15 @@ CScript EncodeGatewaysBindOpRet(uint8_t funcid,uint256 tokenid,std::string coin,
     gatewayspk = GetUnspendable(cp,0);
     pubkeys.push_back(gatewayspk);
     vopret = E_MARSHAL(ss << evalcode << funcid << coin << totalsupply << oracletxid << M << N << gatewaypubkeys << taddr << prefix << prefix2 << wiftype);
-    return(EncodeTokenOpRet(tokenid,pubkeys, std::make_pair(OPRETID_GATEWAYSDATA, vopret)));
+    return(EncodeTokenOpRetV1(tokenid,pubkeys, { vopret }));
 }
 
 uint8_t DecodeGatewaysBindOpRet(char *depositaddr,const CScript &scriptPubKey,uint256 &tokenid,std::string &coin,int64_t &totalsupply,uint256 &oracletxid,uint8_t &M,uint8_t &N,std::vector<CPubKey> &gatewaypubkeys,uint8_t &taddr,uint8_t &prefix,uint8_t &prefix2,uint8_t &wiftype)
 {
-    std::vector<std::pair<uint8_t, vscript_t>>  oprets;
-    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f,tokenevalcode; std::vector<CPubKey> pubkeys;
+    std::vector<vscript_t>  oprets;
+    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f; std::vector<CPubKey> pubkeys;
 
-    if (DecodeTokenOpRet(scriptPubKey,tokenevalcode,tokenid,pubkeys,oprets)!=0 && GetOpretBlob(oprets, OPRETID_GATEWAYSDATA, vOpretExtra) && tokenevalcode==EVAL_TOKENS && vOpretExtra.size()>0)
+    if (DecodeTokenOpRetV1(scriptPubKey,tokenid,pubkeys,oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
     {
         vopret=vOpretExtra;
     }
@@ -228,15 +230,15 @@ CScript EncodeGatewaysClaimOpRet(uint8_t funcid,uint256 tokenid,uint256 bindtxid
 
     pubkeys.push_back(destpub);
     vopret = /*<< OP_RETURN <<*/ E_MARSHAL(ss << evalcode << funcid << bindtxid << refcoin << deposittxid << destpub << amount);        
-    return(EncodeTokenOpRet(tokenid,pubkeys, make_pair(OPRETID_GATEWAYSDATA, vopret)));
+    return(EncodeTokenOpRetV1(tokenid,pubkeys, { vopret }));
 }
 
 uint8_t DecodeGatewaysClaimOpRet(const CScript &scriptPubKey,uint256 &tokenid,uint256 &bindtxid,std::string &refcoin,uint256 &deposittxid,CPubKey &destpub,int64_t &amount)
 {
-    std::vector<std::pair<uint8_t, vscript_t>>  oprets;
-    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f,tokenevalcode; std::vector<CPubKey> pubkeys;
+    std::vector<vscript_t>  oprets;
+    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f; std::vector<CPubKey> pubkeys;
 
-    if (DecodeTokenOpRet(scriptPubKey,tokenevalcode,tokenid,pubkeys, oprets)!=0 && GetOpretBlob(oprets, OPRETID_GATEWAYSDATA, vOpretExtra) && tokenevalcode==EVAL_TOKENS && vOpretExtra.size()>0)
+    if (DecodeTokenOpRetV1(scriptPubKey,tokenid,pubkeys, oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
     {
         vopret=vOpretExtra;
     }
@@ -259,15 +261,15 @@ CScript EncodeGatewaysWithdrawOpRet(uint8_t funcid,uint256 tokenid,uint256 bindt
     gatewayspk = GetUnspendable(cp,0);
     pubkeys.push_back(gatewayspk);
     vopret = /*opret << OP_RETURN << */ E_MARSHAL(ss << evalcode << funcid << bindtxid << refcoin << withdrawpub << amount);        
-    return(EncodeTokenOpRet(tokenid,pubkeys, std::make_pair(OPRETID_GATEWAYSDATA, vopret)));
+    return(EncodeTokenOpRetV1(tokenid,pubkeys, { vopret }));
 }
 
 uint8_t DecodeGatewaysWithdrawOpRet(const CScript &scriptPubKey, uint256& tokenid, uint256 &bindtxid, std::string &refcoin, CPubKey &withdrawpub, int64_t &amount)
 {
-    std::vector<std::pair<uint8_t, vscript_t>>  oprets;
-    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f,tokenevalcode; std::vector<CPubKey> pubkeys;
+    std::vector<vscript_t>  oprets;
+    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f; std::vector<CPubKey> pubkeys;
 
-    if (DecodeTokenOpRet(scriptPubKey,tokenevalcode,tokenid,pubkeys, oprets)!=0 && GetOpretBlob(oprets, OPRETID_GATEWAYSDATA, vOpretExtra) && tokenevalcode==EVAL_TOKENS && vOpretExtra.size()>0)
+    if (DecodeTokenOpRetV1(scriptPubKey,tokenid,pubkeys, oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
     {
         vopret=vOpretExtra;
     }
@@ -343,10 +345,10 @@ uint8_t DecodeGatewaysMarkDoneOpRet(const CScript &scriptPubKey, uint256 &withdr
 
 uint8_t DecodeGatewaysOpRet(const CScript &scriptPubKey)
 {
-    std::vector<std::pair<uint8_t, vscript_t>>  oprets;
-    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f,tokenevalcode; std::vector<CPubKey> pubkeys; uint256 tokenid;
+    std::vector<vscript_t>  oprets;
+    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,e,f; std::vector<CPubKey> pubkeys; uint256 tokenid;
 
-    if (DecodeTokenOpRet(scriptPubKey,tokenevalcode,tokenid,pubkeys, oprets)!=0 && GetOpretBlob(oprets, OPRETID_GATEWAYSDATA, vOpretExtra) && tokenevalcode==EVAL_TOKENS && vOpretExtra.size()>0)
+    if (DecodeTokenOpRetV1(scriptPubKey,tokenid,pubkeys, oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
     {
         vopret=vOpretExtra;
     }
@@ -484,7 +486,7 @@ int32_t GatewaysBindExists(struct CCcontract_info *cp,CPubKey gatewayspk,uint256
     std::vector<uint256> txids;
 
     _GetCCaddress(markeraddr,EVAL_GATEWAYS,gatewayspk);
-    SetCCtxids(txids,markeraddr,true,EVAL_GATEWAYS,zeroid,'B');
+    SetCCtxids(txids,markeraddr,true,EVAL_GATEWAYS,0,zeroid,'B');
     for (std::vector<uint256>::const_iterator it=txids.begin(); it!=txids.end(); it++)
     {
         if ( myGetTransaction(*it,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 && DecodeGatewaysOpRet(tx.vout[numvouts-1].scriptPubKey)=='B' )
@@ -917,7 +919,7 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
         CCERR_RESULT("gatewayscc",CCLOG_INFO, stream << "Gateway bind." << coin << " (" << tokenid.GetHex() << ") already exists");
     if ( AddNormalinputs(mtx,mypk,txfee+CC_MARKER_VALUE,2,pk.IsValid()) > 0 )
     {
-        if (AddTokenCCInputs(cpTokens, mtx, mypk, tokenid, totalsupply, 64)>0)
+        if (AddTokenCCInputs<TokensV1>(cpTokens, mtx, mypk, tokenid, totalsupply, 64, false)>0)
         {
             mtx.vout.push_back(MakeTokensCC1vout(cp->evalcode,totalsupply,gatewayspk));       
             mtx.vout.push_back(MakeCC1vout(cp->evalcode,CC_MARKER_VALUE,gatewayspk));
@@ -964,7 +966,7 @@ UniValue GatewaysDeposit(const CPubKey& pk, uint64_t txfee,uint256 bindtxid,int3
     LOGSTREAM("gatewayscc",CCLOG_INFO, stream << "cointxid." << cointxid.GetHex() << " m." << m << " of n." << n << std::endl);
     if ( merkleroot == zeroid || m < n/2 )
         CCERR_RESULT("gatewayscc",CCLOG_INFO, stream << "couldnt find merkleroot for ht." << height << " " << coin << " oracle." << oracletxid.GetHex() << " m." << m << " vs n." << n);
-    if ( CCCointxidExists("gatewayscc-1",cointxid) != 0 )
+    if ( CCCointxidExists("gatewayscc-1",tx.GetHash(), cointxid) != 0 )
         CCERR_RESULT("gatewayscc",CCLOG_INFO, stream << "cointxid." << cointxid.GetHex() << " already exists");
     if ( GatewaysVerify(depositaddr,oracletxid,claimvout,coin,cointxid,deposithex,proof,merkleroot,destpub,taddr,prefix,prefix2) != amount )
         CCERR_RESULT("gatewayscc",CCLOG_INFO, stream << "deposittxid didnt validate");
@@ -1059,7 +1061,7 @@ UniValue GatewaysWithdraw(const CPubKey& pk, uint64_t txfee,uint256 bindtxid,std
     }
     if( AddNormalinputs(mtx, mypk, txfee+CC_MARKER_VALUE, 2,pk.IsValid()) > 0 )
     {
-		if ((inputs = AddTokenCCInputs(cpTokens, mtx, mypk, tokenid, amount, 60)) > 0)
+		if ((inputs = AddTokenCCInputs<TokensV1>(cpTokens, mtx, mypk, tokenid, amount, 60, false)) > 0)
         {
             if ( inputs > amount ) CCchange = (inputs - amount);
             mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,CC_MARKER_VALUE,gatewayspk));
@@ -1430,7 +1432,7 @@ UniValue GatewaysList()
 {
     UniValue result(UniValue::VARR); std::vector<uint256> txids; struct CCcontract_info *cp,C; uint256 txid,hashBlock,oracletxid,tokenid; CTransaction vintx; std::string coin; int64_t totalsupply; char str[65],depositaddr[64]; uint8_t M,N,taddr,prefix,prefix2,wiftype; std::vector<CPubKey> pubkeys;
     cp = CCinit(&C,EVAL_GATEWAYS);
-    SetCCtxids(txids,cp->unspendableCCaddr,true,EVAL_GATEWAYS,zeroid,'B');
+    SetCCtxids(txids,cp->unspendableCCaddr,true,EVAL_GATEWAYS,0,zeroid,'B');
     for (std::vector<uint256>::const_iterator it=txids.begin(); it!=txids.end(); it++)
     {
         txid = *it;
