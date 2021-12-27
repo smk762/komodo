@@ -66,7 +66,7 @@ using namespace std;
  * Or alternatively, create a specific query method for the information.
  **/
 
-#define KOMODO_VERSION "0.6.1"
+#define KOMODO_VERSION "0.7.1"
 #define VERUS_VERSION "0.4.0g"
 
 int32_t getera(int timestamp)
