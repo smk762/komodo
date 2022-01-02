@@ -21,8 +21,8 @@
 #include <map>
 #include <vector>
 
-const int32_t CCASSETS_OPDROP_FIX_TOKEL_HEIGHT = 243159;  // 26 Nov + 60 days
-//const int32_t CCASSETS_OPDROP_FIX_TKLTEST_HEIGHT = 158961;  // 26 Nov + 14 days
+const int32_t CCASSETS_OPDROP_FIX_TOKEL_HEIGHT = 286359;  // 26 Nov + 90 days
+const int32_t CCASSETS_OPDROP_FIX_TKLTEST_HEIGHT = 243159;  // 26 Nov + 60 days
 
 namespace CCUpgrades  {
 
