@@ -5609,7 +5609,7 @@ int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits
 }
 
 
-int32_t ensure_CCrequirements(uint8_t evalcode)
+int32_t ensure_CCrequirements(uint8_t evalcode, bool isRemote)
 {
     CCerror.clear();
     if (ASSETCHAINS_CCDISABLES[evalcode] != 0) {
@@ -5620,7 +5620,7 @@ int32_t ensure_CCrequirements(uint8_t evalcode)
             return (-1);
         }
     }
-    if (NOTARY_PUBKEY33[0] == 0) {
+    if (!isRemote && NOTARY_PUBKEY33[0] == 0) { // do not check local pubkey set for nspv calls
         fprintf(stderr, "no -pubkey set\n");
         return (-1);
     } else if (GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX) == 0) {

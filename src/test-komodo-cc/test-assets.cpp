@@ -317,6 +317,49 @@ bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp, uint8_
     return true;
 }
 
+// make three-eval (token+evalcode+evalcode2) 1of2 pk M-1 eval fake cryptocondition:
+CC *TestMakeTokensv2CCcondMofN(uint8_t evalcode1, uint8_t evalcode2, uint8_t M, std::vector<CPubKey> pks)
+{
+    // make 1of2 sigs cond 
+    std::vector<CC*> condpks;
+    for (auto const &pk : pks)
+        condpks.push_back(CCNewSecp256k1(pk));
+
+    std::vector<CC*> thresholds;
+    if (evalcode1 != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
+    if (evalcode1 != EVAL_TOKENSV2)	                                                // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1of2()!
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	// this is eval token cc
+    if (evalcode2 != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode2)));                // add optional additional evalcode
+    
+    thresholds.push_back(CCNewThreshold(M, condpks));		                            // this is 1 of 2 sigs cc
+
+    uint8_t t = thresholds.size() > 1 ? thresholds.size() - 1 : thresholds.size();
+
+    return CCNewThreshold(t, thresholds);
+}
+
+// make three-eval (token+evalcode+evalcode2) MofN cc vout:
+CTxOut TestMakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, vscript_t* pvData)
+{
+    CTxOut vout;
+    CCwrapper payoutCond( TestMakeTokensv2CCcondMofN(evalcode1, evalcode2, M, pks) );
+    if (!CCtoAnon(payoutCond.get())) 
+        return vout;
+
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
+
+    {
+        std::vector<vscript_t> vvData;
+        if (pvData)
+            vvData.push_back(*pvData);
+
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode1, M, pks.size(), pks, vvData);  // ver2 -> add pks
+        vout.scriptPubKey << ccp.AsVector() << OP_DROP;
+    }
+    return vout;
+}
 
 
 class TestAssetsCC : public ::testing::Test {
@@ -1126,7 +1169,6 @@ TEST_F(TestAssetsCC, tokenv2ask_basic)
         std::cerr << __func__ << " tokenv2ask_basic different tokenid in opdrop.." << std::endl;
         EXPECT_TRUE(!TestRunCCEval(mtx) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // fail: can't ask for different tokenid
     }
-
 }
 
 TEST_F(TestAssetsCC, tokenv2bid_basic)
@@ -1395,7 +1437,7 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
         ASSERT_TRUE(TestFinalizeTx(mtx, cpTokens, testKeys[mypk], 10000,
             TokensV2::EncodeTokenOpRet(tokenid2, { unspendableAssetsPubkey },   
                 { AssetsV2::EncodeAssetOpRet('s', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) })));
-        std::cerr << __func__ << " tokenv2ask_basic different tokenid in opdrop, adding.." << std::endl;
+        std::cerr << __func__ << " tokenv2ask_basic different tokenid in opdrop - should work before HF fix:" << std::endl;
         EXPECT_TRUE(TestRunCCEval(mtx));  // work for tokel before CCASSETS_OPDROP_FIX_TOKEL_HEIGHT
         eval.AddTx(mtx);
         uint256 askid = mtx.GetHash();
@@ -1429,8 +1471,18 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
             TokensV2::EncodeTokenOpRet(tokenid2, { pk2 },     
                 { AssetsV2::EncodeAssetOpRet('S', unit_price, vuint8_t(mypk.begin(), mypk.end()), expiryHeight) })));  
 
-        std::cerr << __func__ << " test: tokenfillask with different tokenid in opdrop, fillUnuts=" << fillUnits << std::endl;
+        std::cerr << __func__ << " test: tokenfillask with different tokenid in opdrop, fillUnuts=" << fillUnits << " should fail with 'invalid tokenid' error:" << std::endl;
         EXPECT_TRUE(!TestRunCCEval(mtx2) && eval.state.GetRejectReason().find("invalid tokenid") != std::string::npos);  // must work before TOKEL activation height
+    }
+    {
+        // test: try to send remainder to 2of3 token/asset eval/secp threshold (must be 3of3) 
+        CMutableTransaction mtx1(mtx);
+        CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey }, {}); 
+        vscript_t vopret;
+        GetOpReturnData(opret, vopret);
+        mtx1.vout[0] = TestMakeTokensCCMofNvoutMixed(AssetsV2::EvalCode(), TokensV2::EvalCode(), mtx1.vout[0].nValue, 1, { unspendableAssetsPubkey }, &vopret);  // replace with 1of2 eval threshold
+        std::cerr << __func__ << " test: tokenfillask with incorrect eval threshold:" << std::endl;
+        EXPECT_FALSE(TestRunCCEval(mtx1));  // must fail: incorrect funcid
     }
 }
 

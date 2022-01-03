@@ -33,7 +33,7 @@ namespace CCUpgrades {
             // TKLTEST
             ChainUpgrades tkltest;
             tkltest.setActivationHeight(CCASSETS_OPDROP_VALIDATE_FIX, CCASSETS_OPDROP_FIX_TKLTEST_HEIGHT, UPGRADE_ACTIVE);
-            mChainUpgrades["TKLTEST"] = tokel;
+            mChainUpgrades["TKLTEST"] = tkltest;
 
             // add more chains here...
             // ...
