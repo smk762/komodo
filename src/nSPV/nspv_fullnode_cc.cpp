@@ -556,7 +556,7 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
 
         case NSPV_CCMODULEUTXOS: // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
         {
-            struct NSPV_utxosresp U;
+            struct NSPV_utxosresp U(pfrom->nspvVersion);
             std::string coinaddr;
             CAmount amount;
             uint8_t evalcode;

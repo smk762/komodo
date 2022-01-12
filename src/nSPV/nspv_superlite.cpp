@@ -37,7 +37,7 @@ CKey NSPV_key;
 char NSPV_wifstr[64], NSPV_pubkeystr[67], NSPV_lastpeer[128];
 std::string NSPV_address;
 struct NSPV_inforesp NSPV_inforesult(NSPV_PROTOCOL_VERSION);
-struct NSPV_utxosresp NSPV_utxosresult;
+struct NSPV_utxosresp NSPV_utxosresult(NSPV_PROTOCOL_VERSION);
 struct NSPV_txidsresp NSPV_txidsresult;
 struct NSPV_mempoolresp NSPV_mempoolresult;
 struct NSPV_spentinfo NSPV_spentresult;

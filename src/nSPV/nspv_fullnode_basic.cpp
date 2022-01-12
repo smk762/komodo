@@ -477,7 +477,7 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
         } break;
 
         case NSPV_UTXOS: {
-            struct NSPV_utxosresp U;
+            struct NSPV_utxosresp U(pfrom->nspvVersion);
             std::string coinaddr;
             int32_t skipcount = 0;
             int32_t maxrecords = 0;

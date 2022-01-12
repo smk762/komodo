@@ -157,9 +157,10 @@ struct NSPV_equihdr
 
 struct NSPV_utxoresp
 {
-    NSPV_utxoresp() {}
+    NSPV_utxoresp() { nspv_version = NSPV_PROTOCOL_VERSION; }
     ~NSPV_utxoresp() {}
 
+    uint32_t nspv_version;
     uint256 txid;
     int64_t satoshis,extradata;
     int32_t vout,height;
@@ -175,19 +176,23 @@ struct NSPV_utxoresp
         READWRITE(vout);
         READWRITE(height);
 
-        std::vector<uint8_t> vscript;
-        if (!ser_action.ForRead())
-            vscript = std::vector<uint8_t>(script.begin(), script.end());
-        READWRITE(vscript);
-        if (ser_action.ForRead())
-            script = CScript(vscript.begin(), vscript.end());
+        if (nspv_version >= 5)  {
+            std::vector<uint8_t> vscript;
+            if (!ser_action.ForRead())
+                vscript = std::vector<uint8_t>(script.begin(), script.end());
+            READWRITE(vscript);
+            if (ser_action.ForRead())
+                script = CScript(vscript.begin(), vscript.end());
+        }
     }
 };
 
 struct NSPV_utxosresp
 {
-    NSPV_utxosresp() {}
+    NSPV_utxosresp(uint32_t ver) : nspv_version(ver) {}
     ~NSPV_utxosresp() {}
+
+    uint32_t nspv_version;
 
     std::vector<NSPV_utxoresp> utxos;
     char coinaddr[64];
@@ -205,8 +210,10 @@ struct NSPV_utxosresp
         READWRITE(numutxos);
         if (ser_action.ForRead())
             utxos.resize(numutxos);
-        for(uint16_t i = 0; i < numutxos; i ++)   
+        for(uint16_t i = 0; i < numutxos; i ++)   {
+            utxos[i].nspv_version = nspv_version;
             READWRITE(utxos[i]);
+        }
         READWRITE(total);
         READWRITE(interest);
         READWRITE(nodeheight);
@@ -569,6 +576,7 @@ struct NSPV_broadcastresp
 
 struct NSPV_CCmtxinfo
 {
+    NSPV_CCmtxinfo() : U(NSPV_PROTOCOL_VERSION) {}
     struct NSPV_utxosresp U;
     std::vector<NSPV_utxoresp> used;
 };
