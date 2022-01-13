@@ -535,11 +535,15 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             int8_t addrlen;
             int32_t ret;
 
-            request >> coinaddr >> isCC >> funcid >> vout >> txid;
+            if (pfrom->nspvVersion == 4)
+                request >> isCC >> funcid >> vout >> txid >> coinaddr;
+            else
+                request >> coinaddr >> isCC >> funcid >> vout >> txid;
+
             if (coinaddr.size() >= KOMODO_ADDRESS_BUFSIZE) {
                 return NSPV_ERROR_ADDRESS_LENGTH;
             }
-            LogPrint("nspv-details", "address (%s) isCC.%d funcid.%d %s/v%d\n", coinaddr, isCC, funcid, txid.GetHex().c_str(), vout);
+            LogPrint("nspv-details", "NSPV_CCMEMPOOL address (%s) isCC.%d funcid.%d %s/v%d\n", coinaddr, isCC, funcid, txid.GetHex().c_str(), vout);
 
             if ((ret = NSPV_mempool_cctxids(M, coinaddr.c_str(), isCC, funcid, txid, vout)) > 0) {
                 if (pfrom->nspvVersion >= 5)
@@ -565,6 +569,8 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             int32_t ret;
 
             request >> coinaddr >> amount >> evalcode >> funcids >> filtertxid;
+            LogPrint("nspv-details", "NSPV_CCMEMPOOL address (%s) amount.%lld evalcode.%d filtertxid=%s\n", coinaddr, amount, (int)evalcode, filtertxid.GetHex());
+
             if (coinaddr.size() >= KOMODO_ADDRESS_BUFSIZE) {
                 LogPrint("nspv", "NSPV_CCMODULEUTXOS bad request coinaddr.size() too big.%d, node=%d\n", coinaddr.size(), pfrom->id);
                 return NSPV_ERROR_ADDRESS_LENGTH;
