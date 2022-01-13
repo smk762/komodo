@@ -428,6 +428,7 @@ struct NSPV_txproof
         if (ser_action.ForRead())
             txproof.resize(txprooflen);
         READWRITE(REF(CFlatData(txproof)));
+        READWRITE(hashblock);
     }
 };
 
