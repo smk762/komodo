@@ -429,11 +429,10 @@ int32_t NSPV_mempool_cctxids(struct NSPV_mempoolresp& memresp, const char* coina
                 memcpy(&tmp, &satoshis, sizeof(tmp));
                 memresp.txid = tmp;
             }
-            len = (int32_t)(sizeof(memresp) + sizeof(memresp.txids[0]) * memresp.txids.size() - sizeof(memresp.txids));
-            return (len);
+            return 1;
         }
     }
-    return (0);
+    return 0;
 }
 
 int32_t NSPV_remoterpc(struct NSPV_remoterpcresp& rpcresp, const char *json, int n)
@@ -545,7 +544,7 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             }
             LogPrint("nspv-details", "NSPV_CCMEMPOOL address (%s) isCC.%d funcid.%d %s/v%d\n", coinaddr, isCC, funcid, txid.GetHex().c_str(), vout);
 
-            if ((ret = NSPV_mempool_cctxids(M, coinaddr.c_str(), isCC, funcid, txid, vout)) > 0) {
+            if ((ret = NSPV_mempool_cctxids(M, coinaddr.c_str(), isCC, funcid, txid, vout)) >= 0) {
                 if (pfrom->nspvVersion >= 5)
                     response << NSPV_CCMEMPOOLRESP << requestId << M;
                 else
