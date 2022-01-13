@@ -147,16 +147,14 @@ void komodo_nSPVreq(CNode* pfrom, const vuint8_t &vrequest)  //THROWS EXCEPTION
     }
 
     // check if nspv connected:
-    if (pfrom->nspvVersion >= 5)  {
-        if (!pfrom->fNspvConnected)  {
-            if (requestType != NSPV_INFO) {
-                LogPrint("nspv", "nspv node should call NSPV_INFO first from node=%d\n", pfrom->id);
-                NSPV_senderror(pfrom, requestId, NSPV_ERROR_GETINFO_FIRST);
-                return;
-            }
+    if (!pfrom->fNspvConnected)  {
+        if (requestType != NSPV_INFO) {
+            LogPrint("nspv", "nspv node should call NSPV_INFO first from node=%d\n", pfrom->id);
+            NSPV_senderror(pfrom, requestId, NSPV_ERROR_GETINFO_FIRST);
+            return;
         }
     }
-
+    
     try 
     {  
         for (auto const nspvProc : nspvProcs)  {
@@ -165,7 +163,6 @@ void komodo_nSPVreq(CNode* pfrom, const vuint8_t &vrequest)  //THROWS EXCEPTION
                 if (pfrom->nspvVersion >= 5)
                     pfrom->PushMessage("nSPV", vuint8_t(response.begin(), response.end()));
                 else
-                    //pfrom->PushMessage("nSPV", response);  // old style response data
                     pfrom->PushMessage("nSPV", vuint8_t(response.begin(), response.end()));
                 pfrom->nspvdata[idata].prevtime = timestamp;
                 pfrom->nspvdata[idata].nreqs++;
