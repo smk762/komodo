@@ -296,6 +296,7 @@ struct NSPV_mempoolresp
             txids.resize(numtxids);
         for(uint16_t i = 0; i < numtxids; i ++)   
             READWRITE(txids[i]);
+        READWRITE(txid);
         READWRITE(nodeheight);
         READWRITE(vout);
         READWRITE(vindex);
