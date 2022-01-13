@@ -29,6 +29,7 @@
 #include "komodo_utils.h"
 #include "httpserver.h"
 #include "httprpc.h"
+#include "komodo_hardfork.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
