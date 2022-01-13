@@ -621,21 +621,27 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
         case NSPV_BROADCAST: {
             struct NSPV_broadcastresp B;
             uint256 txid;
+            int32_t txlen;
             vuint8_t txbin;
             int32_t ret;
 
-            requestData >> txid >> txbin;
-            if (txbin.size() > MAX_TX_SIZE_AFTER_SAPLING) {
-                LogPrint("nspv", "NSPV_BROADCAST tx too big.%d node=%d\n", txbin.size(), pfrom->id);
+            requestData >> txid >> txlen;  //not a btc like vararray tx serialisation
+            if (txlen > MAX_TX_SIZE_AFTER_SAPLING) {
+                LogPrint("nspv", "NSPV_BROADCAST tx too big.%d node=%d\n", txlen, pfrom->id);
                 return NSPV_ERROR_TX_TOO_BIG;
             }
+            if (requestData.begin()+txlen > requestData.end()) {
+                LogPrint("nspv", "NSPV_BROADCAST incorrect tx size.%d out of request bounds, node=%d\n", txlen, pfrom->id);
+                return NSPV_ERROR_INVALID_REQUEST_DATA;
+            }
+            txbin = vuint8_t(requestData.begin(), requestData.begin()+txlen);
 
             if ((ret = NSPV_sendrawtransaction(B, txbin)) > 0) {
                 if (pfrom->nspvVersion >= 5)
                     response << NSPV_BROADCASTRESP << requestId << B;
                 else
                     response << NSPV_BROADCASTRESP << B;
-                LogPrint("nspv-details", "NSPV_BROADCAST response: txid=%s vout=%d to node=%d\n", B.txid.GetHex().c_str(), pfrom->id);
+                LogPrint("nspv-details", "NSPV_BROADCAST response: txid=%s to node=%d\n", B.txid.GetHex().c_str(), pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_BROADCAST NSPV_sendrawtransaction error.%d, node=%d\n", ret, pfrom->id);
                 return NSPV_ERROR_BROADCAST;
