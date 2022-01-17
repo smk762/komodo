@@ -10,6 +10,11 @@ export NM=nm
 
 set -eu -o pipefail
 
+# Allow users to set arbitrary compile flags. Most users will not need this.
+if [[ -z "${CONFIGURE_FLAGS-}" ]]; then
+    CONFIGURE_FLAGS=""
+fi
+
 if [ "x$*" = 'x--help' ]
 then
     cat <<EOF
