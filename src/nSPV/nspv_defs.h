@@ -145,7 +145,7 @@ struct NSPV_equihdr
             READWRITE(nSolution);
         else {
             // nspv v 0.0.4:
-            uint8_t aSolution[1344];
+            uint8_t aSolution[1344] = { '\0' };
             if (!ser_action.ForRead())  
                 memcpy(aSolution, nSolution.data(), std::min(sizeof(aSolution), nSolution.size())); // solution always 1344 but using min if anything wrong  
             READWRITE(FLATDATA(aSolution));
