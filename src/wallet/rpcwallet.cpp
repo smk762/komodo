@@ -78,7 +78,7 @@ using namespace libzcash;
 
 const std::string ADDR_TYPE_SPROUT = "sprout";
 const std::string ADDR_TYPE_SAPLING = "sapling";
-extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
+//extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
