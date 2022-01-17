@@ -432,20 +432,6 @@ struct NSPV_txproof
     }
 };
 
-/*template <uint32_t nspv_version>
-struct NSPV_equihdr_allocator
-{
-  typedef NSPV_equihdr value_type;
- 
-  NSPV_equihdr_allocator () = default;
-  //template <class U> constexpr Mallocator (const Mallocator <U>&) noexcept {}
- 
-  NSPV_equihdr* allocate(std::size_t n) {
-    return new NSPV_equihdr[n](nspv_version);
-  }
-
-};*/
-
 struct NSPV_ntzproofshared
 {
     NSPV_ntzproofshared(uint32_t ver) : nspv_version(ver) { pad32 = 0; pad16 = 0; }

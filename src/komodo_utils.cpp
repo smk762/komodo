@@ -1258,10 +1258,6 @@ uint64_t komodo_ac_block_subsidy(int nHeight)
     return(subsidy);
 }
 
-//extern int64_t MAX_MONEY;
-//void komodo_cbopretupdate(int32_t forceflag);
-//void SplitStr(const std::string& strVal, std::vector<std::string> &outVals);
-
 int8_t equihash_params_possible(uint64_t n, uint64_t k)
 {
     /* To add more of these you also need to edit:

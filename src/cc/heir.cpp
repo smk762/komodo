@@ -620,23 +620,6 @@ template <typename Helper> UniValue _HeirFund(int64_t txfee, int64_t amount, std
                 mtx.vout.push_back(Helper::makeUserVout(ccChange, myPubkey));
         }
 
-		// check owner pubkey in vins
-		// bool hasMypubkey = false;
-		// bool hasNotMypubkey = false;
-
-		// CheckVinPubkey(mtx.vin, myPubkey, hasMypubkey, hasNotMypubkey);
-
-        /* why not?
-		// for initial funding do not allow to sign by non-owner key:
-		// if (hasNotMypubkey) {
-        if (TotalPubkeyNormalInputs(nullptr, mtx, myPubkey) < amount && TotalPubkeyCCInputs(nullptr, mtx, myPubkey) < amount)
-        {
-			result.push_back(Pair("result", "error"));
-			result.push_back(Pair("error", "using non-owner inputs not allowed"));
-			return result;   
-		}
-        */
-
         // add 1of2 vout token validation pubkeys - used only for tokens
         std::vector<CPubKey> voutTokenPubkeys;
         voutTokenPubkeys.push_back(myPubkey);

@@ -92,14 +92,7 @@ using namespace std;
 
 #define TMPFILE_START 100000000
 CCriticalSection cs_main;
-//extern uint8_t NOTARY_PUBKEY33[33];
-//extern int32_t KOMODO_LOADINGBLOCKS,KOMODO_LONGESTCHAIN,KOMODO_INSYNC,KOMODO_CONNECTING,KOMODO_EXTRASATOSHI;
 int32_t KOMODO_NEWBLOCKS;
-//int32_t komodo_block2pubkey33(uint8_t *pubkey33,CBlock *block);
-//void komodo_broadcast(CBlock *pblock,int32_t limit);
-//bool Getscriptaddress(char *destaddr,const CScript &scriptPubKey);
-//void komodo_setactivation(int32_t height);
-//void komodo_pricesupdate(int32_t height,CBlock *pblock);
 
 BlockMap mapBlockIndex;
 CChain chainActive;

@@ -59,5 +59,7 @@ UniValue PricesList(uint32_t filter, CPubKey mypk);
 UniValue PricesGetOrderbook();
 UniValue PricesRefillFund(int64_t amount);
 
+int32_t prices_syntheticvec(std::vector<uint16_t> &vec, std::vector<std::string> synthetic);
+int64_t prices_syntheticprice(std::vector<uint16_t> vec, int32_t height, int32_t minmax, int16_t leverage);
 
 #endif

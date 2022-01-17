@@ -166,6 +166,7 @@ uint32_t GetLatestTimestamp(int32_t height);
 void komodo_setactivation(int32_t height);
 
 int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime); // from ac_private chains only
+bool komodo_dailysnapshot(int32_t height);
 
 void OS_randombytes(unsigned char *x, long xlen);  // this func impl exists for win too
 

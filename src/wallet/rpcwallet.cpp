@@ -76,16 +76,9 @@ using namespace std;
 
 using namespace libzcash;
 
-//extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
-//extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
 const std::string ADDR_TYPE_SPROUT = "sprout";
 const std::string ADDR_TYPE_SAPLING = "sapling";
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
-//extern int32_t KOMODO_INSYNC;
-//uint32_t komodo_segid32(char *coinaddr);
-//int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
-//int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime); // from ac_private chains only
-//CBlockIndex *komodo_getblockindex(uint256 hash);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
