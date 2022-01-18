@@ -51,12 +51,6 @@
 
 using namespace std;
 
-//extern int32_t KOMODO_INSYNC;
-//extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
-//void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
-//int32_t komodo_notarized_height(int32_t *prevMoMheightp, uint256 *hashp, uint256 *txidp);
-
-
 double GetDifficultyINTERNAL(const CBlockIndex* blockindex, bool networkDifficulty)
 {
     // Floating point number that is a multiple of the minimum difficulty,

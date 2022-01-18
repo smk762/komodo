@@ -72,7 +72,6 @@ int32_t NSPV_notarization_find(struct NSPV_ntz* ntz, int32_t height, int32_t dir
     symbol = (ASSETCHAINS_SYMBOL[0] == 0) ? (char*)"KMD" : ASSETCHAINS_SYMBOL;
     memset(ntz, 0, sizeof(*ntz));
 
-    // std::cerr << __func__ << " calling ScanNotarisationsDB for height=" << height << " dir=" << dir << std::endl;
     if (dir < 0) {
         if ((ntz->txidheight = ScanNotarisationsDB(height, symbol, 1440, nota)) == 0)
             return (-1);
@@ -80,7 +79,6 @@ int32_t NSPV_notarization_find(struct NSPV_ntz* ntz, int32_t height, int32_t dir
         if ((ntz->txidheight = ScanNotarisationsDB2(height, symbol, 1440, nota)) == 0)
             return (-1);
     }
-    // std::cerr << __func__ << " found nota height=" << nota.second.height << " MoMdepth=" << nota.second.MoMDepth << std::endl;
     ntz->txid = nota.first;
     ntz->ntzheight = nota.second.height;
     ntz->ntzblockhash = nota.second.blockHash;
@@ -353,7 +351,6 @@ public:
                         isEof = ss.eof(); );
 
                     opretTxid = revuint256(opretTxid);
-                    //std::cerr << __func__ << " " << "opretEvalcode=" << opretEvalcode << " opretFuncid=" << (char)opretFuncid << " isCreateTx=" << isCreateTx << " opretTxid=" << opretTxid.GetHex() << std::endl;
                     if( parseOk /*parseOk=true if eof reached*/|| !isEof /*more data means okay*/)
                     {
                         if (evalcode == opretEvalcode && std::find(funcids.begin(), funcids.end(), (char)opretFuncid) != funcids.end() && 
@@ -413,7 +410,6 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     //}
    
     // select all appropriate utxos:
-    //std::cerr << __func__ << " " << "searching addr=" << coinaddr << std::endl;
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
     {
         if (myIsutxo_spentinmempool(ignoretxid, ignorevin, it->first.txhash, (int32_t)it->first.index) == 0)
@@ -429,8 +425,6 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
                 // if a checker is set for evalcode use it otherwise use the default checker:
                 if (baseChecker && baseChecker->checkCC(it->first.txhash, tx.vout, nvout, evalcode, funcids, filtertxid) || defaultCCChecker.checkCC(it->first.txhash, tx.vout, nvout, evalcode, funcids, filtertxid))
                 {
-                    //std::cerr << __func__ << " " << "filtered utxo with amount=" << tx.vout[nvout].nValue << std::endl;
-
                     struct CC_utxo utxo;
                     utxo.txid = it->first.txhash;
                     utxo.vout = (int32_t)it->first.index;
@@ -441,7 +435,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
                 }
             }
             else
-                std::cerr << __func__ << " " << "ERROR: cant load tx for txid, please reindex" << std::endl;
+                LogPrint("nspv", "ERROR: cant load tx for txid, please reindex\n");
         }
     }
 
@@ -463,7 +457,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
 
         if (CC_vinselect(&abovei, &above, &belowi, &below, utxoSelected.data(), utxoSelected.size(), remains) < 0)
         {
-            std::cerr << "error CC_vinselect" << " remains=" << remains << " amount=" << amount << " abovei=" << abovei << " belowi=" << belowi << " ind=" << " utxoSelected.size()=" << utxoSelected.size() << ind << std::endl;
+            LOGSTREAMFN("nspv", CCLOG_INFO, stream << "error CC_vinselect" << " remains=" << remains << " amount=" << amount << " abovei=" << abovei << " belowi=" << belowi << " ind=" << " utxoSelected.size()=" << utxoSelected.size() << ind << std::endl);
             return 0;
         }
         if (abovei >= 0) // best is 'above'
@@ -472,7 +466,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
             ind = belowi;
         else
         {
-            std::cerr << "error finding unspent" << " remains=" << remains << " amount=" << amount << " abovei=" << abovei << " belowi=" << belowi << " ind=" << " utxoSelected.size()=" << utxoSelected.size() << ind << std::endl;
+            LOGSTREAMFN("nspv", CCLOG_INFO, stream << "error finding unspent" << " remains=" << remains << " amount=" << amount << " abovei=" << abovei << " belowi=" << belowi << " ind=" << " utxoSelected.size()=" << utxoSelected.size() << ind << std::endl);
             return 0;
         }
 
@@ -536,7 +530,6 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp* ptr, char* coinaddr, bool is
     ptr->skipcount = skipcount;
     ptr->txids = nullptr;
 
-    //std::cerr << __func__ << " coinaddr=" << coinaddr << std::endl;
     if (txids.size() >= 0 && skipcount < txids.size()) {
         ptr->txids = (struct NSPV_txidresp*)calloc(txids.size() - skipcount, sizeof(ptr->txids[0]));
         for (std::vector<std::pair<CAddressIndexKey, CAmount>>::const_iterator it = txids.begin() + skipcount; 
@@ -546,21 +539,6 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp* ptr, char* coinaddr, bool is
             ptr->txids[ind].satoshis = (int64_t)it->second;
             ptr->txids[ind].height = (int64_t)it->first.blockHeight;
 
-            /*
-            CTransaction tx;
-            uint256 hashBlock;
-            myGetTransaction(it->first.txhash, tx, hashBlock);
-            char a[64];
-            Getscriptaddress(a, tx.vout[it->first.index].scriptPubKey);
-
-            int32_t type = 0;
-            uint160 hashBytes;
-            CBitcoinAddress address(a);
-            if (address.GetIndexKey(hashBytes, type, isCC) == 0)
-                std::cerr << __func__ << " txhash=" << it->first.txhash.ToString() << " index=" << " cant find indexkey" << std::endl;
-            else
-                std::cerr << __func__ << " txhash=" << it->first.txhash.ToString() << " index=" << it->first.index << " address=" << a << " hashBytes=" << HexStr(hashBytes) << " amount=" << it->second << std::endl;
-            */
             ind++;
         }
     }
@@ -568,10 +546,6 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp* ptr, char* coinaddr, bool is
     ptr->numtxids = ind;
     len = (int32_t)(sizeof(*ptr) + sizeof(ptr->txids[0]) * ptr->numtxids - sizeof(ptr->txids));
     return (len);
-    /*if (ptr->txids != nullptr)
-        free(ptr->txids);
-    memset(ptr, 0, sizeof(*ptr));
-    return (0);*/
 }
 
 // get txids from addressindex or mempool by different criteria
@@ -757,7 +731,8 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
     {
         request.read(json,n);
         jreq.parse(request);
-        strcpy(ptr->method,jreq.strMethod.c_str());
+        strncpy(ptr->method, jreq.strMethod.c_str(), sizeof(ptr->method)-1);
+        ptr->method[sizeof(ptr->method)-1] = '\0';
         len+=sizeof(ptr->method);
         std::map<std::string, bool>::iterator it = nspv_remote_commands.find(jreq.strMethod);
         if (it==nspv_remote_commands.end())

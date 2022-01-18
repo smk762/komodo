@@ -5513,10 +5513,6 @@ UniValue z_listoperationids(const UniValue& params, bool fHelp, const CPubKey& m
 }
 
 
-//#include "script/sign.h"
-//int32_t decode_hex(uint8_t *bytes,int32_t n,char *hex);
-//extern std::string NOTARY_PUBKEY;
-
 int32_t komodo_notaryvin(CMutableTransaction &txNew,uint8_t *notarypub33, void *pTr)
 {
     set<CBitcoinAddress> setAddress; uint8_t *script,utxosig[128]; uint256 utxotxid; uint64_t utxovalue; int32_t i,siglen=0,nMinDepth = 0,nMaxDepth = 9999999; vector<COutput> vecOutputs; uint32_t utxovout,eligible,earliest = 0; CScript best_scriptPubKey; bool fNegative,fOverflow;
