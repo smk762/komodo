@@ -5513,10 +5513,6 @@ UniValue z_listoperationids(const UniValue& params, bool fHelp, const CPubKey& m
 }
 
 
-//#include "script/sign.h"
-//int32_t decode_hex(uint8_t *bytes,int32_t n,char *hex);
-//extern std::string NOTARY_PUBKEY;
-
 int32_t komodo_notaryvin(CMutableTransaction &txNew,uint8_t *notarypub33, void *pTr)
 {
     set<CBitcoinAddress> setAddress; uint8_t *script,utxosig[128]; uint256 utxotxid; uint64_t utxovalue; int32_t i,siglen=0,nMinDepth = 0,nMaxDepth = 9999999; vector<COutput> vecOutputs; uint32_t utxovout,eligible,earliest = 0; CScript best_scriptPubKey; bool fNegative,fOverflow;
@@ -5609,7 +5605,7 @@ int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits
 }
 
 
-int32_t ensure_CCrequirements(uint8_t evalcode)
+int32_t ensure_CCrequirements(uint8_t evalcode, bool isRemote)
 {
     CCerror.clear();
     if (ASSETCHAINS_CCDISABLES[evalcode] != 0) {
@@ -5620,7 +5616,7 @@ int32_t ensure_CCrequirements(uint8_t evalcode)
             return (-1);
         }
     }
-    if (NOTARY_PUBKEY33[0] == 0) {
+    if (!isRemote && NOTARY_PUBKEY33[0] == 0) { // do not check local pubkey set for nspv calls
         fprintf(stderr, "no -pubkey set\n");
         return (-1);
     } else if (GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX) == 0) {

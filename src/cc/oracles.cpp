@@ -93,7 +93,6 @@
  vout.n-1: opreturn with oracletxid, prevbatontxid and data in proper format
 
 */
-//extern int32_t komodo_get_current_height();
 #define PUBKEY_SPOOFING_FIX_ACTIVATION 1563148800
 #define CC_MARKER_VALUE 10000
 #define CC_TXFEE 10000

@@ -45,7 +45,8 @@ bool ValidateSwapRemainder(CAmount remaining_units, CAmount remaining_nValue, CA
 bool SetBidFillamounts(CAmount unit_price, CAmount &received_nValue, CAmount orig_nValue, CAmount &paid_units, CAmount orig_units, CAmount paid_unit_price);
 bool SetAskFillamounts(CAmount unit_price, CAmount fill_assetoshis, CAmount orig_assetoshis, CAmount paid_nValue);
 bool SetSwapFillamounts(CAmount unit_price, CAmount &paid, CAmount orig_nValue, CAmount &received, CAmount totalprice); // not implemented
-CAmount AssetsGetCCInputs(Eval *eval, struct CCcontract_info *cp, const char *addr, const CTransaction &tx);
+CAmount AssetsGetTxCCInputs(Eval *eval, struct CCcontract_info *cp, const char *addr, const CTransaction &tx);
+CAmount AssetsGetTxTokenInputs(Eval *eval, struct CCcontract_info *cpTokens, const CTransaction &tx);
 
 const char ccassets_log[] = "ccassets";
 

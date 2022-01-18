@@ -18,6 +18,8 @@
 #include "komodo_defs.h"
 #include "cc/CCinclude.h"
 #include "importcoin.h"
+#include "cc/CCupgrades.h"
+
 #include <string.h>
 
 #ifdef _WIN32
@@ -818,7 +820,7 @@ int32_t komodo_is_issuer()
 
 int32_t bitweight(uint64_t x)
 {
-    int i,wt = 0;
+    int i, wt = 0;
     for (i=0; i<64; i++)
         if ( (1LL << i) & x )
             wt++;
@@ -2436,6 +2438,10 @@ fprintf(stderr,"extralen.%d before disable bits\n",extralen);
     KOMODO_DPOWCONFS = GetArg("-dpowconfs",dpowconfs);
     if ( ASSETCHAINS_SYMBOL[0] == 0 || strcmp(ASSETCHAINS_SYMBOL,"SUPERNET") == 0 || strcmp(ASSETCHAINS_SYMBOL,"DEX") == 0 || strcmp(ASSETCHAINS_SYMBOL,"COQUI") == 0 || strcmp(ASSETCHAINS_SYMBOL,"PIRATE") == 0 || strcmp(ASSETCHAINS_SYMBOL,"KMDICE") == 0 )
         KOMODO_EXTRASATOSHI = 1;
+
+    if (ASSETCHAINS_CC != 0)
+        CCUpgrades::SelectUpgrades(ASSETCHAINS_SYMBOL);
+
 }
 
 void komodo_nameset(char *symbol,char *dest,char *source)
