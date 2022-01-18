@@ -1032,9 +1032,6 @@ bool CClib_Dispatch(const CC* cond, Eval* eval, std::vector<uint8_t> paramsNull,
     return eval->Invalid("cclib CC must have evalcode between 16 and 127");
 }
 
-//void OS_randombytes(unsigned char *x,long xlen);
-//extern bits256 curve25519_basepoint9();
-
 int32_t _SuperNET_cipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 destpub,bits256 srcpriv,uint8_t *buf)
 {
     memset(cipher,0,len+crypto_box_ZEROBYTES);
