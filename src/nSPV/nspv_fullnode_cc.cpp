@@ -506,6 +506,9 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             vuint8_t vjsonreq;
             int32_t ret;
 
+            if (pfrom->nspvVersion >= 7) 
+                return NSPV_ERROR_MESSAGE_NOT_SUPPORTED;
+
             request >> reqJsonLen; // not compact size
             if (reqJsonLen > NSPV_MAXJSONREQUESTSIZE) {
                 LogPrint("nspv", "NSPV_REMOTERPC too big json request len.%d\n", reqJsonLen);
@@ -515,9 +518,7 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             request >> REF(CFlatData(vjsonreq));
 
             if ((ret = NSPV_remoterpc(R, std::string(vjsonreq.begin(), vjsonreq.end()).c_str(), reqJsonLen)) > 0) {
-                if (pfrom->nspvVersion == 7) 
-                    return NSPV_ERROR_MESSAGE_NOT_SUPPORTED;
-                else if (pfrom->nspvVersion >= 5)
+                if (pfrom->nspvVersion >= 5)
                     response << NSPV_REMOTERPCRESP << requestId << R;
                 else
                     response << NSPV_REMOTERPCRESP << R;
