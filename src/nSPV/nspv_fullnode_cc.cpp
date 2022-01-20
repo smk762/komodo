@@ -447,7 +447,8 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp& rpcresp, const char *json, int
     {
         request.read(json,n);
         jreq.parse(request);
-        strcpy(rpcresp.method,jreq.strMethod.c_str());
+        strncpy(rpcresp.method,jreq.strMethod.c_str(),sizeof(rpcresp.method)-1);
+        rpcresp.method[sizeof(rpcresp.method)-1] = '\0';
         len+=sizeof(rpcresp.method);
         std::map<std::string, bool>::iterator it = nspv_remote_commands.find(jreq.strMethod);
         if (it==nspv_remote_commands.end())
@@ -514,7 +515,9 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             request >> REF(CFlatData(vjsonreq));
 
             if ((ret = NSPV_remoterpc(R, std::string(vjsonreq.begin(), vjsonreq.end()).c_str(), reqJsonLen)) > 0) {
-                if (pfrom->nspvVersion >= 5)
+                if (pfrom->nspvVersion == 7) 
+                    return NSPV_ERROR_MESSAGE_NOT_SUPPORTED;
+                else if (pfrom->nspvVersion >= 5)
                     response << NSPV_REMOTERPCRESP << requestId << R;
                 else
                     response << NSPV_REMOTERPCRESP << R;

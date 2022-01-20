@@ -34,6 +34,7 @@ std::map<NSPV_ERROR_CODE, std::string> nspvErrors = {
     { NSPV_ERROR_INVALID_RESPONSE, "could not create response message" },
     { NSPV_ERROR_BROADCAST, "could not broadcast transaction" },
     { NSPV_ERROR_REMOTE_RPC, "could not execute rpc" },
+    { NSPV_ERROR_REMOTE_RPC, "could not execute rpc" },
 };
 
 

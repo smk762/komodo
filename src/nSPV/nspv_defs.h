@@ -96,7 +96,8 @@ enum NSPV_ERROR_CODE : int32_t {
     NSPV_ERROR_ADDRESS_LENGTH         =  (-18),
     NSPV_ERROR_TX_TOO_BIG             =  (-19),
     NSPV_ERROR_REQUEST_TOO_SHORT      =  (-20),
-    NSPV_ERROR_RESPONSE_TOO_LONG      =  (-21)
+    NSPV_ERROR_RESPONSE_TOO_LONG      =  (-21),
+    NSPV_ERROR_MESSAGE_NOT_SUPPORTED  =  (-22)
 };
 
 
