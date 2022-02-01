@@ -16,6 +16,7 @@
 
 ## Komodo
 
+This is a temporary branch used to trigger CI build. 
 This is the official Komodo sourcecode repository based on https://github.com/jl777/komodo. 
 
 ## Development Resources
