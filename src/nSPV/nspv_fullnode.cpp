@@ -34,7 +34,11 @@ std::map<NSPV_ERROR_CODE, std::string> nspvErrors = {
     { NSPV_ERROR_INVALID_RESPONSE, "could not create response message" },
     { NSPV_ERROR_BROADCAST, "could not broadcast transaction" },
     { NSPV_ERROR_REMOTE_RPC, "could not execute rpc" },
-    { NSPV_ERROR_REMOTE_RPC, "could not execute rpc" },
+    { NSPV_ERROR_ADDRESS_LENGTH, "address length error" },
+    { NSPV_ERROR_TX_TOO_BIG, "tx size too big" },
+    { NSPV_ERROR_REQUEST_TOO_SHORT, "request too short" },
+    { NSPV_ERROR_RESPONSE_TOO_LONG, "response too long" },
+    { NSPV_ERROR_MESSAGE_NOT_SUPPORTED, "message not supported" },
 };
 
 
