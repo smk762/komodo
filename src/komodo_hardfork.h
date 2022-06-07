@@ -352,7 +352,7 @@ static const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
         { "decker_DEV", "028eea44a09674dda00d88ffd199a09c9b75ba9782382cc8f1e97c0fd565fe5707" }
    },
    {    
-        // Season 6
+        // Season 5
         {"alrighttt_DEV", "03483166d8663beeb48a493eec161bf506df1906153b6259f7ca617e4cb8110260"}, // 0
         {"alien_AR", "03911a60395801082194b6834244fa78a3c30ff3e888667498e157b4aa80b0a65f"},
         {"artempikulin_AR", "026a8ed1e4eeeb023cfb8e003e1c1de6a2b771f37e112745ffb8b6e375a9cbfdec"},
@@ -418,7 +418,8 @@ static const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
         {"strobnidan_SH", "02b967fde3686d45056343e488997d4c53f25cd7ad38548cd12b136010a09295ae"},
         {"dragonhound_DEV", "038e010c33c56b61389409eea5597fe17967398731e23185c84c472a16fc5d34ab"}
    },
-    {
+   {
+        // Season 6
         {"blackice_DEV": "02ca882f153e715091a2dbc5409096f8c109d9fe6506ca7a918056dd37162b6f6e"}, // 0
         {"blackice_AR": "02909c79a198179c193fb85bbd4ba09b875a5a9bd481fec284658188b96ed43519"},
         {"alien_EU": "03bb749e337b9074465fa28e757b5aa92cb1f0fea1a39589bca91a602834d443cd"},
