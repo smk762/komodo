@@ -18,6 +18,8 @@
 #include "CCtokens_impl.h"
 
 #include "CCPegs.h"
+#include "CCPrices.h"
+#include "CCGateways.h"
 #include "../importcoin.h"
 #include "key_io.h"
 #include <gmp.h>
@@ -100,12 +102,6 @@ pegs CC is able to create a coin backed (by any supported coin with gateways CC 
 #define PEGS_ACCOUNT_RED_ZONE 90
 #endif // PEGS_THRESHOLDS
 #define CC_MARKER_VALUE 10000
-
-extern uint8_t DecodeGatewaysBindOpRet(char *depositaddr,const CScript &scriptPubKey,uint256 &tokenid,std::string &coin,int64_t &totalsupply,uint256 &oracletxid,uint8_t &M,uint8_t &N,std::vector<CPubKey> &gatewaypubkeys,uint8_t &taddr,uint8_t &prefix,uint8_t &prefix2,uint8_t &wiftype);
-//extern int64_t GetTokenBalance(CPubKey pk, uint256 tokenid);
-extern int32_t komodo_currentheight();
-extern int32_t prices_syntheticvec(std::vector<uint16_t> &vec, std::vector<std::string> synthetic);
-extern int64_t prices_syntheticprice(std::vector<uint16_t> vec, int32_t height, int32_t minmax, int16_t leverage);
 
 CScript EncodePegsCreateOpRet(std::vector<uint256> bindtxids)
 {

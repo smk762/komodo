@@ -59,14 +59,6 @@
  */
 
 static bool fDaemon;
-//extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
-//extern int32_t ASSETCHAINS_BLOCKTIME;
-//extern uint64_t ASSETCHAINS_CBOPRET;
-//void komodo_passport_iteration();
-//uint64_t komodo_interestsum();
-//int32_t komodo_longestchain();
-//void komodo_cbopretupdate(int32_t forceflag);
-//CBlockIndex *komodo_chainactive(int32_t height);
 
 void WaitForShutdown(boost::thread_group* threadGroup)
 {
@@ -109,12 +101,6 @@ void WaitForShutdown(boost::thread_group* threadGroup)
 //
 // Start
 //
-//extern bool IS_KOMODO_NOTARY;
-//extern int32_t USE_EXTERNAL_PUBKEY;
-//extern uint32_t ASSETCHAIN_INIT;
-//extern std::string NOTARY_PUBKEY;
-//int32_t komodo_is_issuer();
-//void komodo_passport_iteration();
 
 bool AppInit(int argc, char* argv[])
 {

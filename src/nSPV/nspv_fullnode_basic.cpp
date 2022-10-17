@@ -23,6 +23,10 @@
 #include "cc/CCinclude.h"
 #include "nspv_defs.h"
 
+const int NTZ_BACKWARD = -1;
+const int NTZ_FORWARD = 1;
+
+
 int32_t NSPV_setequihdr(struct NSPV_equihdr &hdr, int32_t height)
 {
     CBlockIndex *pindex;
@@ -101,57 +105,62 @@ int32_t NSPV_gettxproof(struct NSPV_txproof& nspvproof, int32_t vout, uint256 tx
 }
 
 // get notarization tx and headers for the notarized depth
-int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp& ntzproof, uint256 nextntztxid)
+int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp& ntzproof, uint256 prevntztxid, uint256 nextntztxid)
 {
-    //uint256 prevHashBlock, bhash0, desttxid0;
     uint256 nextHashBlock, bhash1, desttxid1;
-
     CTransaction tx;
     int16_t dummy, momdepth;
     const int32_t DONTVALIDATESIG = 0;
 
     LOCK(cs_main);
 
-    /*
-    ptr->prevtxid = prevntztxid;
-    ptr->prevntz = NSPV_getrawtx(tx, prevHashBlock, &ptr->prevtxlen, ptr->prevtxid);
-    ptr->prevtxidht = komodo_blockheight(prevHashBlock);
-    if (NSPV_notarizationextract(DONTVALIDATESIG, &ptr->common.prevht, &bhash0, &desttxid0, &dummy, tx) < 0) {
-        LogPrintf("%s nspv error: cant decode notarization opreturn ptr->common.prevht.%d bhash0 %s\n", __func__, ptr->common.prevht, bhash0.ToString());
-        return (-2);
-    } else if (komodo_blockheight(bhash0) != ptr->common.prevht) {
-        LogPrintf("%s nspv error: bhash0 ht.%d not equal to prevht.%d\n", __func__, komodo_blockheight(bhash0), ptr->common.prevht);
-        return (-3);
+    if (ntzproof.nspv_version <= 5)  {
+        // for older versions return also prev ntz tx
+        uint256 prevHashBlock, bhash0, desttxid0;
+
+        ntzproof.prevtxid = prevntztxid;
+        ntzproof.prevntztx = NSPV_getrawtx(tx, prevHashBlock, ntzproof.prevtxid);
+        ntzproof.prevtxidht = komodo_blockheight(prevHashBlock);
+        if (NSPV_notarizationextract(DONTVALIDATESIG, &ntzproof.common.prevht, &bhash0, &desttxid0, &dummy, tx) < 0) {
+            LogPrint("%s nspv error: cant decode notarization opreturn ntzproof.common.prevht.%d bhash0 %s\n", __func__, ntzproof.common.prevht, bhash0.ToString());
+            return (-2);
+        } else if (komodo_blockheight(bhash0) != ntzproof.common.prevht) {
+            LogPrintf("%s nspv error: bhash0 ht.%d not equal to prevht.%d\n", __func__, komodo_blockheight(bhash0), ntzproof.common.prevht);
+            return (-3);
+        }
     }
-    */
 
     ntzproof.nexttxid = nextntztxid;
-    ntzproof.nextntz = NSPV_getrawtx(tx, nextHashBlock, ntzproof.nexttxid);
+    ntzproof.nextntztx = NSPV_getrawtx(tx, nextHashBlock, ntzproof.nexttxid);
     ntzproof.nexttxidht = komodo_blockheight(nextHashBlock);
     if (NSPV_notarizationextract(DONTVALIDATESIG, &ntzproof.common.nextht, &bhash1, &desttxid1, &momdepth, tx) < 0) {
-        LogPrintf("%s nspv error: cant decode notarization opreturn ptr->common.nextht.%d bhash1 %s\n", __func__, ntzproof.common.nextht, bhash1.ToString());
+        LogPrintf("%s nspv error: cant decode notarization opreturn ntzproof.common.nextht.%d bhash1 %s\n", __func__, ntzproof.common.nextht, bhash1.ToString());
         return (-5);
     } else if (komodo_blockheight(bhash1) != ntzproof.common.nextht) {
         LogPrintf("%s nspv error: bhash1 ht.%d not equal to nextht.%d\n", __func__, komodo_blockheight(bhash1), ntzproof.common.nextht);
         return (-6);
     }
-    /*else if (ptr->common.prevht > ptr->common.nextht || (ptr->common.nextht - ptr->common.prevht) > 1440) {
-        LogPrintf("%s nspv error illegal prevht.%d nextht.%d\n", __func__, ptr->common.prevht, ptr->common.nextht);
+    else if (ntzproof.nspv_version <= 5 && (ntzproof.common.prevht > ntzproof.common.nextht || (ntzproof.common.nextht - ntzproof.common.prevht) > 1440)) {
+        LogPrintf("%s nspv error illegal prevht.%d nextht.%d\n", __func__, ntzproof.common.prevht, ntzproof.common.nextht);
         return (-7);
-    }*/
-    //fprintf(stderr, "%s -> prevht.%d, %s -> nexht.%d\n", ptr->prevtxid.GetHex().c_str(), ptr->common.prevht, ptr->nexttxid.GetHex().c_str(), ptr->common.nextht);
-    ntzproof.common.hdrs.resize(momdepth);
-    //fprintf(stderr, "prev.%d next.%d allocate numhdrs.%d\n", ptr->common.prevht, ptr->common.nextht, ptr->common.numhdrs);
+    }
+    //fprintf(stderr, "%s -> prevht.%d, %s -> nexht.%d\n", ntzproof.prevtxid.GetHex().c_str(), ntzproof.common.prevht, ntzproof.nexttxid.GetHex().c_str(), ntzproof.common.nextht);
+
+    // since nspv v0.0.6 no bracket is returned 
+    // but only the next ntz and its notarised headers (momdepth):
+    int32_t hdrdepth = ntzproof.nspv_version >= 6 ? momdepth : ntzproof.common.nextht - ntzproof.common.prevht;
+    ntzproof.common.hdrs.resize(hdrdepth);
+
+    //fprintf(stderr, "prev.%d next.%d allocate numhdrs.%d\n", ntzproof.common.prevht, ntzproof.common.nextht, ntzproof.common.numhdrs);
     for (int32_t i = 0; i < ntzproof.common.hdrs.size(); i++) {
-        //hashBlock = NSPV_hdrhash(&ptr->common.hdrs[i]);
+        //hashBlock = NSPV_hdrhash(&ntzproof.common.hdrs[i]);
         //fprintf(stderr,"hdr[%d] %s\n",prevht+i,hashBlock.GetHex().c_str());
-        int32_t ht = ntzproof.common.nextht - momdepth + 1 + i;
+        int32_t ht = ntzproof.common.nextht - hdrdepth + 1 + i;
         if (NSPV_setequihdr(ntzproof.common.hdrs[i], ht) < 0) {
             LogPrintf("%s nspv error setting hdr for ht.%d\n", __func__, ht);
             return -1;
         }
     }
-    //fprintf(stderr, "sizeof ptr %ld, common.%ld lens.%d %d\n", sizeof(*ptr), sizeof(ptr->common), ptr->prevtxlen, ptr->nexttxlen);
     return 1;
 }
 
@@ -182,13 +191,24 @@ int32_t NSPV_notarization_find(struct NSPV_ntz& ntz, int32_t height, int32_t dir
 
     symbol = (ASSETCHAINS_SYMBOL[0] == 0) ? (char*)"KMD" : ASSETCHAINS_SYMBOL;
 
-    // std::cerr << __func__ << " calling ScanNotarisationsDB for height=" << height << " dir=" << dir << std::endl;
-    if (dir < 0) {
-        if ((ntz.txidheight = ScanNotarisationsDB(height, symbol, 1440, nota)) == 0)
-            return -1;
-    } else {
-        if ((ntz.txidheight = ScanNotarisationsDB2(height, symbol, 1440, nota)) == 0)
-            return -1;
+    if (dir == NTZ_BACKWARD) { // search backward
+        // first try to search forward to find the closest ntz tx that notarises heights before the requested 'height'
+        ntz.txidheight = ScanNotarisationsDB2(height, symbol, 1440, nota);
+        if (ntz.txidheight == 0 || nota.second.height >= height)  {
+            // if forward search was unlucky the needed is the first backward 
+            if ((ntz.txidheight = ScanNotarisationsDB(height, symbol, 1440, nota)) == 0)
+                return -1;
+        }
+    } else {  // search forward to find the closest ntx tz that notarised this height
+        int32_t forwardht = height;
+        while(true)  {  // search until notarized height >= height  
+            //int32_t ntzforwardht = NSPV_notarization_find(next, forwardht, NTZ_FORWARD);
+            ntz.txidheight = ScanNotarisationsDB2(forwardht, symbol, 1440, nota);
+            if (ntz.txidheight == 0 || nota.second.height >= height)
+                break;
+
+            forwardht = ntz.txidheight+1; // search next next
+        }
     }
     // std::cerr << __func__ << " found nota height=" << nota.second.height << " MoMdepth=" << nota.second.MoMDepth << std::endl;
     ntz.txid = nota.first;
@@ -213,11 +233,9 @@ int32_t NSPV_notarization_find(struct NSPV_ntz& ntz, int32_t height, int32_t dir
 // if not found or chain not notarised returns zeroed 'prev'
 int32_t NSPV_notarized_prev(struct NSPV_ntz& prev, int32_t height)
 {
-    const int BACKWARD = -1;
-
     // search back
-    int32_t ntzbackwardht = NSPV_notarization_find(prev, height, BACKWARD);
-    LogPrint("nspv-details", "%s search backward ntz result ntzht.%d vs height.%d, txidht.%d\n", __func__, prev.ntzheight, height, prev.txidheight);
+    int32_t ntzbackwardht = NSPV_notarization_find(prev, height, NTZ_BACKWARD);
+    LogPrint("nspv-details", "%s search backward ntz result.%d ntzht.%d vs height.%d, txidht.%d\n", __func__, ntzbackwardht, prev.ntzheight, height, prev.txidheight);
     return 1; // always okay even if chain non-notarised
 }
 
@@ -226,18 +244,8 @@ int32_t NSPV_notarized_prev(struct NSPV_ntz& prev, int32_t height)
 // if not found or chain not notarised returns zeroed 'next'
 int32_t NSPV_notarized_next(struct NSPV_ntz& next, int32_t height)
 {
-    const int FORWARD = 1;
-    int32_t forwardht = height;
-
-    while(true)  {  // search until notarized height >= height  
-        int32_t ntzforwardht = NSPV_notarization_find(next, forwardht, FORWARD);
-        LogPrint("nspv-details", "%s search forward ntz result ntzht.%d height.%d, txidht.%d\n",  __func__, next.ntzheight, height, next.txidheight);
-        if (ntzforwardht > 0 && ntzforwardht < height) {
-            forwardht = next.txidheight+1; // search next next
-        }
-        else
-            break;
-    }
+    int32_t ntzforwardht = NSPV_notarization_find(next, height, NTZ_FORWARD);
+    LogPrint("nspv-details", "%s search forward ntz result.%d ntzht.%d height.%d, txidht.%d\n",  __func__, ntzforwardht, next.ntzheight, height, next.txidheight);
     return 1;  // always okay even if chain non-notarised
 }
 
@@ -266,10 +274,23 @@ int32_t NSPV_getntzsresp(struct NSPV_ntzsresp& ntzresp, int32_t reqheight)
         if (pindexNtz != nullptr)
             ntzresp.ntz.timestamp = pindexNtz->nTime;  // return notarization tx block timestamp for season
         ntzresp.reqheight = reqheight;
-        return 1;
     }
     else
         return -1;
+
+    // return prev ntz for old version
+    if (ntzresp.nspv_version <= 5)  {
+        if (NSPV_notarized_prev(ntzresp.prev_ntz, reqheight) >= 0) { // find notarization txid for which reqheight is in its scope (or it is zeroed if not found or the chain is not notarised)
+            LOCK(cs_main);
+            CBlockIndex *pindexNtz = komodo_chainactive(ntzresp.ntz.txidheight);
+            if (pindexNtz != nullptr)
+                ntzresp.ntz.timestamp = pindexNtz->nTime;  // return notarization tx block timestamp for season
+            ntzresp.reqheight = reqheight;
+        }
+        else
+            return -1;
+    }
+    return 1;
 }
 
 int32_t NSPV_getinfo(struct NSPV_inforesp &inforesp,int32_t reqheight)
@@ -290,7 +311,6 @@ int32_t NSPV_getinfo(struct NSPV_inforesp &inforesp,int32_t reqheight)
         if (reqheight == 0)
             reqheight = inforesp.height;
         inforesp.hdrheight = reqheight;
-        inforesp.version = NSPV_PROTOCOL_VERSION;
         if (NSPV_setequihdr(inforesp.H, reqheight) < 0)
             return -1;
         return 1; 
@@ -340,7 +360,7 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp& utxoresp, const char* coinad
                     utxoresp.utxos[ind].vout = (int32_t)it->first.index;
                     utxoresp.utxos[ind].satoshis = it->second.satoshis;
                     utxoresp.utxos[ind].height = it->second.blockHeight;
-                    if (IS_KMD_CHAIN() && it->second.satoshis >= 10 * COIN) {  // calc interest on the kmd chain
+                    if (IS_KMD_CHAIN(ASSETCHAINS_SYMBOL) && it->second.satoshis >= 10 * COIN) {  // calc interest on the kmd chain
                         utxoresp.utxos[n].extradata = komodo_accrued_interest(&txheight, &locktime, utxoresp.utxos[ind].txid, utxoresp.utxos[ind].vout, utxoresp.utxos[ind].height, utxoresp.utxos[ind].satoshis, tipheight);
                         interest += utxoresp.utxos[ind].extradata;
                     }
@@ -417,24 +437,38 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp& txidsresp, const char* coina
 }
 
 // process basic nspv protocol requests
-NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uint32_t requestId, CDataStream &requestData, CDataStream &response)
+NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uint32_t requestId, int32_t requestSize, CDataStream &requestData, CDataStream &response)
 {
     switch (requestType) {
         case NSPV_INFO: // info, mandatory first request
         {
-            struct NSPV_inforesp I;
             int32_t reqheight;
-            uint32_t version;
             int32_t ret;
+            uint32_t version = 4;
 
-            requestData >> version >> reqheight;
+            // try to detect NSPV version 0.0.4 
+            if (requestSize == sizeof(uint8_t) + sizeof(int32_t))  {
+                requestData >> reqheight;
+            }
+            else {
+                requestData >> version >> reqheight;
+            }
 
+            if (version < 4 || version > NSPV_PROTOCOL_VERSION)
+                return NSPV_ERROR_INVALID_VERSION;
+
+            struct NSPV_inforesp I(version);
             if ((ret = NSPV_getinfo(I, reqheight)) > 0) {
-                response << NSPV_INFORESP << requestId << I;
+                if (version >= 5)
+                    response << NSPV_INFORESP << requestId << I;
+                else
+                    response << NSPV_INFORESP << I;
+
                 //fprintf(stderr,"send info resp to id %d\n",(int32_t)pfrom->id);
 
-                LogPrint("nspv-details", "NSPV_INFO sent response: version %d to node=%d\n", I.version, pfrom->id);
+                LogPrint("nspv-details", "NSPV_INFO sent response: version %d to node=%d\n", I.nspv_version, pfrom->id);
                 pfrom->fNspvConnected = true; // allow to do nspv requests
+                pfrom->nspvVersion = version;
 
             } else {
                 LogPrint("nspv", "NSPV_getinfo error.%d\n", ret);
@@ -443,7 +477,7 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
         } break;
 
         case NSPV_UTXOS: {
-            struct NSPV_utxosresp U;
+            struct NSPV_utxosresp U(pfrom->nspvVersion);
             std::string coinaddr;
             int32_t skipcount = 0;
             int32_t maxrecords = 0;
@@ -458,7 +492,10 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
             LogPrint("nspv-details", "NSPV_UTXOS address=%s isCC.%d skipcount.%d maxrecords.%d\n", coinaddr, isCC, skipcount, maxrecords);
 
             if ((ret = NSPV_getaddressutxos(U, coinaddr.c_str(), isCC, skipcount, maxrecords)) > 0) {
-                response << NSPV_UTXOSRESP << requestId << U;
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_UTXOSRESP << requestId << U;
+                else
+                    response << NSPV_UTXOSRESP << U;
                 LogPrint("nspv-details", "NSPV_UTXOSRESP response: numutxos=%d to node=%d\n", U.utxos.size(), pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_UTXOSRESP NSPV_getaddressutxos error.%d\n", ret);
@@ -482,7 +519,10 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
             LogPrint("nspv-details", "NSPV_TXIDS address=%s isCC.%d skipcount.%d maxrecords.%x\n", coinaddr, isCC, skipcount, maxrecords);
 
             if ((ret = NSPV_getaddresstxids(T, coinaddr.c_str(), isCC, skipcount, maxrecords)) > 0) {
-                response << NSPV_TXIDSRESP << requestId << T;
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_TXIDSRESP << requestId << T;
+                else
+                    response << NSPV_TXIDSRESP << T;
                 LogPrint("nspv-details", "NSPV_TXIDSRESP response: numtxids=%d to node=%d\n", (int)T.txids.size(), pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_TXIDSRESP NSPV_getaddresstxids error.%d\n", ret);
@@ -492,15 +532,21 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
 
 
         case NSPV_NTZS: {
-            struct NSPV_ntzsresp N;
+            struct NSPV_ntzsresp N(pfrom->nspvVersion);
             int32_t height;
             int32_t ret;
 
             requestData >> height;
 
             if ((ret = NSPV_getntzsresp(N, height)) > 0) {
-                response << NSPV_NTZSRESP << requestId << N;
-                LogPrint("nspv-details", "NSPV_NTZS response: ntz.txid=%s node=%d\n", N.ntz.txid.GetHex(), pfrom->id);
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_NTZSRESP << requestId << N;
+                else
+                    response << NSPV_NTZSRESP << N;
+                if (pfrom->nspvVersion <= 5)
+                    LogPrint("nspv-details", "NSPV_NTZS response: prev ntz.txid=%s ntz.ntzheight=%d, next ntz.txid=%s ntz.ntzheight=%d, node=%d\n", N.prev_ntz.txid.GetHex(), N.prev_ntz.ntzheight, N.ntz.txid.GetHex(), N.ntz.ntzheight, pfrom->id);
+                else
+                    LogPrint("nspv-details", "NSPV_NTZS response: next ntz.txid=%s ntz.ntzheight=%d, node=%d\n", N.ntz.txid.GetHex(), N.ntz.ntzheight, pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_NTZSRESP NSPV_getntzsresp err.%d\n", ret);
                 return NSPV_ERROR_READ_DATA;
@@ -508,15 +554,25 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
         } break;
 
         case NSPV_NTZSPROOF: {
-            struct NSPV_ntzsproofresp P;
+            struct NSPV_ntzsproofresp P(pfrom->nspvVersion);
+            uint256 prev_ntztxid;
             uint256 ntztxid;
             int32_t ret;
 
-            requestData >> ntztxid;
+            if (pfrom->nspvVersion <= 5)
+                // no much sense in getting prev and next ntz txns and headers between them
+                // as they may be not adjacent so the returned headers between such ntz txns are not in the MoM covered headers set (this is true only for adjacent ntz txns) 
+                // so since v6 only the next closest ntz txn is returned and MoM covered headers along with it
+                requestData >> prev_ntztxid >> ntztxid;
+            else
+                requestData >> ntztxid;
 
-            if ((ret = NSPV_getntzsproofresp(P, ntztxid)) > 0) {
-                response << NSPV_NTZSPROOFRESP << requestId << P;
-                LogPrint("nspv-details", "NSPV_NTZSPROOFRESP response: nexttxidht=%d node=%d\n", P.nexttxidht, pfrom->id);
+            if ((ret = NSPV_getntzsproofresp(P, prev_ntztxid, ntztxid)) > 0) {
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_NTZSPROOFRESP << requestId << P;
+                else
+                    response << NSPV_NTZSPROOFRESP << P;
+                LogPrint("nspv-details", "NSPV_NTZSPROOFRESP response: prevtxidht=%d nexttxidht=%d node=%d\n", P.prevtxidht, P.nexttxidht, pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_NTZSPROOFRESP NSPV_getntzsproofresp err.%d\n", ret);
                 return NSPV_ERROR_READ_DATA;
@@ -532,7 +588,10 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
             requestData >> height >> vout >> txid;
 
             if ((ret = NSPV_gettxproof(P, vout, txid /*,height*/)) > 0) {
-                response << NSPV_TXPROOFRESP << requestId << P;
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_TXPROOFRESP << requestId << P;
+                else
+                    response << NSPV_TXPROOFRESP << P;
                 LogPrint("nspv-details", "NSPV_TXPROOFRESP response: txlen=%d txprooflen=%d node=%d\n", P.tx.size(), P.txproof.size(), pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_TXPROOFRESP NSPV_gettxproof error.%d\n", ret);
@@ -548,7 +607,10 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
 
             requestData >> vout >> txid;
             if ((ret = NSPV_getspentinfo(S, txid, vout)) > 0) {
-                response << NSPV_SPENTINFORESP << requestId << S;
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_SPENTINFORESP << requestId << S;
+                else
+                    response << NSPV_SPENTINFORESP << S;
                 LogPrint("nspv-details", "NSPV_SPENTINFO response: spent txid=%s vout=%d node=%d\n", S.txid.GetHex(), S.vout, pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_SPENTINFORESP NSPV_getspentinfo error.%d node=%d\n", ret, pfrom->id);
@@ -559,18 +621,27 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
         case NSPV_BROADCAST: {
             struct NSPV_broadcastresp B;
             uint256 txid;
+            int32_t txlen;
             vuint8_t txbin;
             int32_t ret;
 
-            requestData >> txid >> txbin;
-            if (txbin.size() > MAX_TX_SIZE_AFTER_SAPLING) {
-                LogPrint("nspv", "NSPV_BROADCAST tx too big.%d node=%d\n", txbin.size(), pfrom->id);
+            requestData >> txid >> txlen;  //not a btc like vararray tx serialisation
+            if (txlen > MAX_TX_SIZE_AFTER_SAPLING) {
+                LogPrint("nspv", "NSPV_BROADCAST tx too big.%d node=%d\n", txlen, pfrom->id);
                 return NSPV_ERROR_TX_TOO_BIG;
             }
+            if (requestData.begin()+txlen > requestData.end()) {
+                LogPrint("nspv", "NSPV_BROADCAST incorrect tx size.%d out of request bounds, node=%d\n", txlen, pfrom->id);
+                return NSPV_ERROR_INVALID_REQUEST_DATA;
+            }
+            txbin = vuint8_t(requestData.begin(), requestData.begin()+txlen);
 
             if ((ret = NSPV_sendrawtransaction(B, txbin)) > 0) {
-                response << NSPV_BROADCASTRESP << requestId << B;
-                LogPrint("nspv-details", "NSPV_BROADCAST response: txid=%s vout=%d to node=%d\n", B.txid.GetHex().c_str(), pfrom->id);
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_BROADCASTRESP << requestId << B;
+                else
+                    response << NSPV_BROADCASTRESP << B;
+                LogPrint("nspv-details", "NSPV_BROADCAST response: txid=%s to node=%d\n", B.txid.GetHex().c_str(), pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_BROADCAST NSPV_sendrawtransaction error.%d, node=%d\n", ret, pfrom->id);
                 return NSPV_ERROR_BROADCAST;
@@ -581,6 +652,8 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
             uint8_t checkMempool;
             uint64_t vsize;
             std::vector<CTransaction> vtxns;
+            if (pfrom->nspvVersion < 7)  // NSPV_TRANSACTIONS supported from nspv-0.0.7
+                return NSPV_ERROR_INVALID_VERSION;
 
             requestData >> checkMempool >> COMPACTSIZE(vsize);
             int32_t msgSize = 0;

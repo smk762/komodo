@@ -30,6 +30,7 @@ UniValue GatewaysMarkDone(const CPubKey& pk, uint64_t txfee,uint256 withdrawtxid
 UniValue GatewaysPendingDeposits(const CPubKey& pk, uint256 bindtxid,std::string refcoin);
 UniValue GatewaysPendingWithdraws(const CPubKey& pk, uint256 bindtxid,std::string refcoin);
 UniValue GatewaysProcessedWithdraws(const CPubKey& pk, uint256 bindtxid,std::string refcoin);
+uint8_t DecodeGatewaysBindOpRet(char *depositaddr,const CScript &scriptPubKey,uint256 &tokenid,std::string &coin,int64_t &totalsupply,uint256 &oracletxid,uint8_t &M,uint8_t &N,std::vector<CPubKey> &gatewaypubkeys,uint8_t &taddr,uint8_t &prefix,uint8_t &prefix2,uint8_t &wiftype);
 
 // CCcustom
 UniValue GatewaysInfo(uint256 bindtxid);

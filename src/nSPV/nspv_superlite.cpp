@@ -36,13 +36,13 @@ uint32_t NSPV_lastinfo, NSPV_logintime, NSPV_tiptime;
 CKey NSPV_key;
 char NSPV_wifstr[64], NSPV_pubkeystr[67], NSPV_lastpeer[128];
 std::string NSPV_address;
-struct NSPV_inforesp NSPV_inforesult;
-struct NSPV_utxosresp NSPV_utxosresult;
+struct NSPV_inforesp NSPV_inforesult(NSPV_PROTOCOL_VERSION);
+struct NSPV_utxosresp NSPV_utxosresult(NSPV_PROTOCOL_VERSION);
 struct NSPV_txidsresp NSPV_txidsresult;
 struct NSPV_mempoolresp NSPV_mempoolresult;
 struct NSPV_spentinfo NSPV_spentresult;
-struct NSPV_ntzsresp NSPV_ntzsresult;
-struct NSPV_ntzsproofresp NSPV_ntzsproofresult;
+struct NSPV_ntzsresp NSPV_ntzsresult(NSPV_PROTOCOL_VERSION);
+struct NSPV_ntzsproofresp NSPV_ntzsproofresult(NSPV_PROTOCOL_VERSION);
 struct NSPV_txproof NSPV_txproofresult;
 struct NSPV_broadcastresp NSPV_broadcastresult;
 
@@ -138,7 +138,7 @@ struct NSPV_ntzsproofresp* NSPV_ntzsproof_add(struct NSPV_ntzsproofresp& ntzproo
 // komodo_nSPVresp is called from async message processing
 void komodo_nSPVresp(CNode* pfrom, const std::vector<uint8_t>& vresponse) // received a response
 {
-    struct NSPV_inforesp I;
+    struct NSPV_inforesp I(NSPV_PROTOCOL_VERSION);
     uint32_t timestamp = (uint32_t)time(NULL);
     int32_t errCode;
     std::string errDesc;
@@ -401,7 +401,7 @@ UniValue NSPV_getinfo_json(struct NSPV_inforesp& inforesp)
     result.push_back(Pair("chaintip", inforesp.blockhash.GetHex()));
     result.push_back(Pair("notarization", NSPV_ntz_json(inforesp.ntz)));
     result.push_back(Pair("header", NSPV_header_json(inforesp.H, inforesp.hdrheight)));
-    result.push_back(Pair("protocolversion", (int64_t)inforesp.version));
+    result.push_back(Pair("protocolversion", (int64_t)inforesp.nspv_version));
     result.push_back(Pair("lastpeer", NSPV_lastpeer));
     return (result);
 }
@@ -509,7 +509,7 @@ UniValue NSPV_ntzsproof_json(struct NSPV_ntzsproofresp& ntzproofresp)
     result.push_back(Pair("nextht", (int64_t)ntzproofresp.common.nextht));
     result.push_back(Pair("nexttxid", ntzproofresp.nexttxid.GetHex()));
     result.push_back(Pair("nexttxidht", (int64_t)ntzproofresp.nexttxidht));
-    result.push_back(Pair("nexttxlen", (int64_t)ntzproofresp.nextntz.size()));
+    result.push_back(Pair("nexttxlen", (int64_t)ntzproofresp.nextntztx.size()));
     result.push_back(Pair("numhdrs", (int64_t)ntzproofresp.common.hdrs.size()));
     result.push_back(Pair("headers", NSPV_headers_json(ntzproofresp.common.hdrs, ntzproofresp.common.nextht)));
     result.push_back(Pair("lastpeer", NSPV_lastpeer));
@@ -593,7 +593,7 @@ UniValue NSPV_getinfo_req(int32_t reqht, bool bWait, uint32_t reqVersion, CNode 
 {
     int32_t i, iter;
     uint32_t version = reqVersion;
-    struct NSPV_inforesp I;
+    struct NSPV_inforesp I(reqVersion);
     //NSPV_inforesp_purge(&NSPV_inforesult);
 
     CDataStream request(SER_NETWORK, PROTOCOL_VERSION);
@@ -823,7 +823,7 @@ bool NSPV_evalcode_inmempool(uint8_t evalcode, uint8_t funcid)
 UniValue NSPV_notarizations(int32_t reqheight)
 {
     int32_t i, iter;
-    struct NSPV_ntzsresp N, *ntzsrespptr;
+    struct NSPV_ntzsresp N(NSPV_PROTOCOL_VERSION), *ntzsrespptr;
     if ((ntzsrespptr = NSPV_ntzsresp_find(reqheight)) != 0) {
         LogPrint("nspv", "FROM CACHE NSPV_notarizations.%d\n", reqheight);
         //NSPV_ntzsresp_purge(&NSPV_ntzsresult);

@@ -80,7 +80,7 @@ def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx 
         try:
             confirmations_amount = proxy.getrawtransaction(txid, 1)['confirmations']
             if confirmations_amount < confs_req:
-                print("\ntx is not confirmed yet! Let's wait a little more")
+                print("\ntx is not confirmed yet! Let's wait a little more, confs=", confirmations_amount)
                 time.sleep(5)
             else:
                 print("\ntx confirmed")
@@ -102,11 +102,16 @@ def validate_transaction(proxy, txid, conf_req):
     except Exception as e:
         raise TypeError("Not a Proxy object, error: " + str(e))
     conf = 0
-    while conf < conf_req:
+    retries = 600
+    while conf < conf_req and retries > 0 :
         print("\nWaiting confirmations...")
         resp = proxy.gettransaction(txid)
         conf = resp.get('confirmations')
+        print('conf', conf)
+        print('getrawmempool', proxy.getrawmempool())
         time.sleep(2)
+        retries -= 1
+
 
 
 def validate_template(blocktemplate, schema=''):  # BIP 0022
@@ -250,6 +255,15 @@ def validate_raddr_pattern(addr):
     if not isinstance(addr, str):
         return False
     address_pattern = re.compile(r"R[a-zA-Z0-9]{33}\Z")
+    if address_pattern.match(addr):
+        return True
+    else:
+        return False
+
+def validate_caddr_pattern(addr):
+    if not isinstance(addr, str):
+        return False
+    address_pattern = re.compile(r"C[a-zA-Z0-9]{33}\Z")
     if address_pattern.match(addr):
         return True
     else:

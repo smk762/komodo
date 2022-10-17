@@ -96,11 +96,6 @@ using namespace std;
 
 #include "komodo_defs.h"
 extern void ThreadSendAlert();
-extern bool komodo_dailysnapshot(int32_t height);
-//extern int32_t KOMODO_LOADINGBLOCKS;
-//extern bool VERUS_MINTBLOCKS;
-//extern char ASSETCHAINS_SYMBOL[];
-extern int32_t KOMODO_SNAPSHOT_INTERVAL;
 
 ZCJoinSplit* pzcashParams = NULL;
 
@@ -2005,13 +2000,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             PruneAndFlush();
         }
     }
-    if ( KOMODO_NSPV == 0 )
+    if ( KOMODO_NSPV_FULLNODE )
     {
         if ( GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX) != 0 )
             nLocalServices |= NODE_ADDRINDEX;
         if ( GetBoolArg("-spentindex", DEFAULT_SPENTINDEX) != 0 )
             nLocalServices |= NODE_SPENTINDEX;
-        fprintf(stderr,"nLocalServices %llx %d, %d\n",(long long)nLocalServices,GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX),GetBoolArg("-spentindex", DEFAULT_SPENTINDEX));
     }
     // ********************************************************* Step 10: import blocks
 
@@ -2098,6 +2092,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // SENDALERT
     threadGroup.create_thread(boost::bind(ThreadSendAlert));
+
+    if ( KOMODO_NSPV_FULLNODE )
+        fprintf(stderr,"nLocalServices %llx addressindex %d, spentindex %d\n",(long long)nLocalServices,GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX),GetBoolArg("-spentindex", DEFAULT_SPENTINDEX));
 
     return !fRequestShutdown;
 }

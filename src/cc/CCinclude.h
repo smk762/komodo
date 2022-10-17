@@ -352,7 +352,6 @@ extern struct NSPV_CCmtxinfo NSPV_U;  //!< global variable with info about mtx o
 #ifdef ENABLE_WALLET
 extern CWallet* pwalletMain;  //!< global wallet object pointer to access wallet functionality
 #endif
-//extern CCoinsViewCache *pcoinsTip;
 
 /// @private seems old-style
 bool GetAddressUnspent(uint160 addressHash, int type,std::vector<std::pair<CAddressUnspentKey,CAddressUnspentValue> > &unspentOutputs);

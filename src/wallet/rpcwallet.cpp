@@ -76,16 +76,8 @@ using namespace std;
 
 using namespace libzcash;
 
-//extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
-//extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
 const std::string ADDR_TYPE_SPROUT = "sprout";
 const std::string ADDR_TYPE_SAPLING = "sapling";
-extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
-//extern int32_t KOMODO_INSYNC;
-//uint32_t komodo_segid32(char *coinaddr);
-//int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
-//int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime); // from ac_private chains only
-//CBlockIndex *komodo_getblockindex(uint256 hash);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
@@ -96,8 +88,6 @@ UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
 #define PLAN_NAME_MAX   8
 #define VALID_PLAN_NAME(x)  (strlen(x) <= PLAN_NAME_MAX)
 #define THROW_IF_SYNCING(INSYNC)  if (INSYNC == 0) { throw runtime_error(strprintf("%s: Chain still syncing at height %d, aborting to prevent linkability analysis!",__FUNCTION__,chainActive.Tip()->GetHeight())); }
-
-int tx_height( const uint256 &hash );
 
 std::string HelpRequiringPassphrase()
 {

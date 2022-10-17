@@ -34,6 +34,11 @@ std::map<NSPV_ERROR_CODE, std::string> nspvErrors = {
     { NSPV_ERROR_INVALID_RESPONSE, "could not create response message" },
     { NSPV_ERROR_BROADCAST, "could not broadcast transaction" },
     { NSPV_ERROR_REMOTE_RPC, "could not execute rpc" },
+    { NSPV_ERROR_ADDRESS_LENGTH, "address length error" },
+    { NSPV_ERROR_TX_TOO_BIG, "tx size too big" },
+    { NSPV_ERROR_REQUEST_TOO_SHORT, "request too short" },
+    { NSPV_ERROR_RESPONSE_TOO_LONG, "response too long" },
+    { NSPV_ERROR_MESSAGE_NOT_SUPPORTED, "message not supported" },
 };
 
 
@@ -111,17 +116,24 @@ void komodo_nSPVreq(CNode* pfrom, const vuint8_t &vrequest)  //THROWS EXCEPTION
 {
     uint32_t timestamp = (uint32_t)time(NULL);
     uint8_t requestType;
-    uint32_t requestId;
+    uint32_t requestId = 0;
+    int32_t requestSize = vrequest.size();
     CDataStream request(vrequest, SER_NETWORK, PROTOCOL_VERSION);
     CDataStream response(SER_NETWORK, PROTOCOL_VERSION);
 
-    if (request.size() < sizeof(requestType) + sizeof(requestId))
-    {
-        LogPrint("nspv", "request too short from peer %d\n", pfrom->id);
-        NSPV_senderror(pfrom, requestId, NSPV_ERROR_REQUEST_TOO_SHORT);
-        return;
+    bool isGetInfoV4 = requestSize == sizeof(uint8_t) + sizeof(int32_t) && vrequest[0] == NSPV_INFO; // v0.0.4 NSPV_INFO has reqCode + reqHeight
+
+    if (isGetInfoV4 || pfrom->nspvVersion == 4)  {
+        request >> requestType;
+    } 
+    else   {
+        if (request.size() < sizeof(requestType) + sizeof(requestId))   {
+            LogPrint("nspv", "request too short from peer %d\n", pfrom->id);
+            NSPV_senderror(pfrom, requestId, NSPV_ERROR_REQUEST_TOO_SHORT);
+            return;
+        }
+        request >> requestType >> requestId;
     }
-    request >> requestType >> requestId;
     
     // rate limit no more NSPV_MAXREQSPERSEC request/sec of same type from same node:
     int32_t idata = requestType >> 1;
@@ -147,29 +159,37 @@ void komodo_nSPVreq(CNode* pfrom, const vuint8_t &vrequest)  //THROWS EXCEPTION
             return;
         }
     }
-
+    
     try 
     {  
         for (auto const nspvProc : nspvProcs)  {
-            NSPV_ERROR_CODE nspvProcRet = nspvProc(pfrom, requestType, requestId, request, response);
+            NSPV_ERROR_CODE nspvProcRet = nspvProc(pfrom, requestType, requestId, requestSize, request, response);
             if (nspvProcRet == NSPV_REQUEST_PROCESSED)  {
-                pfrom->PushMessage("nSPV", vuint8_t(response.begin(), response.end()));
+                if (pfrom->nspvVersion >= 5)
+                    pfrom->PushMessage("nSPV", vuint8_t(response.begin(), response.end()));
+                else
+                    pfrom->PushMessage("nSPV", vuint8_t(response.begin(), response.end()));
                 pfrom->nspvdata[idata].prevtime = timestamp;
                 pfrom->nspvdata[idata].nreqs++;
                 return;
             }
             else if (nspvProcRet < 0)  {
-                NSPV_senderror(pfrom, requestId, nspvProcRet);
+                if (pfrom->nspvVersion >= 5)
+                    NSPV_senderror(pfrom, requestId, nspvProcRet);
+                LogPrint("nspv", "error %d %s peer %d\n", nspvProcRet, nspvErrors[nspvProcRet], pfrom->id);
                 return;
             }
             else // NSPV_REQUEST_NOT_MINE - proceed to next proc
                 continue;
         }
-        NSPV_senderror(pfrom, requestId, NSPV_ERROR_INVALID_REQUEST_TYPE);
+        if (pfrom->nspvVersion >= 5)
+            NSPV_senderror(pfrom, requestId, NSPV_ERROR_INVALID_REQUEST_TYPE);
+        LogPrint("nspv", "error %d %s peer %d\n", NSPV_ERROR_INVALID_REQUEST_TYPE, nspvErrors[NSPV_ERROR_INVALID_REQUEST_TYPE], pfrom->id);
     }
     catch(std::ios_base::failure &e)  {
         LogPrint("nspv", "nspv request %d parse error, node %d\n", requestType, pfrom->id);
-        NSPV_senderror(pfrom, requestId, NSPV_ERROR_INVALID_REQUEST_DATA);
+        if (pfrom->nspvVersion >= 5)
+            NSPV_senderror(pfrom, requestId, NSPV_ERROR_INVALID_REQUEST_DATA);
     }
 }
 
