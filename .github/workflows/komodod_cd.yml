@@ -73,13 +73,13 @@ jobs:
 
   osx-build:
     name: OSX Build
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
       - name: Install deps (macOS)
         run: |
           brew update
-          brew upgrade
+          brew upgrade || true
           brew tap discoteq/discoteq; brew install flock
           brew install autoconf autogen automake
           brew install gcc@8
