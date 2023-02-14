@@ -73,7 +73,7 @@ jobs:
 
   osx-build:
     name: OSX Build
-    runs-on: macos-latest
+    runs-on: macos-11
     steps:
       - uses: actions/checkout@v2
       - name: Install deps (macOS)
