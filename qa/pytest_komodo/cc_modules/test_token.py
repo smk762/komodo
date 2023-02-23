@@ -4,7 +4,6 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 import pytest
-from slickrpc.exc import RpcException as RPCError
 from lib.pytest_util import validate_template, mine_and_waitconfirms, randomstring, randomhex, validate_raddr_pattern
 
 
@@ -164,7 +163,6 @@ class TestTokenCCcalls:
 
         rpc1 = token_instance.rpc[0]
         rpc2 = token_instance.rpc[1]
-        pubkey2 = token_instance.pubkey[1]
 
         if not token_instance.base_token:
             token_instance.new_token(token_instance.rpc[1])
@@ -243,9 +241,9 @@ class TestTokenCC:
         tokenid = token_instance.base_token.get('tokenid')
 
         # trying to create token with negative supply
-        with pytest.raises(RPCError):
-            res = rpc.tokencreate("NUKE", "-1987420", "no bueno supply")
-            assert res.get('error')
+        # with pytest.raises(ConnectionError):
+        res = rpc.tokencreate("NUKE", "-1987420", "no bueno supply")
+        assert res.get('error')
         # creating token with name more than 32 chars
         res = rpc.tokencreate("NUKE123456789012345678901234567890", "1987420", "name too long")
         assert res.get('error')
@@ -269,9 +267,8 @@ class TestTokenCC:
         res = rpc.tokenbid("0", tokenid, "1")
         assert res.get('error')
         # invalid price bid
-        with pytest.raises(RPCError):
-           res = rpc.tokenbid("1", tokenid, "-1")
-           assert res.get('error')
+        res = rpc.tokenbid("1", tokenid, "-1")
+        assert res.get('error')
         # invalid price bid
         res = rpc.tokenbid("1", tokenid, "0")
         assert res.get('error')
@@ -285,9 +282,8 @@ class TestTokenCC:
         res = rpc.tokenask("0", tokenid, "1")
         assert res.get('error')
         # invalid price ask
-        with pytest.raises(RPCError):
-            res = rpc.tokenask("1", tokenid, "-1")
-            assert res.get('error')
+        res = rpc.tokenask("1", tokenid, "-1")
+        assert res.get('error')
         # invalid price ask
         res = rpc.tokenask("1", tokenid, "0")
         assert res.get('error')

@@ -4,9 +4,8 @@
 # file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
 import pytest
-from slickrpc.exc import RpcException as RPCError
 from lib.pytest_util import validate_template, mine_and_waitconfirms, randomstring,\
-                            randomhex, validate_raddr_pattern
+                            validate_raddr_pattern
 
 
 @pytest.mark.usefixtures("proxy_connection", "test_params")

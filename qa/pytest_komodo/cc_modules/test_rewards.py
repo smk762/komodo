@@ -5,8 +5,7 @@
 
 import pytest
 import time
-from lib.pytest_util import validate_template, mine_and_waitconfirms, validate_raddr_pattern, \
-                              randomstring, randomhex
+from lib.pytest_util import validate_template, validate_raddr_pattern, randomhex
 
 
 @pytest.mark.usefixtures("proxy_connection", "test_params")

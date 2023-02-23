@@ -6,10 +6,7 @@ import string
 import hashlib
 import re
 import requests
-from slickrpc import Proxy
-from slickrpc.exc import RpcException as RPCError
-from pycurl import error as HttpError
-
+from lib.komodo_requests import Proxy
 
 class CCInstance:
     def __init__(self, test_params: dict):
@@ -265,10 +262,7 @@ class DiceCC(CCInstance):
 
 def create_proxy(node_params_dictionary):
     try:
-        proxy = Proxy("http://%s:%s@%s:%d" % (node_params_dictionary.get('rpc_user'),
-                                              node_params_dictionary.get('rpc_password'),
-                                              node_params_dictionary.get('rpc_ip'),
-                                              node_params_dictionary.get('rpc_port')), timeout=120)
+        proxy = Proxy(node_params_dictionary, timeout=120)
     except Exception as e:
         raise Exception("Connection error! Probably no daemon on selected port. Error: ", e)
     return proxy
@@ -362,7 +356,7 @@ def enable_mining(proxy):
         try:
             proxy.setgenerate(True, threads_count)
             break
-        except (RPCError, HttpError) as e:
+        except Exception as e:
             print(e, " Waiting chain startup\n")
             time.sleep(10)
             tries += 1

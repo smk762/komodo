@@ -5,7 +5,7 @@
 
 import pytest
 import time
-from lib.pytest_util import validate_template, mine_and_waitconfirms, validate_raddr_pattern, validate_tx_pattern
+from lib.pytest_util import validate_template, mine_and_waitconfirms, validate_raddr_pattern
 
 
 @pytest.mark.usefixtures("proxy_connection", "test_params")
@@ -154,14 +154,14 @@ class TestChannelsCCBase:
         txid = rpc1.sendrawtransaction(res.get('hex'))
         mine_and_waitconfirms(txid, rpc1)
         res = rpc1.channelsclose(newchannel.get('open_txid'))
-        validate_template(res, channels_refund_close_schema)
-        close_txid = rpc1.sendrawtransaction(res.get('hex'))
+        assert isinstance(res, str)
+        close_txid = rpc1.sendrawtransaction(res)
         mine_and_waitconfirms(close_txid, rpc1)
 
         # execute refund
         res = rpc1.channelsrefund(newchannel.get('open_txid'), close_txid)
-        validate_template(res, channels_refund_close_schema)
-        refund_txid = rpc1.sendrawtransaction(res.get('hex'))
+        assert isinstance(res, str)
+        refund_txid = rpc1.sendrawtransaction(res)
         mine_and_waitconfirms(refund_txid, rpc1)
 
 
@@ -217,8 +217,8 @@ class TestChannelsCC:
 
         # executing channel close
         res = rpc1.channelsclose(channel.get('open_txid'))
-        assert res.get('result') == 'success'
-        close_txid = rpc1.sendrawtransaction(res.get('hex'))
+        assert isinstance(res, str)
+        close_txid = rpc1.sendrawtransaction(res)
         mine_and_waitconfirms(close_txid, rpc1)
 
         # now in channelinfo closed flag should appear
@@ -227,8 +227,8 @@ class TestChannelsCC:
 
         # executing channel refund
         res = rpc1.channelsrefund(channel.get('open_txid'), close_txid)
-        assert res.get('result') == 'success'
-        refund_txid = rpc1.sendrawtransaction(res.get('hex'))
+        assert isinstance(res, str)
+        refund_txid = rpc1.sendrawtransaction(res)
         mine_and_waitconfirms(refund_txid, rpc1)
 
         # checking if it refunded to opener address

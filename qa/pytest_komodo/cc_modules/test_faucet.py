@@ -5,7 +5,6 @@
 
 import pytest
 import re
-from slickrpc import exc
 import warnings
 from lib.pytest_util import validate_template, mine_and_waitconfirms
 
@@ -87,7 +86,7 @@ class TestFaucetCCBase:
             vout_fauc = res.get('vout')[1]
             assert node_addr in vout_fauc.get('scriptPubKey').get('addresses')
             assert vout_fauc.get('valueZat') == pow(10, 8) * vout_fauc.get('value')
-        except (KeyError, TypeError, exc.RpcTypeError):
+        except (KeyError, TypeError):
             assert res.get('result') == 'error'
 
 
@@ -128,5 +127,5 @@ class TestFaucetCCe2e:
             fhex = res.get('hex')
             txid = rpc1.sendrawtransaction(fhex)
             mine_and_waitconfirms(txid, rpc1)
-        except exc.RpcVerifyRejected:  # excepts scenario when pubkey already received faucet funds
+        except Exception:  # excepts scenario when pubkey already received faucet funds
             warnings.warn(RuntimeWarning('Faucet funds were already claimed by pubkey'))

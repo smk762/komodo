@@ -2,9 +2,8 @@ import pytest
 import json
 import os
 import time
+from lib.komodo_requests import Proxy
 from lib.pytest_util import OraclesCC, TokenCC, DiceCC, ChannelsCC, RewardsCC
-from slickrpc import Proxy
-
 
 @pytest.fixture(scope='session')
 def proxy_connection():
@@ -12,10 +11,7 @@ def proxy_connection():
 
     def _proxy_connection(node_params_dictionary):
         try:
-            proxy = Proxy("http://%s:%s@%s:%d" % (node_params_dictionary["rpc_user"],
-                                                  node_params_dictionary["rpc_password"],
-                                                  node_params_dictionary["rpc_ip"],
-                                                  node_params_dictionary["rpc_port"]), timeout=360)
+            proxy = Proxy((node_params_dictionary), timeout=360)
             proxy_connected.append(proxy)
         except ConnectionAbortedError as e:
             raise Exception("Connection error! Probably no daemon on selected port. Error: ", e)

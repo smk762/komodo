@@ -3,7 +3,7 @@ import time
 import sys
 from random import choice
 from string import ascii_uppercase
-from slickrpc import Proxy
+from lib.komodo_requests import Proxy
 
 
 def assert_success(result):
