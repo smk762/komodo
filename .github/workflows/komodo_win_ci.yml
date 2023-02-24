@@ -83,7 +83,7 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
@@ -115,7 +115,7 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
@@ -147,7 +147,7 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
@@ -179,7 +179,7 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
@@ -211,7 +211,7 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
+          python.exe -m pip install pytest wget jsonschema
           python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
