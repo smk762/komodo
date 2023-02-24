@@ -20,26 +20,18 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update  # prevents repo404 errors on apt-remove below
-          sudo apt-get remove php* msodbcsql17 mysql* powershell dotn*
           sudo apt-get update
-          sudo ACCEPT_EULA=Y apt-get upgrade -y
           sudo apt-get install -q \
                  curl \
-                 python3 \
-                 python3-dev \
-                 python3-setuptools \
-                 python3-pip \
                  libcurl4-openssl-dev \
                  libssl-dev -y
-          python3 -m pip install setuptools wheel
-          python3 -m pip install pytest wget jsonschema
-          python3 -m pip install -Iv https://github.com/KomodoPlatform/slick-bitcoinrpc/archive/refs/tags/0.1.4.tar.gz
+
       - name: Build (Linux)
         run: |
           # flag for some CC tests transactions - so DO NOT USE THIS CI ARTIFACTS IN PRODUCTION!!!
           CONFIGURE_FLAGS='CPPFLAGS=-DTESTMODE' ./zcutil/build.sh -j$(nproc)
           tar -czvf komodo-linux.tar.gz src/komodod src/komodo-cli
+
       - name: Upload komodo-linux.tar.gz as artifact
         uses: actions/upload-artifact@v1
         with:
@@ -63,12 +55,11 @@ jobs:
                  python3 \
                  python3-dev \
                  python3-setuptools \
-                 python3-pip \
-                 libcurl4-openssl-dev \
-                 libssl-dev -y
-          python3 -m pip install setuptools wheel
+                 python3-pip
+          python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install -Iv https://github.com/KomodoPlatform/slick-bitcoinrpc/archive/refs/tags/0.1.4.tar.gz
+          python3 -m pip install requests
+
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
         with:
@@ -82,6 +73,7 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_token.py cc_modules/test_rewards.py"
+
   linux-test-oracles:
 
     name: Test (Linux/OraclesCC)
@@ -99,12 +91,11 @@ jobs:
                  python3 \
                  python3-dev \
                  python3-setuptools \
-                 python3-pip \
-                 libcurl4-openssl-dev \
-                 libssl-dev -y
-          python3 -m pip install setuptools wheel
+                 python3-pip
+          python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install -Iv https://github.com/KomodoPlatform/slick-bitcoinrpc/archive/refs/tags/0.1.4.tar.gz
+          python3 -m pip install requests
+
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
         with:
@@ -118,6 +109,7 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh cc_modules/test_oracles.py
+
   linux-test-baserpc:
 
     name: Test (Linux/BasicRPC)
@@ -135,12 +127,11 @@ jobs:
                  python3 \
                  python3-dev \
                  python3-setuptools \
-                 python3-pip \
-                 libcurl4-openssl-dev \
-                 libssl-dev -y
-          python3 -m pip install setuptools wheel
+                 python3-pip
+          python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install -Iv https://github.com/KomodoPlatform/slick-bitcoinrpc/archive/refs/tags/0.1.4.tar.gz
+          python3 -m pip install requests
+
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
         with:
@@ -154,6 +145,7 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh basic
+
   linux-test-channels:
 
     name: Test (Linux/ChannelsCC)
@@ -171,12 +163,11 @@ jobs:
                  python3 \
                  python3-dev \
                  python3-setuptools \
-                 python3-pip \
-                 libcurl4-openssl-dev \
-                 libssl-dev -y
-          python3 -m pip install setuptools wheel
+                 python3-pip
+          python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install -Iv https://github.com/KomodoPlatform/slick-bitcoinrpc/archive/refs/tags/0.1.4.tar.gz
+          python3 -m pip install requests
+
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
         with:
@@ -190,6 +181,7 @@ jobs:
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh cc_modules/test_channels.py
+
   linux-test-heir:
 
     name: Test (Linux/HeirCC)
@@ -207,12 +199,11 @@ jobs:
                  python3 \
                  python3-dev \
                  python3-setuptools \
-                 python3-pip \
-                 libcurl4-openssl-dev \
-                 libssl-dev -y
-          python3 -m pip install setuptools wheel
+                 python3-pip
+          python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install -Iv https://github.com/KomodoPlatform/slick-bitcoinrpc/archive/refs/tags/0.1.4.tar.gz
+          python3 -m pip install requests
+
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
         with:

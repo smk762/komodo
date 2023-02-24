@@ -20,9 +20,6 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo apt-get update  # prevents repo404 errors on apt-remove below
-        sudo apt-get remove php* msodbcsql17 mysql* powershell containernetworking-* containers* dotn*
-        sudo ACCEPT_EULA=Y apt-get upgrade -y
-        sudo apt-get update
         sudo apt-get install build-essential \
                              pkg-config \
                              libc6-dev \
@@ -60,12 +57,14 @@ jobs:
         rustup target add x86_64-pc-windows-gnu
         sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
         sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
     - name: Build Win (mingw)
       run: |
         # flag for some CC tests transactions - so DO NOT USE THIS CI ARTIFACTS IN PRODUCTION!!!
         export CONFIGURE_FLAGS='CPPFLAGS=-DTESTMODE'
         ./zcutil/build-win-dtest.sh -j$(nproc)
         zip --junk-paths komodod_win src/komodod.exe src/komodo-cli.exe
+
     - name: Upload komodod.exe as artifact
       uses: actions/upload-artifact@v1
       with:
@@ -95,13 +94,15 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install requests
           zcutil\fetch-params.bat
+
       - name: Base RPC Test (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat basic
+
   windows-test-dice-faucet-tok-rewCC:
 
     name: Test (Win/Dice Faucet Token Rewards)
@@ -125,13 +126,15 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install requests
           zcutil\fetch-params.bat
+
       - name: CC Dice Faucet Tokens Rewards (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_dice.py cc_modules\test_faucet.py cc_modules\test_token.py cc_modules\test_rewards.py
+
   windows-test-oracles-cc:
 
     name: Test (Win/OraclesCC)
@@ -155,13 +158,15 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install requests
           zcutil\fetch-params.bat
+
       - name: CC Oracles (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_oracles.py
+
   windows-test-heir-cc:
 
     name: Test (Win/HeirCC)
@@ -185,13 +190,15 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install requests
           zcutil\fetch-params.bat
+
       - name: CC Heir (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_heir.py
+
   windows-test-channels-cc:
 
     name: Test (Win/ChannelsCC)
@@ -215,8 +222,9 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install requests
           zcutil\fetch-params.bat
+
       - name: ChannelsCC (Windows)
         shell: cmd
         run: |
