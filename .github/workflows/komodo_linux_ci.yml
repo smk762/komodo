@@ -77,7 +77,7 @@ jobs:
                  python3-pip
           python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install requests
+          python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
@@ -113,7 +113,7 @@ jobs:
                  python3-pip
           python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install requests
+          python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
@@ -149,7 +149,7 @@ jobs:
                  python3-pip
           python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install requests
+          python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
@@ -185,7 +185,7 @@ jobs:
                  python3-pip
           python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install requests
+          python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1
@@ -221,7 +221,7 @@ jobs:
                  python3-pip
           python3 -m pip install wheel
           python3 -m pip install pytest wget jsonschema
-          python3 -m pip install requests
+          python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
         uses: actions/download-artifact@v1

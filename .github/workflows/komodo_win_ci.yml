@@ -84,7 +84,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install requests
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
       - name: Base RPC Test (Windows)
@@ -116,7 +116,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install requests
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
       - name: CC Dice Faucet Tokens Rewards (Windows)
@@ -148,7 +148,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install requests
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
       - name: CC Oracles (Windows)
@@ -180,7 +180,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install requests
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
       - name: CC Heir (Windows)
@@ -212,7 +212,7 @@ jobs:
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
           python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install requests
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
 
       - name: ChannelsCC (Windows)

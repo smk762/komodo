@@ -55,7 +55,7 @@ jobs:
         run: |
           brew install python3 curl
           python3 -m pip install setuptools wheel
-          python3 -m pip install requests pytest wget jsonschema
+          python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
         uses: actions/download-artifact@v1
@@ -84,7 +84,7 @@ jobs:
         run: |
           brew install python3 curl
           python3 -m pip install setuptools wheel
-          python3 -m pip install requests pytest wget jsonschema
+          python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
         uses: actions/download-artifact@v1
@@ -113,7 +113,7 @@ jobs:
         run: |
           brew install python3 curl
           python3 -m pip install setuptools wheel
-          python3 -m pip install requests pytest wget jsonschema
+          python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
         uses: actions/download-artifact@v1
@@ -142,7 +142,7 @@ jobs:
         run: |
           brew install python3 curl
           python3 -m pip install setuptools wheel
-          python3 -m pip install requests pytest wget jsonschema
+          python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
         uses: actions/download-artifact@v1
@@ -171,7 +171,7 @@ jobs:
         run: |
           brew install python3 curl
           python3 -m pip install setuptools wheel
-          python3 -m pip install requests pytest wget jsonschema
+          python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
         uses: actions/download-artifact@v1
