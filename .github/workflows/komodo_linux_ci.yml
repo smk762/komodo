@@ -22,9 +22,28 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -q \
-                 curl \
-                 libcurl4-openssl-dev \
-                 libssl-dev -y
+                  build-essential \
+                  pkg-config \
+                  libc6-dev \
+                  m4 \
+                  g++-multilib \
+                  autoconf \
+                  libtool \
+                  ncurses-dev \
+                  unzip \
+                  git \
+                  python3 \
+                  python3-zmq \
+                  zlib1g-dev \
+                  wget \
+                  libcurl4-gnutls-dev \
+                  bsdmainutils \
+                  automake \
+                  curl \
+                  cmake \
+                  mingw-w64 \
+                  libsodium-dev \
+                  libevent-dev  -y
 
       - name: Build (Linux)
         run: |

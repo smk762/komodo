@@ -25,33 +25,23 @@ jobs:
                              libc6-dev \
                              m4 \
                              g++-multilib \
-                             autoconf libtool \
-                             libncurses-dev \
-                             unzip  \
+                             autoconf \
+                             libtool \
+                             ncurses-dev \
+                             unzip \
                              git \
                              python3 \
+                             python3-zmq \
                              zlib1g-dev \
                              wget \
+                             libcurl4-gnutls-dev \
                              bsdmainutils \
                              automake \
-                             libboost-all-dev \
-                             libssl-dev \
-                             libprotobuf-dev \
-                             protobuf-compiler \
-                             libqrencode-dev \
-                             libdb++-dev \
-                             ntp \
-                             ntpdate \
-                             nano \
-                             software-properties-common \
                              curl \
-                             libevent-dev \
-                             libcurl4-gnutls-dev \
                              cmake \
-                             clang \
+                             mingw-w64 \
                              libsodium-dev \
-                             python3-zmq \
-                             mingw-w64 -y
+                             libevent-dev  -y
         curl https://sh.rustup.rs -sSf | sh -s -- -y
         source $HOME/.cargo/env
         rustup target add x86_64-pc-windows-gnu
