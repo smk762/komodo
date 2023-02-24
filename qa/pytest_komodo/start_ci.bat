@@ -1,5 +1,5 @@
 set CLIENTS=2
-set CHAIN=TONYCI
+set CHAIN=KMDCI
 set TEST_ADDY0=RPWhA4f4ZTZxNi5K36bcwsWdVjSVDSjUnd
 set TEST_WIF0=UpcQympViQpLmv1WzMwszKPrmKUa28zsv8pdLCMgNMXDFBBBKxCN
 set TEST_PUBKEY0=02f0ec2d3da51b09e4fc8d9ba334c275b02b3ab6f22ce7be0ea5059cbccbd1b8c7
@@ -8,7 +8,7 @@ set TEST_WIF1=UwmmwgfXwZ673brawUarPzbtiqjsCPWnG311ZRAL4iUCZLBLYeDu
 set TEST_PUBKEY1=0285f68aec0e2f8b5e817d71a2a20a1fda74ea9943c752a13136a3a30fa49c0149
 set CHAIN_MODE=REGULAR
 set IS_BOOTSTRAP_NEEDED=True
-set BOOTSTRAP_URL=https://sirseven.me/share/bootstrap.tar.gz
+set BOOTSTRAP_URL=https://node.sirseven.me/fast_bootstrap.tar.gz
 
 python.exe chainstart.py
 
