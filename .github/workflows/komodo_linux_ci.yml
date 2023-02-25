@@ -86,7 +86,6 @@ jobs:
 
       - name: Test CC (Linux)
         run: |
-          mv komodo-linux/komodo-linux.tar.gz .
           mkdir -p src
           tar xzvf komodo-linux.tar.gz
           ./zcutil/fetch-params.sh
@@ -122,7 +121,6 @@ jobs:
 
       - name: Oracles Test (Linux)
         run: |
-          mv komodo-linux/komodo-linux.tar.gz .
           mkdir -p src
           tar xzvf komodo-linux.tar.gz
           ./zcutil/fetch-params.sh
@@ -158,7 +156,6 @@ jobs:
 
       - name: BasicRPC Test (Linux)
         run: |
-          mv komodo-linux/komodo-linux.tar.gz .
           mkdir -p src
           tar xzvf komodo-linux.tar.gz
           ./zcutil/fetch-params.sh
@@ -194,7 +191,6 @@ jobs:
 
       - name: Channels Test (Linux)
         run: |
-          mv komodo-linux/komodo-linux.tar.gz .
           mkdir -p src
           tar xzvf komodo-linux.tar.gz
           ./zcutil/fetch-params.sh
@@ -230,7 +226,6 @@ jobs:
 
       - name: Heir Test (Linux)
         run: |
-          mv komodo-linux/komodo-linux.tar.gz .
           mkdir -p src
           tar xzvf komodo-linux.tar.gz
           ./zcutil/fetch-params.sh
