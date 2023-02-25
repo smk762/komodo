@@ -37,7 +37,7 @@ jobs:
           tar -czvf komodo-macos.tar.gz src/komodod src/komodo-cli
 
       - name: Upload komodo-macos.tar.gz as artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: komodo-macos
           path: ./komodo-macos.tar.gz
@@ -58,7 +58,7 @@ jobs:
           python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-macos
 
@@ -87,7 +87,7 @@ jobs:
           python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-macos
 
@@ -116,7 +116,7 @@ jobs:
           python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-macos
 
@@ -145,7 +145,7 @@ jobs:
           python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-macos
 
@@ -174,7 +174,7 @@ jobs:
           python3 -m pip install requests pytest wget jsonschema ujson
 
       - name: Download komodo-macos.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-macos
 

@@ -52,7 +52,7 @@ jobs:
           tar -czvf komodo-linux.tar.gz src/komodod src/komodo-cli
 
       - name: Upload komodo-linux.tar.gz as artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: komodo-linux
           path: ./komodo-linux.tar.gz
@@ -80,7 +80,7 @@ jobs:
           python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-linux
 
@@ -116,7 +116,7 @@ jobs:
           python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-linux
 
@@ -152,7 +152,7 @@ jobs:
           python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-linux
 
@@ -188,7 +188,7 @@ jobs:
           python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-linux
 
@@ -224,7 +224,7 @@ jobs:
           python3 -m pip install requests ujson
 
       - name: Download komodo-linux.tar.gz
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodo-linux
 
