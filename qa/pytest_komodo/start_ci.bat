@@ -8,7 +8,7 @@ set TEST_WIF1=UwmmwgfXwZ673brawUarPzbtiqjsCPWnG311ZRAL4iUCZLBLYeDu
 set TEST_PUBKEY1=0285f68aec0e2f8b5e817d71a2a20a1fda74ea9943c752a13136a3a30fa49c0149
 set CHAIN_MODE=REGULAR
 set IS_BOOTSTRAP_NEEDED=True
-set BOOTSTRAP_URL=https://node.sirseven.me/fast_bootstrap.tar.gz
+set BOOTSTRAP_URL=https://node.dragonhound.info/fast_bootstrap.tar.gz
 
 python.exe chainstart.py
 
