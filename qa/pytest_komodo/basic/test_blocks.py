@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # Copyright (c) 2019 SuperNET developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
 import pytest
-from pytest_util import validate_transaction
-from pytest_util import validate_template
+from lib.pytest_util import validate_template
 from decimal import *
 
 

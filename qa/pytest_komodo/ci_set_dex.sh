@@ -14,7 +14,7 @@ export TEST_WIF2="UqMLYDNVtYLPKZ2CcqeBU1FcYNHkknVZaMuQRqqZWXyPmSuJw3kr"
 export TEST_PUBKEY2="02e9b141e1c251a942f77df10fa4de00f53f8ab2a6d5341bbaf842c95e674e92e9"
 export CHAIN_MODE="DEX2"
 export IS_BOOTSTRAP_NEEDED="True"
-export BOOTSTRAP_URL="https://sirseven.me/share/bootstrap.tar.gz"
+export BOOTSTRAP_URL="https://node.dragonhound.info/fast_bootstrap.tar.gz"
 
 # starting the chains
 python3 chainstart.py

@@ -3,10 +3,7 @@ import time
 import sys
 from random import choice
 from string import ascii_uppercase
-try:
-    from slickrpc import Proxy
-except ImportError:
-    from bitcoinrpc.authproxy import AuthServiceProxy as Proxy
+from lib.komodo_requests import Proxy
 
 
 def assert_success(result):

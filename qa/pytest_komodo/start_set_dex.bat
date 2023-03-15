@@ -1,5 +1,5 @@
 set CLIENTS=2
-set CHAIN=TONYCI
+set CHAIN=KMDCI
 set TEST_ADDY0=RPWhA4f4ZTZxNi5K36bcwsWdVjSVDSjUnd
 set TEST_WIF0=UpcQympViQpLmv1WzMwszKPrmKUa28zsv8pdLCMgNMXDFBBBKxCN
 set TEST_PUBKEY0=02f0ec2d3da51b09e4fc8d9ba334c275b02b3ab6f22ce7be0ea5059cbccbd1b8c7
@@ -11,7 +11,7 @@ set TEST_WIF2=UqMLYDNVtYLPKZ2CcqeBU1FcYNHkknVZaMuQRqqZWXyPmSuJw3kr
 set TEST_PUBKEY2=02e9b141e1c251a942f77df10fa4de00f53f8ab2a6d5341bbaf842c95e674e92e9
 set CHAIN_MODE=DEX2
 set IS_BOOTSTRAP_NEEDED=True
-set BOOTSTRAP_URL=https://sirseven.me/share/bootstrap.tar.gz
+set BOOTSTRAP_URL=https://node.dragonhound.info/fast_bootstrap.tar.gz
 
 python.exe chainstart.py
 

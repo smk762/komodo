@@ -10,7 +10,7 @@ import sys
 import os
 
 sys.path.append('../')
-from basic.pytest_util import randomstring, in_99_range, collect_orderids, check_synced, \
+from lib.pytest_util import randomstring, in_99_range, collect_orderids, check_synced, \
                               get_size, write_file, get_filehash, compare_rough, write_empty_file
 
 

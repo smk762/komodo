@@ -14,60 +14,49 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Install deps(mingw)
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo apt-get update  # prevents repo404 errors on apt-remove below
-        sudo apt-get remove php* msodbcsql17 mysql* powershell containernetworking-* containers* dotn*
-        sudo ACCEPT_EULA=Y apt-get upgrade -y
-        sudo apt-get update
         sudo apt-get install build-essential \
                              pkg-config \
                              libc6-dev \
                              m4 \
                              g++-multilib \
-                             autoconf libtool \
-                             libncurses-dev \
-                             unzip  \
+                             autoconf \
+                             libtool \
+                             ncurses-dev \
+                             unzip \
                              git \
                              python3 \
+                             python3-zmq \
                              zlib1g-dev \
                              wget \
+                             libcurl4-gnutls-dev \
                              bsdmainutils \
                              automake \
-                             libboost-all-dev \
-                             libssl-dev \
-                             libprotobuf-dev \
-                             protobuf-compiler \
-                             libqrencode-dev \
-                             libdb++-dev \
-                             ntp \
-                             ntpdate \
-                             nano \
-                             software-properties-common \
                              curl \
-                             libevent-dev \
-                             libcurl4-gnutls-dev \
                              cmake \
-                             clang \
+                             mingw-w64 \
                              libsodium-dev \
-                             python3-zmq \
-                             mingw-w64 -y
+                             libevent-dev  -y
         curl https://sh.rustup.rs -sSf | sh -s -- -y
         source $HOME/.cargo/env
         rustup target add x86_64-pc-windows-gnu
         sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
         sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
     - name: Build Win (mingw)
       run: |
         # flag for some CC tests transactions - so DO NOT USE THIS CI ARTIFACTS IN PRODUCTION!!!
         export CONFIGURE_FLAGS='CPPFLAGS=-DTESTMODE'
         ./zcutil/build-win-dtest.sh -j$(nproc)
         zip --junk-paths komodod_win src/komodod.exe src/komodo-cli.exe
+
     - name: Upload komodod.exe as artifact
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: komodod_win
         path: ./komodod_win.zip
@@ -79,10 +68,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodod_win
 
@@ -94,14 +83,16 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install pytest wget jsonschema
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
+
       - name: Base RPC Test (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat basic
+
   windows-test-dice-faucet-tok-rewCC:
 
     name: Test (Win/Dice Faucet Token Rewards)
@@ -109,10 +100,10 @@ jobs:
     needs: windows-build
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodod_win
 
@@ -124,14 +115,16 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install pytest wget jsonschema
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
+
       - name: CC Dice Faucet Tokens Rewards (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_dice.py cc_modules\test_faucet.py cc_modules\test_token.py cc_modules\test_rewards.py
+
   windows-test-oracles-cc:
 
     name: Test (Win/OraclesCC)
@@ -139,10 +132,10 @@ jobs:
     needs: windows-build
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodod_win
 
@@ -154,14 +147,16 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install pytest wget jsonschema
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
+
       - name: CC Oracles (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_oracles.py
+
   windows-test-heir-cc:
 
     name: Test (Win/HeirCC)
@@ -169,10 +164,10 @@ jobs:
     needs: windows-build
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodod_win
 
@@ -184,14 +179,16 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install pytest wget jsonschema
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
+
       - name: CC Heir (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_heir.py
+
   windows-test-channels-cc:
 
     name: Test (Win/ChannelsCC)
@@ -199,10 +196,10 @@ jobs:
     needs: windows-build
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: komodod_win
 
@@ -214,9 +211,10 @@ jobs:
           move komodod.exe src\
           python.exe -m pip install --upgrade setuptools
           python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python.exe -m pip install pytest wget jsonschema
+          python.exe -m pip install requests ujson
           zcutil\fetch-params.bat
+
       - name: ChannelsCC (Windows)
         shell: cmd
         run: |
