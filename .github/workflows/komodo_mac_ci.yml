@@ -67,8 +67,6 @@ jobs:
         run: |
           pwd
           ls -al
-          ls -al komodo-macos
-          mv komodo-macos/komodo-macos.tar.gz .
           mkdir -p src
           tar xzvf komodo-macos.tar.gz
           ./zcutil/fetch-params.sh
