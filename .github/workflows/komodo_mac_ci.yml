@@ -95,7 +95,8 @@ jobs:
 
       - name: Oracles Test (macos)
         run: |
-          mv komodo-macos/komodo-macos.tar.gz .
+          pwd
+          ls -al
           mkdir -p src
           tar xzvf komodo-macos.tar.gz
           ./zcutil/fetch-params.sh
@@ -124,7 +125,8 @@ jobs:
 
       - name: BasicRPC Test (macos)
         run: |
-          mv komodo-macos/komodo-macos.tar.gz .
+          pwd
+          ls -al
           mkdir -p src
           tar xzvf komodo-macos.tar.gz
           ./zcutil/fetch-params.sh
@@ -153,7 +155,8 @@ jobs:
 
       - name: Channels Test (macos)
         run: |
-          mv komodo-macos/komodo-macos.tar.gz .
+          pwd
+          ls -al
           mkdir -p src
           tar xzvf komodo-macos.tar.gz
           ./zcutil/fetch-params.sh
@@ -182,7 +185,8 @@ jobs:
 
       - name: Heir Test (macos)
         run: |
-          mv komodo-macos/komodo-macos.tar.gz .
+          pwd
+          ls -al
           mkdir -p src
           tar xzvf komodo-macos.tar.gz
           ./zcutil/fetch-params.sh
