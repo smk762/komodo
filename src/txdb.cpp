@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2016-2022 The Zcash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -26,6 +27,7 @@
 #include "pow.h"
 #include "uint256.h"
 #include "core_io.h"
+#include "komodo_bitcoind.h"
 
 #include <stdint.h>
 
@@ -214,10 +216,11 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     return db.WriteBatch(batch);
 }
 
-CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe, bool compression, int maxOpenFiles) : CDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe, compression, maxOpenFiles) {
+CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe, bool compression, int maxOpenFiles) 
+        : CDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe, compression, maxOpenFiles) {
 }
 
-bool CBlockTreeDB::ReadBlockFileInfo(int nFile, CBlockFileInfo &info) {
+bool CBlockTreeDB::ReadBlockFileInfo(int nFile, CBlockFileInfo &info) const {
     return Read(make_pair(DB_BLOCK_FILES, nFile), info);
 }
 
@@ -228,12 +231,12 @@ bool CBlockTreeDB::WriteReindexing(bool fReindexing) {
         return Erase(DB_REINDEX_FLAG);
 }
 
-bool CBlockTreeDB::ReadReindexing(bool &fReindexing) {
+bool CBlockTreeDB::ReadReindexing(bool &fReindexing) const {
     fReindexing = Exists(DB_REINDEX_FLAG);
     return true;
 }
 
-bool CBlockTreeDB::ReadLastBlockFile(int &nFile) {
+bool CBlockTreeDB::ReadLastBlockFile(int &nFile) const {
     return Read(DB_LAST_BLOCK, nFile);
 }
 
@@ -283,14 +286,36 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
     return true;
 }
 
-bool CBlockTreeDB::WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<const CBlockIndex*>& blockinfo) {
+/***
+ * Write a batch of records and sync
+ * @param fileInfo the records to write
+ * @param nLastFile the value for DB_LAST_BLOCK
+ * @param blockinfo the index records to write
+ * @returns true on success
+ */
+bool CBlockTreeDB::WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<CBlockIndex*>& blockinfo) {
     CDBBatch batch(*this);
-    for (std::vector<std::pair<int, const CBlockFileInfo*> >::const_iterator it=fileInfo.begin(); it != fileInfo.end(); it++) {
-        batch.Write(make_pair(DB_BLOCK_FILES, it->first), *it->second);
+    for (const auto& it : fileInfo) {
+        batch.Write(make_pair(DB_BLOCK_FILES, it.first), *it.second);
     }
     batch.Write(DB_LAST_BLOCK, nLastFile);
-    for (std::vector<const CBlockIndex*>::const_iterator it=blockinfo.begin(); it != blockinfo.end(); it++) {
-        batch.Write(make_pair(DB_BLOCK_INDEX, (*it)->GetBlockHash()), CDiskBlockIndex(*it));
+    for (const auto& it : blockinfo) {
+        std::pair<char, uint256> key = make_pair(DB_BLOCK_INDEX, it->GetBlockHash());
+        try {
+            CDiskBlockIndex dbindex {it, [this, &key]() {
+                // It can happen that the index entry is written, then the Equihash solution is cleared from memory,
+                // then the index entry is rewritten. In that case we must read the solution from the old entry.
+                CDiskBlockIndex dbindex_old;
+                if (!Read(key, dbindex_old)) {
+                    LogPrintf("%s: Failed to read index entry", __func__);
+                    throw runtime_error("Failed to read index entry");
+                }
+                return dbindex_old.GetSolution();
+            }};
+            batch.Write(key, dbindex);
+        } catch (const runtime_error&) {
+            return false;
+        }
     }
     return WriteBatch(batch, true);
 }
@@ -303,7 +328,11 @@ bool CBlockTreeDB::EraseBatchSync(const std::vector<const CBlockIndex*>& blockin
     return WriteBatch(batch, true);
 }
 
-bool CBlockTreeDB::ReadTxIndex(const uint256 &txid, CDiskTxPos &pos) {
+bool CBlockTreeDB::ReadDiskBlockIndex(const uint256 &blockhash, CDiskBlockIndex &dbindex) const {
+    return Read(make_pair(DB_BLOCK_INDEX, blockhash), dbindex);
+}
+
+bool CBlockTreeDB::ReadTxIndex(const uint256 &txid, CDiskTxPos &pos) const {
     return Read(make_pair(DB_TXINDEX, txid), pos);
 }
 
@@ -314,7 +343,7 @@ bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos>
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value) {
+bool CBlockTreeDB::ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value) const {
     return Read(make_pair(DB_SPENTINDEX, key), value);
 }
 
@@ -436,7 +465,6 @@ bool CBlockTreeDB::ReadAddressIndex(uint160 addressHash, int type,
 }
 
 bool getAddressFromIndex(const int &type, const uint160 &hash, std::string &address);
-uint32_t komodo_segid32(char *coinaddr);
 
 #define DECLARE_IGNORELIST std::map <std::string,int> ignoredMap = { \
     {"RReUxSs5hGE39ELU23DfydX8riUuzdrHAE", 1}, \
@@ -464,7 +492,7 @@ bool CBlockTreeDB::Snapshot2(std::map <std::string, CAmount> &addressAmounts, Un
     int64_t utxos = 0; int64_t ignoredAddresses = 0, cryptoConditionsUTXOs = 0, cryptoConditionsTotals = 0;
     DECLARE_IGNORELIST
     boost::scoped_ptr<CDBIterator> iter(NewIterator());
-    //std::map <std::string, CAmount> addressAmounts;
+
     for (iter->SeekToLast(); iter->Valid(); iter->Prev())
     {
         boost::this_thread::interruption_point();
@@ -475,7 +503,7 @@ bool CBlockTreeDB::Snapshot2(std::map <std::string, CAmount> &addressAmounts, Un
             iter->GetKey(keyObj);
             char chType = keyObj.first;
             CAddressIndexIteratorKey indexKey = keyObj.second;
-            //fprintf(stderr, "chType=%d\n", chType);
+
             if (chType == DB_ADDRESSUNSPENTINDEX)
             {
                 try {
@@ -502,18 +530,14 @@ bool CBlockTreeDB::Snapshot2(std::map <std::string, CAmount> &addressAmounts, Un
                     if ( pos == addressAmounts.end() )
                     {
                         // insert new address + utxo amount
-                        //fprintf(stderr, "inserting new address %s with amount %li\n", address.c_str(), nValue);
                         addressAmounts[address] = nValue;
                         totalAddresses++;
                     }
                     else
                     {
                         // update unspent tally for this address
-                        //fprintf(stderr, "updating address %s with new utxo amount %li\n", address.c_str(), nValue);
                         addressAmounts[address] += nValue;
                     }
-                    //fprintf(stderr,"{\"%s\", %.8f},\n",address.c_str(),(double)nValue/COIN);
-                    // total += nValue;
                     utxos++;
                     total += nValue;
                 }
@@ -530,8 +554,7 @@ bool CBlockTreeDB::Snapshot2(std::map <std::string, CAmount> &addressAmounts, Un
             break;
         }
     }
-    //fprintf(stderr, "total=%f, totalAddresses=%li, utxos=%li, ignored=%li\n", (double) total / COIN, totalAddresses, utxos, ignoredAddresses);
-    
+  
     // this is for the snapshot RPC, you can skip this by passing a 0 as the last argument.
     if (ret)
     {
@@ -557,17 +580,16 @@ bool CBlockTreeDB::Snapshot2(std::map <std::string, CAmount> &addressAmounts, Un
     return true;
 }
 
-extern std::vector <std::pair<CAmount, CTxDestination>> vAddressSnapshot;
+extern std::vector <std::pair<CAmount, CTxDestination>> vAddressSnapshot; // daily snapshot
 
 UniValue CBlockTreeDB::Snapshot(int top)
 {
-    int topN = 0;
     std::vector <std::pair<CAmount, std::string>> vaddr;
-    //std::vector <std::vector <std::pair<CAmount, CScript>>> tokenids;
     std::map <std::string, CAmount> addressAmounts;
     UniValue result(UniValue::VOBJ);
     UniValue addressesSorted(UniValue::VARR);
     result.push_back(Pair("start_time", (int) time(NULL)));
+
     if ( (vAddressSnapshot.size() > 0 && top < 0) || (Snapshot2(addressAmounts,&result) && top >= 0) )
     {
         if ( top > -1 )
@@ -650,7 +672,7 @@ bool CBlockTreeDB::WriteTimestampBlockIndex(const CTimestampBlockIndexKey &block
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::ReadTimestampBlockIndex(const uint256 &hash, unsigned int &ltimestamp) {
+bool CBlockTreeDB::ReadTimestampBlockIndex(const uint256 &hash, unsigned int &ltimestamp) const {
 
     CTimestampBlockIndexValue(lts);
     if (!Read(std::make_pair(DB_BLOCKHASHINDEX, hash), lts))
@@ -664,7 +686,7 @@ bool CBlockTreeDB::WriteFlag(const std::string &name, bool fValue) {
     return Write(std::make_pair(DB_FLAG, name), fValue ? '1' : '0');
 }
 
-bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
+bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) const {
     char ch;
     if (!Read(std::make_pair(DB_FLAG, name), ch))
         return false;
@@ -712,7 +734,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nTime          = diskindex.nTime;
                 pindexNew->nBits          = diskindex.nBits;
                 pindexNew->nNonce         = diskindex.nNonce;
-                pindexNew->nSolution      = diskindex.nSolution;
+                // the Equihash solution will be loaded lazily from the dbindex entry
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nCachedBranchId = diskindex.nCachedBranchId;
                 pindexNew->nTx            = diskindex.nTx;
@@ -720,14 +742,24 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nSaplingValue  = diskindex.nSaplingValue;
                 pindexNew->segid          = diskindex.segid;
                 pindexNew->nNotaryPay     = diskindex.nNotaryPay;
-//fprintf(stderr,"loadguts ht.%d\n",pindexNew->nHeight);
-                // Consistency checks
-                auto header = pindexNew->GetBlockHeader();
-                if (header.GetHash() != pindexNew->GetBlockHash())
-                    return error("LoadBlockIndex(): block header inconsistency detected: on-disk = %s, in-memory = %s",
-                                 diskindex.ToString(),  pindexNew->ToString());
+
                 if ( 0 ) // POW will be checked before any block is connected
                 {
+                    // Consistency checks
+                    CBlockHeader header;
+                    {
+                        LOCK(cs_main);
+                        try {
+                            header = pindexNew->GetBlockHeader();
+                        } catch (const runtime_error&) {
+                            return error("LoadBlockIndex(): failed to read index entry: diskindex hash = %s",
+                                diskindex.GetBlockHash().ToString());
+                        }
+                    }
+                    if (header.GetHash() != pindexNew->GetBlockHash())
+                        return error("LoadBlockIndex(): block header inconsistency detected: on-disk = %s, in-memory = %s",
+                                    diskindex.ToString(),  pindexNew->ToString());
+
                     uint8_t pubkey33[33];
                     komodo_index2pubkey33(pubkey33,pindexNew,pindexNew->nHeight);
                     if (!CheckProofOfWork(header,pubkey33,pindexNew->nHeight,Params().GetConsensus()))

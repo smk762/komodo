@@ -602,7 +602,6 @@ public:
     bool WriteToDisk(CWalletDB *pwalletdb);
 
     int64_t GetTxTime() const;
-    int GetRequestCount() const;
 
     bool RelayWalletTransaction();
 
@@ -747,6 +746,8 @@ private:
  */
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
+protected:
+    bool fBroadcastTransactions;
 private:
     bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
 
@@ -760,7 +761,6 @@ private:
 
     int64_t nNextResend;
     int64_t nLastResend;
-    bool fBroadcastTransactions;
 
     template <class T>
     using TxSpendMap = std::multimap<T, uint256>;
@@ -976,7 +976,6 @@ public:
     std::map<uint256, CWalletTx> mapWallet;
 
     int64_t nOrderPosNext;
-    std::map<uint256, int> mapRequestCount;
 
     std::map<CTxDestination, CAddressBookData> mapAddressBook;
 
@@ -1225,16 +1224,6 @@ public:
     bool DelAddressBook(const CTxDestination& address);
 
     void UpdatedTransaction(const uint256 &hashTx);
-
-    void Inventory(const uint256 &hash)
-    {
-        {
-            LOCK(cs_wallet);
-            std::map<uint256, int>::iterator mi = mapRequestCount.find(hash);
-            if (mi != mapRequestCount.end())
-                (*mi).second++;
-        }
-    }
 
     unsigned int GetKeyPoolSize()
     {

@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2017-2022 The Zcash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -28,6 +29,8 @@
 #include "txmempool.h"
 #include "utilstrencodings.h"
 #include "version.h"
+#include "rpc/rawtransaction.h"
+#include "rpc/blockchain.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/dynamic_bitset.hpp>
@@ -70,13 +73,6 @@ struct CCoin {
         READWRITE(out);
     }
 };
-
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
-extern UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
-extern UniValue mempoolInfoToJSON();
-extern UniValue mempoolToJSON(bool fVerbose = false);
-extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
-extern UniValue blockheaderToJSON(const CBlockIndex* blockindex);
 
 static bool RESTERR(HTTPRequest* req, enum HTTPStatusCode status, string message)
 {
@@ -154,6 +150,7 @@ static bool rest_headers(HTTPRequest* req,
 
     std::vector<const CBlockIndex *> headers;
     headers.reserve(count);
+    CDataStream ssHeader(SER_NETWORK, PROTOCOL_VERSION);
     {
         LOCK(cs_main);
         BlockMap::const_iterator it = mapBlockIndex.find(hash);
@@ -164,11 +161,16 @@ static bool rest_headers(HTTPRequest* req,
                 break;
             pindex = chainActive.Next(pindex);
         }
-    }
 
-    CDataStream ssHeader(SER_NETWORK, PROTOCOL_VERSION);
-    BOOST_FOREACH(const CBlockIndex *pindex, headers) {
-        ssHeader << pindex->GetBlockHeader();
+    if (rf == RF_BINARY || rf == RF_HEX) {
+            try {
+        for (const CBlockIndex *pindex : headers) {
+            ssHeader << pindex->GetBlockHeader();
+                }
+            } catch (const std::runtime_error&) {
+                return RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, "Failed to read index entry");
+            }
+        }
     }
 
     switch (rf) {
@@ -548,7 +550,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
         // serialize data
         // use exact same output as mentioned in Bip64
         CDataStream ssGetUTXOResponse(SER_NETWORK, PROTOCOL_VERSION);
-        ssGetUTXOResponse << chainActive.Height() << chainActive.LastTip()->GetBlockHash() << bitmap << outs;
+        ssGetUTXOResponse << chainActive.Height() << chainActive.Tip()->GetBlockHash() << bitmap << outs;
         string ssGetUTXOResponseString = ssGetUTXOResponse.str();
 
         req->WriteHeader("Content-Type", "application/octet-stream");
@@ -558,7 +560,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
 
     case RF_HEX: {
         CDataStream ssGetUTXOResponse(SER_NETWORK, PROTOCOL_VERSION);
-        ssGetUTXOResponse << chainActive.Height() << chainActive.LastTip()->GetBlockHash() << bitmap << outs;
+        ssGetUTXOResponse << chainActive.Height() << chainActive.Tip()->GetBlockHash() << bitmap << outs;
         string strHex = HexStr(ssGetUTXOResponse.begin(), ssGetUTXOResponse.end()) + "\n";
 
         req->WriteHeader("Content-Type", "text/plain");
@@ -572,7 +574,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
         // pack in some essentials
         // use more or less the same output as mentioned in Bip64
         objGetUTXOResponse.push_back(Pair("chainHeight", chainActive.Height()));
-        objGetUTXOResponse.push_back(Pair("chaintipHash", chainActive.LastTip()->GetBlockHash().GetHex()));
+        objGetUTXOResponse.push_back(Pair("chaintipHash", chainActive.Tip()->GetBlockHash().GetHex()));
         objGetUTXOResponse.push_back(Pair("bitmap", bitmapStringRepresentation));
 
         UniValue utxos(UniValue::VARR);

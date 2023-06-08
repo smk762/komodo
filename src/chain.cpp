@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2017-2022 The Zcash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -19,6 +20,13 @@
  ******************************************************************************/
 
 #include "chain.h"
+#include "komodo_defs.h"
+#include "komodo_globals.h"
+#include "notaries_staked.h"
+#include "komodo_hardfork.h"
+
+#include "main.h"
+#include "txdb.h"
 
 using namespace std;
 
@@ -26,7 +34,7 @@ using namespace std;
  * CChain implementation
  */
 void CChain::SetTip(CBlockIndex *pindex) {
-    lastTip = pindex;
+    AssertLockHeld(cs_main);
     if (pindex == NULL) {
         vChain.clear();
         return;
@@ -39,6 +47,7 @@ void CChain::SetTip(CBlockIndex *pindex) {
 }
 
 CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
+    AssertLockHeld(cs_main);
     int nStep = 1;
     std::vector<uint256> vHave;
     vHave.reserve(32);
@@ -67,6 +76,7 @@ CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
 }
 
 const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {
+    AssertLockHeld(cs_main);
     if ( pindex == 0 )
         return(0);
     if (pindex->nHeight > Height())
@@ -74,6 +84,48 @@ const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {
     while (pindex && !Contains(pindex))
         pindex = pindex->pprev;
     return pindex;
+}
+
+void CBlockIndex::TrimSolution()
+{
+    AssertLockHeld(cs_main);
+
+    // We can correctly trim a solution as soon as the block index entry has been added
+    // to leveldb. Updates to the block index entry (to update validity status) will be
+    // handled by re-reading the solution from the existing db entry. It does not help to
+    // try to avoid these reads by gating trimming on the validity status: the re-reads are
+    // efficient anyway because of caching in leveldb, and most of them are unavoidable.
+    if (HasSolution()) {
+        std::vector<unsigned char> empty;
+        nSolution.swap(empty);
+    }
+}
+
+CBlockHeader CBlockIndex::GetBlockHeader() const
+{
+    AssertLockHeld(cs_main);
+
+    CBlockHeader header;
+    header.nVersion             = nVersion;
+    if (pprev) {
+        header.hashPrevBlock    = pprev->GetBlockHash();
+    }
+    header.hashMerkleRoot       = hashMerkleRoot;
+    header.hashFinalSaplingRoot = hashFinalSaplingRoot;
+    header.nTime                = nTime;
+    header.nBits                = nBits;
+    header.nNonce               = nNonce;
+    if (HasSolution()) {
+        header.nSolution        = nSolution;
+    } else {
+        CDiskBlockIndex dbindex;
+        if (!pblocktree->ReadDiskBlockIndex(GetBlockHash(), dbindex)) {
+            LogPrintf("%s: Failed to read index entry", __func__);
+            throw std::runtime_error("Failed to read index entry");
+        }
+        header.nSolution        = dbindex.GetSolution();
+    }
+    return header;
 }
 
 /** Turn the lowest '1' bit in the binary representation of a number into a '0'. */
@@ -126,4 +178,14 @@ void CBlockIndex::BuildSkip()
 {
     if (pprev)
         pskip = pprev->GetAncestor(GetSkipHeight(nHeight));
+}
+
+bool CDiskBlockIndex::isStakedAndNotaryPay() const
+{
+    return is_STAKED(chainName.symbol()) != 0 && ASSETCHAINS_NOTARY_PAY[0] != 0;
+}
+
+bool CDiskBlockIndex::isStakedAndAfterDec2019(unsigned int nTime) const
+{
+    return ASSETCHAINS_STAKED != 0 && (nTime > nStakedDecemberHardforkTimestamp || is_STAKED(chainName.symbol()) != 0);
 }
