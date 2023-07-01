@@ -2,14 +2,13 @@
 
 name: Komodo CD test releases
 
-
 on:
   push:
     branches:
     - beta
     - dev
     - research
-
+    - master
 
 jobs:
 
