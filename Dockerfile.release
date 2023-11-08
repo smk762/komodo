@@ -1,10 +1,10 @@
 FROM ubuntu:20.04
 RUN \ 
-    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    apt-get install software-properties-common && \
+    add-apt-repository ppa:ubuntu-toolchain-r/test -y && \
     apt-get update && \
     sudo apt-get upgrade && \
     sudo apt-get dist-upgrade && \
-    apt-get update && \
     apt-get install -y libgomp1 libstdc++6
 RUN mkdir /komodo
 WORKDIR /komodo

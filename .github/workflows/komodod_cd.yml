@@ -36,14 +36,16 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
+          sudo apt-get install software-properties-common -y
           sudo apt-get update  # prevents repo404 errors on apt-remove below
           sudo apt-get remove php* msodbcsql17 mysql* powershell dotn*
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt-get update
           sudo ACCEPT_EULA=Y apt-get upgrade -y
           sudo apt-get install build-essential pkg-config libc6-dev m4 g++-multilib autoconf libtool \
                                libncurses-dev unzip wget bsdmainutils automake libboost-all-dev libssl-dev \
                                libprotobuf-dev protobuf-compiler libqrencode-dev libdb++-dev ntp ntpdate nano \
-                               software-properties-common curl libevent-dev libcurl4-gnutls-dev cmake clang \
+                               curl libevent-dev libcurl4-gnutls-dev cmake clang \
                                libsodium-dev ncurses-dev git python3 python3-zmq zlib1g-dev libstdc++6 -y
           strings /usr/lib/x86_64-linux-gnu/libstdc++.so.6 | grep GLIBCXX
       - name: Build (Linux)
