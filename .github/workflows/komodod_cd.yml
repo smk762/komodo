@@ -75,7 +75,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build container
-        run: docker build -f Dockerfile.release -t komodoofficial/komodo:cd_release_${{ steps.shortify_commit.outputs.sha_short }}_${{ steps.extract_branch.outputs.branch }} .
+        run: docker build -f Dockerfile.release -t ${{ secrets.DOCKER_ORG }}/komodo:cd_release_${{ steps.shortify_commit.outputs.sha_short }}_${{ steps.extract_branch.outputs.branch }} .
 
       - name: Push to docker hub
         uses: actions-hub/docker@master
