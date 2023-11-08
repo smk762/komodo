@@ -1,5 +1,5 @@
 FROM ubuntu:20.04
-MAINTAINER Mihail Fedorov <kolo@komodoplatform.com>
+MAINTAINER smk762 <smk@komodoplatform.com>
 
 RUN apt-get -y update && \
     apt-get -y upgrade && \
