@@ -5,7 +5,7 @@ RUN \
     sudo apt-get upgrade && \
     sudo apt-get dist-upgrade && \
     apt-get update && \
-    apt-get install -y libgomp1
+    apt-get install -y libgomp1 libstdc++6
 RUN mkdir /komodo
 WORKDIR /komodo
 COPY src/komodod src/komodo-cli ./
