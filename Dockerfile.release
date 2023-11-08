@@ -19,7 +19,7 @@ RUN apt-get update -y && \
         bsdmainutils \
         automake \
         curl \
-        libsodium-dev -y && \
+        libsodium-dev && \
         rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN mkdir /komodo
