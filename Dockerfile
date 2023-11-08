@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:20.04
 MAINTAINER Mihail Fedorov <kolo@komodoplatform.com>
 
 RUN apt-get -y update && \

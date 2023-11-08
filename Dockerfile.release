@@ -1,8 +1,33 @@
 FROM ubuntu:20.04
-RUN \ 
-    apt-get update &&\
-    apt-get install -y libgomp1
-CMD mkdir /komodo
+RUN apt-get update -y && \
+    ACCEPT_EULA=Y apt-get upgrade -y \
+    apt-get install -q \
+        build-essential \
+        pkg-config \
+        libc6-dev \
+        m4 \
+        g++-multilib \
+        autoconf \
+        libtool \
+        ncurses-dev \
+        unzip \
+        git \
+        python3-zmq \
+        zlib1g-dev \
+        wget \
+        libcurl4-gnutls-dev \
+        bsdmainutils \
+        automake \
+        curl \
+        libsodium-dev -y && \
+        rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN mkdir /komodo
 WORKDIR /komodo
 COPY src/komodod src/komodo-cli ./
-CMD ./komodod
+
+
+RUN ln -sf /komodo/komodod /usr/bin/komodod && \
+    ln -sf /komodo/komodo-cli /usr/bin/komodo-cli
+
+CMD komodod
