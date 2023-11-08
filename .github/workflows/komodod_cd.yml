@@ -41,7 +41,7 @@ jobs:
           sudo apt-get update  # prevents repo404 errors on apt-remove below
           sudo apt-get remove php* msodbcsql17 mysql* powershell dotn*
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update
+          sudo apt-get update -y
           sudo ACCEPT_EULA=Y apt-get upgrade -y
           sudo apt-get install build-essential pkg-config libc6-dev m4 g++-multilib autoconf libtool \
                                libncurses-dev unzip wget bsdmainutils automake libboost-all-dev libssl-dev \
