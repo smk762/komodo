@@ -4,8 +4,8 @@ RUN \
     apt-get install software-properties-common -y && \
     add-apt-repository ppa:ubuntu-toolchain-r/test -y && \
     apt-get update && \
-    sudo apt-get upgrade && \
-    sudo apt-get dist-upgrade && \
+    apt-get upgrade && \
+    apt-get dist-upgrade && \
     apt-get install -y libgomp1 libstdc++6 binutils
 RUN mkdir /komodo
 WORKDIR /komodo
