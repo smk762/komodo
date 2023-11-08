@@ -38,7 +38,7 @@ jobs:
           sudo apt-get remove php* msodbcsql17 mysql* powershell dotn*
           sudo apt-get update
           sudo ACCEPT_EULA=Y apt-get upgrade -y
-          sudo apt-get install -q \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
                 build-essential \
                 pkg-config \
                 libc6-dev \
@@ -56,7 +56,7 @@ jobs:
                 bsdmainutils \
                 automake \
                 curl \
-                libsodium-dev -y
+                libsodium-dev
       - name: Build (Linux)
         if: runner.os == 'Linux'
         run: |
