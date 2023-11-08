@@ -1,6 +1,6 @@
 FROM ubuntu:20.04
 RUN apt-get update -y && \
-    ACCEPT_EULA=Y apt-get upgrade -y \
+    ACCEPT_EULA=Y apt-get upgrade -y && \
     apt-get install -q \
         build-essential \
         pkg-config \
