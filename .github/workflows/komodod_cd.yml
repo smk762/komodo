@@ -135,7 +135,7 @@ jobs:
 
   publish-release:
       name: Publishing CD releases
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-20.04
       needs: [linux-build, osx-build, windows-build]
       steps:
         - name: Download komodo-linux.zip
