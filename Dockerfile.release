@@ -1,6 +1,10 @@
-FROM ubuntu:22.04
+FROM ubuntu:20.04
 RUN \ 
-    apt-get update &&\
+    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    apt-get update && \
+    sudo apt-get upgrade && \
+    sudo apt-get dist-upgrade && \
+    apt-get update && \
     apt-get install -y libgomp1
 RUN mkdir /komodo
 WORKDIR /komodo
