@@ -7,8 +7,8 @@ on:
     - cron: '0 0 * * 1'
 
 jobs:
-  if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
   macos-build:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     name: MacOS Build
     runs-on: macos-latest
     

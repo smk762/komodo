@@ -12,8 +12,8 @@ on:
     - master
 
 jobs:
-  if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
   linux-build:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     name: Linux Build
     # using there as old release as possible with GHA worker to provide better compatibility
     runs-on: ubuntu-20.04
@@ -75,6 +75,7 @@ jobs:
           args: push ${{ secrets.DOCKER_ORG }}/komodo:cd_release_${{ steps.shortify_commit.outputs.sha_short }}_${{ steps.extract_branch.outputs.branch }}
 
   osx-build:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     name: OSX Build
     runs-on: macos-latest
     steps:
@@ -105,6 +106,7 @@ jobs:
           path: ./komodo-osx.zip
 
   windows-build:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     name: Windows Build (mingw)
     runs-on: ubuntu-latest
 
@@ -139,6 +141,7 @@ jobs:
           path: ./komodo-win.zip      
 
   publish-release:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
       name: Publishing CD releases
       runs-on: ubuntu-20.04
       needs: [linux-build, osx-build, windows-build]

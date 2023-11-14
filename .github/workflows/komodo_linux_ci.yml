@@ -7,8 +7,8 @@ on:
     - cron: '0 0 * * 1'
 
 jobs:
-  if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
   linux-build:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     name: Linux Build
     runs-on: ubuntu-20.04
 
@@ -47,7 +47,7 @@ jobs:
           path: ./komodo-linux.tar.gz
 
   linux-test-dice-token-reards-faucet-cc:
-    if: ${{ false }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
 
     name: Test (Linux/Dice, Token, Faucet, Rewards)
     runs-on: ubuntu-20.04
@@ -84,7 +84,7 @@ jobs:
           cd qa/pytest_komodo
           ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_token.py cc_modules/test_rewards.py"
   linux-test-oracles:
-    if: ${{ false }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
 
     name: Test (Linux/OraclesCC)
     runs-on: ubuntu-20.04
@@ -121,7 +121,7 @@ jobs:
           cd qa/pytest_komodo
           ./ci_setup.sh cc_modules/test_oracles.py
   linux-test-baserpc:
-    if: ${{ false }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
 
     name: Test (Linux/BasicRPC)
     runs-on: ubuntu-20.04
@@ -158,7 +158,7 @@ jobs:
           cd qa/pytest_komodo
           ./ci_setup.sh basic
   linux-test-channels:
-    if: ${{ false }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
 
     name: Test (Linux/ChannelsCC)
     runs-on: ubuntu-20.04
@@ -195,7 +195,7 @@ jobs:
           cd qa/pytest_komodo
           ./ci_setup.sh cc_modules/test_channels.py
   linux-test-heir:
-    if: ${{ false }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
 
     name: Test (Linux/HeirCC)
     runs-on: ubuntu-20.04
