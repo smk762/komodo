@@ -10,6 +10,7 @@ on:
     - dev
     - research
     - master
+  workflow_dispatch:
 
 jobs:
 
@@ -77,6 +78,7 @@ jobs:
   osx-build:
     name: OSX Build
     runs-on: macos-latest
+    if: "${{ github.event_name }}" != 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v2
       - name: Install deps (macOS)
@@ -106,6 +108,7 @@ jobs:
 
   windows-build:
     name: Windows Build (mingw)
+    if: "${{ github.event_name }}" != 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -140,6 +143,7 @@ jobs:
 
   publish-release:
       name: Publishing CD releases
+      if: "${{ github.event_name }}" != 'workflow_dispatch'
       runs-on: ubuntu-20.04
       needs: [linux-build, osx-build, windows-build]
       steps:
