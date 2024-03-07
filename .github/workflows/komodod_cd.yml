@@ -77,8 +77,8 @@ jobs:
 
   osx-build:
     name: OSX Build
-    runs-on: macos-latest
     if: "${{ github.event_name }}" != 'workflow_dispatch'
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
       - name: Install deps (macOS)
