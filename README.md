@@ -93,8 +93,8 @@ xcode-select --install
 brew update
 brew upgrade
 brew tap discoteq/discoteq; brew install flock
+brew update && brew install gcc@9
 brew install autoconf autogen automake
-brew update && brew install gcc@8
 brew install binutils
 brew install protobuf
 brew install coreutils
